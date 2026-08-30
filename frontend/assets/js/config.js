@@ -6,8 +6,6 @@
 // Se carga ANTES que api.js en cada página.
 const ES_LOCAL = ['localhost', '127.0.0.1'].includes(location.hostname);
 
-// TODO: reemplazar esta URL por la real en cuanto el proyecto "backend"
-// quede desplegado en Vercel (Project Settings → Domains te da la URL final).
-const PRODUCCION_API_URL = 'https://backend-smart-building.vercel.app/api';
+const PRODUCCION_API_URL = 'https://smartbuildingbackend.vercel.app/api';
 
 window.API_BASE_URL = ES_LOCAL ? 'http://127.0.0.1:8000/api' : PRODUCCION_API_URL;
