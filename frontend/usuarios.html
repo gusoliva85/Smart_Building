@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SMART Building — Usuarios</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/components.css">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="assets/js/tailwind-config.js"></script>
+</head>
+<body>
+
+<div class="layout-app">
+  <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+  <aside class="sidebar shell" id="sidebar">
+    <div class="sidebar-brand">
+      <span class="brand-mark" style="width:32px;height:32px;border-radius:10px;">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 21V6l8-3 8 3v15"/><path d="M9 21v-6h6v6"/><path d="M9 10h.01M15 10h.01M9 14h.01M15 14h.01"/>
+        </svg>
+      </span>
+      <b style="font-size:14px;">SMART Building</b>
+    </div>
+    <nav class="sidebar-nav" id="sidebar-nav"></nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="avatar" style="width:32px;height:32px;border-radius:10px;">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M4.5 20c1.4-3.6 4.4-5.5 7.5-5.5s6.1 1.9 7.5 5.5"/></svg>
+        </div>
+        <div>
+          <div class="nombre" id="sidebar-user-nombre">—</div>
+          <div class="rol" id="sidebar-user-rol">—</div>
+        </div>
+      </div>
+      <button type="button" class="boton-primario" id="boton-logout" style="background:var(--glass-content-bg); color:var(--ink-2); box-shadow:inset 0 0 0 1px var(--line); padding:9px;">Cerrar sesión</button>
+    </div>
+  </aside>
+
+  <div class="main-column">
+    <header class="topbar shell" style="margin-bottom:14px;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <button class="icon-btn hamburger-btn" id="menu-btn" aria-label="Abrir menú">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+        <b style="font-size:14.5px;">Usuarios</b>
+      </div>
+      <div class="topbar-actions">
+        <button class="icon-btn" aria-label="Cambiar tema" id="theme-toggle">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Se muestra solo si el rol logueado no es admin_general -->
+    <section class="shell panel-centrado" id="vista-no-autorizado" style="display:none; padding:22px 24px;">
+      <p style="margin:0; font-size:13px; color:var(--ink-2);">Esta pantalla es solo para el Administrador General.</p>
+    </section>
+
+    <section class="shell panel-centrado" id="vista-usuarios" style="display:none; max-width:760px; padding:22px 24px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; flex-wrap:wrap;">
+        <div>
+          <h1 style="margin:0; font-size:18px;">Usuarios</h1>
+          <p style="margin:2px 0 0; font-size:12.5px; color:var(--ink-3);">Alta, y activar/desactivar — nunca se borra un usuario.</p>
+        </div>
+        <button type="button" class="boton-primario" id="boton-nuevo-usuario" style="width:auto; padding:10px 18px;">+ Nuevo usuario</button>
+      </div>
+
+      <div id="lista-usuarios"><!-- filas generadas por JS --></div>
+    </section>
+  </div>
+</div>
+
+<!-- Panel de alta (mismo patrón .detail que el Dashboard Visual: hoja
+     inferior en mobile, panel lateral fijo en desktop) -->
+<div class="backdrop" id="backdrop"></div>
+<aside class="detail shell" id="detail">
+  <div class="detail-drag"></div>
+  <div class="detail-head">
+    <div><h3>Nuevo usuario</h3><span>Se crea con la contraseña que definas acá — se la comunicás vos.</span></div>
+    <button class="detail-close" id="detail-close">✕</button>
+  </div>
+  <div class="detail-body">
+    <div class="mensaje-error" id="mensaje-error" style="display:none;">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+      <span id="mensaje-error-texto"></span>
+    </div>
+    <form id="form-alta">
+      <div class="campo">
+        <label for="campo-nombre">Nombre completo</label>
+        <input type="text" id="campo-nombre" required placeholder="Ana Pérez">
+      </div>
+      <div class="campo">
+        <label for="campo-email">Email</label>
+        <input type="email" id="campo-email" required placeholder="ana@ejemplo.com">
+      </div>
+      <div class="campo">
+        <label for="campo-password">Contraseña</label>
+        <input type="text" id="campo-password" required placeholder="Trivial en modo test">
+      </div>
+      <div class="campo">
+        <label for="campo-rol">Rol</label>
+        <select id="campo-rol" required>
+          <option value="">Elegí un rol</option>
+          <option value="admin_general">Administrador General</option>
+          <option value="admin_consorcio">Administrador de Consorcio</option>
+          <option value="encargado">Encargado</option>
+          <option value="propietario">Propietario</option>
+          <option value="inquilino">Inquilino</option>
+          <option value="proveedor">Proveedor</option>
+          <option value="auditor">Auditor</option>
+          <option value="seguridad">Personal de seguridad</option>
+        </select>
+      </div>
+      <div class="campo">
+        <label for="campo-telefono">Teléfono (opcional)</label>
+        <input type="text" id="campo-telefono" placeholder="11 5555-5555">
+      </div>
+      <button type="submit" class="boton-primario" id="boton-guardar">Crear usuario</button>
+    </form>
+  </div>
+</aside>
+
+<script src="assets/js/api.js"></script>
+<script src="assets/js/theme.js"></script>
+<script src="assets/js/layout.js"></script>
+<script src="assets/js/formularios.js"></script>
+<script src="assets/js/usuarios.js"></script>
+</body>
+</html>

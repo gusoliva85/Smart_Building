@@ -1,0 +1,1911 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SMART Building (ver3) — Bitácora de desarrollo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0b0c;
+    --bg-alt:#111213;
+    --panel:#141618;
+    --panel-2:#18191c;
+    --border:rgba(255,255,255,.08);
+    --border-strong:rgba(255,255,255,.16);
+    --text:#f1f3f4;
+    --dim:#9ea3a8;
+    --dimmer:#65696e;
+    --accent:#7ea3ba;
+    --accent-2:#a9c5d6;
+    --accent-soft:rgba(126,163,186,.13);
+    --amber:#d3a84c;
+    --rose:#e0707c;
+    --font-display:'Outfit',ui-sans-serif,system-ui,sans-serif;
+    --font-body:'Inter',ui-sans-serif,system-ui,sans-serif;
+    --font-mono:'JetBrains Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--font-body);
+    -webkit-font-smoothing:antialiased;
+    line-height:1.6;
+    overflow:hidden; /* la página no scrollea — cada slide scrollea internamente */
+  }
+  ::selection{background:var(--accent);color:#04140f;}
+
+  .grid-bg{
+    position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size:64px 64px;
+    -webkit-mask-image:radial-gradient(ellipse at 15% 0%, black 0%, transparent 60%);
+    mask-image:radial-gradient(ellipse at 15% 0%, black 0%, transparent 60%);
+    opacity:.4;
+  }
+
+  a{color:inherit;text-decoration:none;}
+  h1,h2,h3,h4{font-family:var(--font-display);font-weight:700;letter-spacing:-.015em;line-height:1.15;color:var(--text);}
+  code{font-family:var(--font-mono);}
+
+  /* -------- layout general: sidebar de navegación + escenario de slides -------- */
+  .shell{position:relative;z-index:1;display:grid;grid-template-columns:280px 1fr;height:100vh;}
+
+  .toc{
+    height:100vh;overflow-y:auto;
+    border-right:1px solid var(--border);padding:1.8rem 1.3rem 3rem;
+    background:linear-gradient(180deg, var(--bg-alt), var(--bg));
+  }
+  .toc::-webkit-scrollbar{width:5px;}
+  .toc::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:99px;}
+  .toc-brand{font-family:var(--font-display);font-weight:700;font-size:1rem;letter-spacing:.01em;margin-bottom:.15rem;}
+  .toc-brand span{color:var(--accent);}
+  .toc-sub{font-size:.74rem;color:var(--dimmer);margin-bottom:1.7rem;}
+  .toc-group{margin-bottom:1.5rem;}
+  .toc-group-title{
+    display:block;font-size:.68rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--dimmer);margin-bottom:.55rem;padding-left:.6rem;cursor:pointer;transition:color .15s;
+  }
+  .toc-group-title:hover{color:var(--accent-2);}
+  .toc-link{
+    display:flex;align-items:center;gap:.5rem;font-size:.82rem;color:var(--dim);
+    padding:.4rem .6rem;border-radius:8px;transition:background .18s ease, color .18s ease;
+    border-left:2px solid transparent;cursor:pointer;
+  }
+  .toc-link:hover{background:rgba(255,255,255,.04);color:var(--text);}
+  .toc-link.activo{color:var(--accent-2);border-left-color:var(--accent);background:var(--accent-soft);}
+  .toc-link .n{font-family:var(--font-mono);font-size:.7rem;color:var(--dimmer);flex:none;width:1.3rem;}
+  .toc-link .estado-mini{width:6px;height:6px;border-radius:99px;flex:none;margin-left:auto;background:var(--border-strong);}
+  .toc-link .estado-mini.done{background:var(--accent-2);}
+  .toc-link .estado-mini.pend{background:var(--amber);}
+  .toc-progress{
+    margin-top:1.6rem;padding-top:1.4rem;border-top:1px solid var(--border);font-size:.72rem;color:var(--dimmer);
+  }
+  .toc-progress .bar{height:5px;border-radius:99px;background:rgba(255,255,255,.06);overflow:hidden;margin:.5rem 0 .35rem;}
+  .toc-progress .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-2));border-radius:99px;}
+
+  /* -------- toggle mobile del índice -------- */
+  .menu-btn{display:none;width:2.2rem;height:2.2rem;border-radius:10px;background:var(--panel);box-shadow:inset 0 0 0 1px var(--border-strong);color:var(--text);border:0;cursor:pointer;place-items:center;}
+  .toc-backdrop{display:none;}
+
+  /* -------- escenario (stage): barra + progreso + viewport de slides -------- */
+  .stage{display:flex;flex-direction:column;height:100vh;min-width:0;}
+  .stage-bar{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem 1.6rem;border-bottom:1px solid var(--border);flex:none;}
+  .stage-crumb{font-size:.78rem;color:var(--dimmer);font-family:var(--font-mono);display:flex;align-items:center;gap:.6rem;min-width:0;}
+  .stage-crumb strong{color:var(--text);font-family:var(--font-display);font-weight:600;font-size:.86rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .stage-nav{display:flex;align-items:center;gap:.7rem;flex:none;}
+  .nav-btn{width:2.2rem;height:2.2rem;border-radius:10px;background:var(--panel);box-shadow:inset 0 0 0 1px var(--border-strong);color:var(--text);display:grid;place-items:center;cursor:pointer;transition:background .15s, transform .15s;border:0;}
+  .nav-btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+  .nav-btn:hover:not(:disabled){background:var(--panel-2);transform:translateY(-1px);}
+  .nav-btn:disabled{opacity:.28;cursor:default;}
+  .slide-counter{font-family:var(--font-mono);font-size:.78rem;color:var(--dim);min-width:3.6rem;text-align:center;}
+  .stage-progress{height:3px;background:rgba(255,255,255,.05);flex:none;}
+  .stage-progress i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width .3s ease;}
+
+  .viewport{flex:1;position:relative;overflow:hidden;}
+  .slide{
+    position:absolute;inset:0;overflow-y:auto;
+    padding:clamp(1.8rem,4.5vw,4rem) clamp(1.4rem,5vw,5.5rem) 5rem;
+    opacity:0;transform:translateY(16px);pointer-events:none;
+    transition:opacity .32s ease, transform .32s ease;
+  }
+  .slide.active{opacity:1;transform:translateY(0);pointer-events:auto;}
+  .slide-inner{max-width:840px;margin:0 auto;min-height:100%;}
+
+  /* -------- portada -------- */
+  .slide-portada .slide-inner{display:flex;flex-direction:column;justify-content:center;}
+  .portada .eyebrow{
+    display:inline-flex;align-items:center;gap:.6rem;font-size:.76rem;font-weight:600;
+    letter-spacing:.13em;text-transform:uppercase;color:var(--accent-2);margin-bottom:1.3rem;
+  }
+  .portada .eyebrow::before{content:"";width:20px;height:1px;background:var(--accent);}
+  .portada h1{font-size:clamp(2.1rem,5.4vw,3.4rem);max-width:22ch;margin-bottom:1.2rem;}
+  .portada h1 .accent{color:var(--accent);}
+  .portada p{font-size:1.06rem;color:var(--dim);max-width:66ch;line-height:1.75;}
+  .portada .meta-row{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:1.8rem;}
+  .meta-chip{
+    padding:.42rem .9rem;border-radius:99px;font-size:.78rem;font-weight:500;
+    background:rgba(255,255,255,.04);box-shadow:inset 0 0 0 1px var(--border-strong);color:var(--dim);
+  }
+  .portada .hint{margin-top:2.6rem;font-size:.8rem;color:var(--dimmer);display:flex;align-items:center;gap:.5rem;}
+  .portada .hint kbd{font-family:var(--font-mono);background:var(--panel);padding:.15rem .5rem;border-radius:6px;box-shadow:inset 0 0 0 1px var(--border-strong);font-size:.75rem;}
+
+  /* -------- slide divisor de fase -------- */
+  .slide-divider .slide-inner{display:flex;flex-direction:column;justify-content:center;}
+  .divider-num{
+    font-family:var(--font-display);font-weight:800;font-size:clamp(5rem,16vw,9.5rem);line-height:1;
+    color:transparent;-webkit-text-stroke:1.5px var(--border-strong);margin-bottom:1rem;
+  }
+  .slide-divider.completa .divider-num{-webkit-text-stroke:1.5px var(--accent-2);}
+  .slide-divider h2{font-size:clamp(1.6rem,3.6vw,2.2rem);margin-bottom:.8rem;}
+  .fase-frac-grande{font-family:var(--font-mono);font-size:1rem;color:var(--accent-2);margin-bottom:1rem;}
+  .divider-desc{font-size:1rem;color:var(--dim);max-width:66ch;line-height:1.75;}
+
+  /* -------- credenciales -------- */
+  .cred-table-wrap{overflow-x:auto;border-radius:14px;box-shadow:inset 0 0 0 1px var(--border);margin-top:1.4rem;}
+  .cred-table{width:100%;border-collapse:collapse;font-size:.86rem;min-width:640px;}
+  .cred-table th{
+    text-align:left;font-weight:600;font-size:.7rem;letter-spacing:.07em;text-transform:uppercase;
+    color:var(--dimmer);padding:.75rem .9rem;border-bottom:1px solid var(--border-strong);background:var(--panel-2);
+  }
+  .cred-table td{padding:.8rem .9rem;border-bottom:1px solid var(--border);color:var(--dim);vertical-align:middle;}
+  .cred-table tr:last-child td{border-bottom:none;}
+  .cred-table td.nombre{color:var(--text);font-weight:500;}
+  .cred-table td code{color:var(--accent-2);font-size:.84rem;}
+  .cred-table .rol-chip{display:inline-block;padding:.2rem .65rem;border-radius:99px;font-size:.7rem;font-weight:600;background:var(--accent-soft);color:var(--accent-2);}
+  .cred-empty{padding:1.4rem 1.1rem;color:var(--dimmer);font-size:.86rem;font-style:italic;}
+  .cred-note{margin-top:1rem;font-size:.82rem;color:var(--dimmer);line-height:1.65;}
+
+  /* -------- slide de tarea -------- */
+  .tarea-head{display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;margin-bottom:.7rem;}
+  .tarea-num{font-family:var(--font-mono);font-size:.8rem;color:var(--dimmer);}
+  .tarea h3{font-size:clamp(1.3rem,2.6vw,1.7rem);letter-spacing:-.01em;}
+  .tarea h3 code{font-size:.85em;background:rgba(255,255,255,.06);padding:.08rem .4rem;border-radius:6px;color:var(--accent-2);}
+  .status{
+    display:inline-flex;align-items:center;gap:.4rem;padding:.28rem .8rem;border-radius:99px;
+    font-size:.74rem;font-weight:600;font-family:var(--font-display);flex:none;
+  }
+  .status .dot{width:6px;height:6px;border-radius:99px;background:currentColor;}
+  .status.done{background:var(--accent-soft);color:var(--accent-2);}
+  .status.pend{background:rgba(211,168,76,.12);color:var(--amber);}
+
+  .tarea .lede{font-size:1rem;color:var(--dim);margin-bottom:1.3rem;line-height:1.75;padding-bottom:1.4rem;border-bottom:1px solid var(--border);}
+  .tarea h4{font-size:.78rem;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--dimmer);margin:1.5rem 0 .6rem;display:flex;align-items:center;gap:.55rem;}
+  .tarea h4::after{content:"";flex:1;height:1px;background:var(--border);}
+  .tarea p{font-size:.92rem;color:var(--dim);line-height:1.75;margin-bottom:.75rem;}
+  .tarea p strong{color:var(--text);font-weight:600;}
+  .tarea p code, .tarea li code{font-family:var(--font-mono);font-size:.83em;background:rgba(255,255,255,.06);padding:.08rem .38rem;border-radius:5px;color:var(--accent-2);}
+  .tarea ul, .tarea ol{margin:.4rem 0 .9rem 1.3rem;}
+  .tarea li{font-size:.92rem;color:var(--dim);line-height:1.7;margin-bottom:.35rem;}
+
+  .code-block{
+    margin:.5rem 0 1rem;background:var(--panel);border:1px solid var(--border);border-radius:12px;
+    padding:1rem 1.15rem;font-family:var(--font-mono);font-size:.79rem;line-height:1.7;color:var(--dim);
+    overflow-x:auto;white-space:pre;
+  }
+  .code-block .cm{color:var(--dimmer);}
+  .code-block .kw{color:var(--accent-2);}
+  .code-block .fp{color:var(--amber);}
+
+  .tree{font-family:var(--font-mono);font-size:.81rem;line-height:1.85;color:var(--dim);margin:.5rem 0 1rem;}
+  .tree .new{color:var(--accent-2);font-weight:600;}
+  .tree .dir{color:var(--text);}
+  .tree .cm{color:var(--dimmer);}
+
+  .chip-row{display:flex;flex-wrap:wrap;gap:.55rem;margin:1rem 0;}
+  .chip{
+    padding:.42rem .85rem;border:1px solid var(--border-strong);border-radius:999px;
+    font-size:.78rem;color:var(--dim);display:inline-flex;align-items:center;gap:.4rem;
+  }
+  .chip code{font-family:var(--font-mono);color:var(--accent-2);font-size:.76rem;}
+
+  .icon{width:1rem;height:1rem;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;}
+
+  .explicacion{
+    margin:1rem 0 1.4rem;padding:1.2rem 1.4rem;border-radius:12px;
+    background:var(--accent-soft);box-shadow:inset 0 0 0 1px rgba(126,163,186,.22);
+  }
+  .explicacion-titulo{
+    display:flex;align-items:center;gap:.5rem;font-family:var(--font-display);font-weight:600;
+    font-size:.86rem;color:var(--accent-2);margin-bottom:.7rem;
+  }
+  .explicacion-titulo svg{width:15px;height:15px;flex:none;}
+  .explicacion p{font-size:.9rem;color:var(--dim);margin-bottom:.65rem;}
+  .explicacion p:last-child{margin-bottom:0;}
+  .explicacion strong{color:var(--text);}
+  .analogia-row{display:grid;grid-template-columns:1fr;gap:.7rem;margin-top:.9rem;}
+  @media(min-width:640px){.analogia-row{grid-template-columns:1fr 1fr;}}
+  .analogia-card{padding:.9rem 1rem;border-radius:10px;background:rgba(255,255,255,.03);box-shadow:inset 0 0 0 1px var(--border);}
+  .analogia-card b{display:block;font-family:var(--font-display);font-size:.82rem;color:var(--text);margin-bottom:.35rem;}
+  .analogia-card span{font-size:.84rem;color:var(--dim);line-height:1.6;}
+
+  .swatch-row{display:flex;flex-wrap:wrap;gap:.6rem;margin:.8rem 0 1.2rem;}
+  .swatch{display:flex;align-items:center;gap:.5rem;padding:.4rem .7rem .4rem .4rem;border-radius:99px;background:var(--panel);box-shadow:inset 0 0 0 1px var(--border);font-size:.78rem;color:var(--dim);}
+  .swatch i{width:20px;height:20px;border-radius:50%;display:block;box-shadow:inset 0 0 0 1px rgba(255,255,255,.15);}
+
+  .correccion{
+    margin-top:1.3rem;padding:1.1rem 1.3rem;border-radius:12px;
+    background:rgba(245,158,11,.05);box-shadow:inset 0 0 0 1px rgba(245,158,11,.16);
+  }
+  .correccion-titulo{
+    display:flex;align-items:center;gap:.5rem;font-family:var(--font-display);font-weight:600;
+    font-size:.84rem;color:var(--amber);margin-bottom:.6rem;
+  }
+  .correccion-titulo svg{width:15px;height:15px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+  .correccion p, .correccion li{font-size:.87rem;}
+  .correccion .code-block{background:var(--bg-alt);}
+
+  .cierre-fase{margin-top:1rem;padding:1.4rem 1.6rem;border-radius:14px;background:var(--accent-soft);box-shadow:inset 0 0 0 1px rgba(126,163,186,.22);}
+  .cierre-fase .titulo{font-family:var(--font-display);font-weight:600;color:var(--accent-2);font-size:.95rem;margin-bottom:.5rem;}
+  .cierre-fase p{font-size:.87rem;color:var(--dim);line-height:1.7;margin:0;}
+
+  @media (max-width:900px){
+    .shell{display:block;}
+    .menu-btn{display:grid;}
+    .toc{
+      position:fixed;left:0;top:0;bottom:0;width:82vw;max-width:320px;z-index:60;
+      transform:translateX(-100%);transition:transform .25s ease;box-shadow:0 0 40px rgba(0,0,0,.5);
+    }
+    .toc.open{transform:translateX(0);}
+    .toc-backdrop{
+      display:block;position:fixed;inset:0;z-index:55;background:rgba(0,0,0,.5);
+      opacity:0;pointer-events:none;transition:opacity .25s ease;
+    }
+    .toc-backdrop.open{opacity:1;pointer-events:auto;}
+    .stage{height:100vh;}
+    .stage-bar{padding:.85rem 1rem;}
+  }
+</style>
+</head>
+<body>
+
+<div class="grid-bg"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<defs>
+  <symbol id="i-prev" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+</defs>
+</svg>
+
+<div class="toc-backdrop" id="toc-backdrop"></div>
+
+<div class="shell">
+
+  <!-- ============ NAV LATERAL / ÍNDICE ============ -->
+  <nav class="toc" id="toc">
+    <div class="toc-brand">SMART<span>·</span>BUILDING</div>
+    <div class="toc-sub">Bitácora técnica (ver3) — presentación</div>
+
+    <div class="toc-group">
+      <a class="toc-link" data-goto="portada"><span class="n">—</span>Portada</a>
+      <a class="toc-link" data-goto="credenciales"><span class="n">01</span>Credenciales de prueba</a>
+    </div>
+
+    <div class="toc-group">
+      <span class="toc-group-title" data-goto="fase-0-divider">Fase 0 — Fundación</span>
+      <a class="toc-link" data-goto="f0-t1"><span class="n">1</span>Documentación base<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f0-t2"><span class="n">2</span>Skill premium-uiux<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f0-t3"><span class="n">3</span>Roadmap del proyecto<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f0-t4"><span class="n">4</span>iniciar.bat<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f0-t5"><span class="n">5</span>que_hice.html<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f0-t6"><span class="n">6</span>Estructura backend + venv<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f0-t7"><span class="n">7</span>FastAPI mínima + /api/salud<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f0-t8"><span class="n">8</span>Conexión a base de datos<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f0-t9"><span class="n">9</span>tokens.css y components.css<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f0-t10"><span class="n">10</span>Cascarón index.html<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f0-t11"><span class="n">11</span>api.js<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f0-t12"><span class="n">12</span>Conexión frontend↔backend<span class="estado-mini done"></span></a>
+    </div>
+
+    <div class="toc-group">
+      <span class="toc-group-title" data-goto="fase-1-divider">Fase 1 — Usuarios y edificio</span>
+      <a class="toc-link" data-goto="f1-t1"><span class="n">1</span>Lógica: RBAC (roles)<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f1-t2"><span class="n">2</span>Modelo Usuario y UsuarioEdificio<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f1-t3"><span class="n">3</span>Hash de passwords + JWT<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f1-t4"><span class="n">4</span>Seed Admin General<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f1-t5"><span class="n">5</span>Login + /auth/me<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f1-t6"><span class="n">6</span>Dependencia de autorización<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f1-t7"><span class="n">7</span>CRUD de usuarios<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f1-t8"><span class="n">8</span>Lógica: estructura vacía<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f1-t9"><span class="n">9</span>Modelo Edificio<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f1-t10"><span class="n">10</span>Piso/Depto/Cochera/Espacio<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f1-t11"><span class="n">11</span>Alta de edificio (POST)<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f1-t12"><span class="n">12</span>Configuración + estructura<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f1-t13"><span class="n">13</span>Frontend: pantalla de login<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f1-t14"><span class="n">14</span>Frontend: alta de edificio<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f1-t15"><span class="n">15</span>Frontend: gestión de usuarios<span class="estado-mini pend"></span></a>
+    </div>
+
+    <div class="toc-progress">
+      Fase 0 — <strong style="color:var(--accent-2)">12 / 12 completa</strong>
+      <div class="bar"><i style="width:100%"></i></div>
+      Fase 1 — en curso. Las fases siguientes (Finanzas, Reclamos...) se agregan a esta bitácora a medida que se implementan — ver <code>documentacion/03_Roadmap.md</code>.
+    </div>
+  </nav>
+
+  <!-- ============ ESCENARIO DE SLIDES ============ -->
+  <div class="stage">
+    <div class="stage-bar">
+      <button class="menu-btn" id="menu-btn" aria-label="Abrir índice"><svg class="icon" style="width:18px;height:18px"><use href="#i-menu"/></svg></button>
+      <div class="stage-crumb"><strong id="crumb-text">Portada</strong></div>
+      <div class="stage-nav">
+        <button class="nav-btn" id="btn-prev" aria-label="Slide anterior"><svg><use href="#i-prev"/></svg></button>
+        <span class="slide-counter" id="slide-counter">1 / 31</span>
+        <button class="nav-btn" id="btn-next" aria-label="Slide siguiente"><svg><use href="#i-next"/></svg></button>
+      </div>
+    </div>
+    <div class="stage-progress"><i id="stage-progress-fill" style="width:0%"></i></div>
+
+    <div class="viewport" id="viewport">
+
+      <!-- ============ SLIDE: PORTADA ============ -->
+      <section class="slide slide-portada active" id="portada" data-crumb="Portada">
+        <div class="slide-inner portada">
+          <div class="eyebrow">SMART Building · ver3</div>
+          <h1>Bitácora de <span class="accent">desarrollo</span></h1>
+          <p>Registro cronológico de cada tarea del <a href="documentacion/03_Roadmap.md" style="color:var(--accent-2);text-decoration:underline;">Roadmap</a>: qué se hizo, por qué, y el código exacto que quedó implementado. Cada tarea aprobada tiene su propia slide — se navega con las flechas de arriba, el teclado, o el índice de la izquierda. Cada corrección posterior se fusiona en la misma slide, nunca se crea una nueva.</p>
+          <div class="meta-row">
+            <span class="meta-chip">Backend: Python · FastAPI · SQLite</span>
+            <span class="meta-chip">Frontend: HTML · Tailwind · JS vanilla</span>
+            <span class="meta-chip">Diseño: skill <code style="color:var(--accent-2)">premium-uiux</code></span>
+            <span class="meta-chip">Estado: Fase 1 en curso</span>
+          </div>
+          <div class="hint">Navegación: <kbd>←</kbd> <kbd>→</kbd> para moverte entre slides, o tocá cualquier ítem del índice.</div>
+        </div>
+      </section>
+
+      <!-- ============ SLIDE: CREDENCIALES ============ -->
+      <section class="slide" id="credenciales" data-crumb="Credenciales de prueba">
+        <div class="slide-inner">
+          <h2>Credenciales de prueba</h2>
+          <p style="font-size:.95rem;color:var(--dim);margin-top:.8rem;max-width:70ch;line-height:1.75;">
+            Todo usuario que se crea durante el desarrollo (por seed o a mano, para validar una tarea) queda documentado acá con su contraseña de prueba. Son deliberadamente triviales porque el proyecto está en modo test — nunca se guardan en texto plano en la base, solo hasheadas (Documento Técnico, sección 3.2).
+          </p>
+          <div class="cred-table-wrap">
+            <table class="cred-table">
+              <thead>
+                <tr><th>Usuario</th><th>Email</th><th>Contraseña</th><th>Rol</th><th>Origen</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="nombre">Administrador General</td>
+                  <td><code>admin@smartbuilding.test</code></td>
+                  <td><code>admin123</code></td>
+                  <td><span class="rol-chip">admin_general</span></td>
+                  <td>Seed (<code>python -m app.seed</code>)</td>
+                </tr>
+                <tr>
+                  <td class="nombre">Propietario de Prueba</td>
+                  <td><code>propietario@smartbuilding.test</code></td>
+                  <td><code>prop123</code></td>
+                  <td><span class="rol-chip">propietario</span></td>
+                  <td>Alta manual vía <code>POST /api/usuarios</code> (verificación de la Tarea 7, Fase 1)</td>
+                </tr>
+                <tr>
+                  <td class="nombre">Administrador de Consorcio de Prueba</td>
+                  <td><code>consorcio@smartbuilding.test</code></td>
+                  <td><code>consorcio123</code></td>
+                  <td><span class="rol-chip">admin_consorcio</span></td>
+                  <td>Alta manual (verificación de la Tarea 14, Fase 1 — pantalla de alta de edificio)</td>
+                </tr>
+                <tr>
+                  <td class="nombre">Encargado de Prueba</td>
+                  <td><code>encargado@smartbuilding.test</code></td>
+                  <td><code>encargado123</code></td>
+                  <td><span class="rol-chip">encargado</span></td>
+                  <td>Alta vía <code>usuarios.html</code> (verificación de la Tarea 15, Fase 1)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="cred-note">Se va a completar con cada rol a medida que la Fase 1 (Usuarios, autenticación y estructura del edificio) avance.</p>
+        </div>
+      </section>
+
+      <!-- ============ SLIDE: DIVISOR FASE 0 ============ -->
+      <section class="slide slide-divider completa" id="fase-0-divider" data-crumb="Fase 0 — Fundación">
+        <div class="slide-inner">
+          <div class="divider-num">00</div>
+          <h2>Fase 0 — Fundación del proyecto</h2>
+          <div class="fase-frac-grande">12 / 12 — completa</div>
+          <p class="divider-desc">Objetivo: dejar entendido el proyecto completo, el sistema de diseño y el plan de trabajo antes de escribir una sola línea de backend o frontend real. Ninguna funcionalidad de negocio todavía — eso empieza en la Fase 1.</p>
+        </div>
+      </section>
+
+      <!-- TAREA F0-1 -->
+      <section class="slide tarea" id="f0-t1" data-crumb="Fase 0 · Tarea 1">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 1</span>
+            <h3>Documentación base del proyecto</h3>
+            <span class="status done"><i class="dot"></i>Hecho</span>
+          </div>
+          <p class="lede">Lectura completa de <code>01_Documento_General.md</code> (11 secciones: problema, actores, análisis competitivo y los 7 módulos de negocio) y <code>02_Documento_Tecnico.md</code> (21 secciones: arquitectura, modelo de datos, y la especificación completa del sistema de diseño basado en el mockup aprobado). Ambos documentos ya estaban completos al iniciar esta sesión — el trabajo de esta tarea fue confirmar coherencia entre lo que pide el negocio y lo que define la arquitectura antes de planificar la ejecución en fases.</p>
+
+          <h4>Qué quedó confirmado</h4>
+          <ul>
+            <li>El frontend definitivo es <code>documentacion/mockups/Mockup_3D_Vidrio_Grafito.html</code> — vidrio en dos capas, acento acero/grafito, semáforo de 4 estados (verde/amarillo/naranja/rojo), tipografía Outfit + Inter.</li>
+            <li>La arquitectura de carpetas queda fija en el Documento Técnico, sección 2.3: <code>backend/app/{core,models,schemas,routers,services}</code> + <code>frontend/{*.html, assets/}</code>.</li>
+            <li>19 módulos funcionales del Documento General mapean 1 a 1 contra las secciones 6-18 del Documento Técnico — ninguno quedó sin arquitectura definida.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- TAREA F0-2 -->
+      <section class="slide tarea" id="f0-t2" data-crumb="Fase 0 · Tarea 2">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 2</span>
+            <h3>Skill de diseño <code>premium-uiux</code></h3>
+            <span class="status done"><i class="dot"></i>Hecho</span>
+          </div>
+          <p class="lede">Se creó <code>.claude/skills/premium-uiux/</code>, la fuente de verdad visual obligatoria para todo el frontend. Documenta, token por token y componente por componente, el mockup aprobado — para que ninguna pantalla nueva del Roadmap se diseñe "a criterio libre" ni caiga en la estética genérica por defecto de un LLM (morado, tarjetas de catálogo, iconos de librería, hero con blob difuminado, etc., todos listados como anti-patrones prohibidos).</p>
+
+          <h4>Estructura creada</h4>
+          <div class="tree"><span class="dir">.claude/skills/premium-uiux/</span>
+├── <span class="new">SKILL.md</span>              <span class="cm"># misión, anti-patrones, semáforo, migración a Tailwind</span>
+└── references/
+    ├── <span class="new">paleta-color.md</span>   <span class="cm"># variables CSS exactas, claro + oscuro, cuándo usar cada una</span>
+    └── <span class="new">componentes.md</span>    <span class="cm"># HTML/CSS/JS de referencia: topbar, KPIs, Dashboard Visual, panel de detalle</span></div>
+
+          <h4>Paleta funcional (semáforo de 4 estados)</h4>
+          <p>Idéntica en tema claro y oscuro — el significado de un estado no depende de qué tema eligió el usuario. Es el único sistema de color, además del acento de marca, con licencia para existir; nunca se usa como decoración.</p>
+          <div class="swatch-row">
+            <span class="swatch"><i style="background:#2e8067"></i><code>--ok</code> verde</span>
+            <span class="swatch"><i style="background:#ba8c1f"></i><code>--warn</code> amarillo</span>
+            <span class="swatch"><i style="background:#bd6c2c"></i><code>--pend</code> naranja</span>
+            <span class="swatch"><i style="background:#b13c47"></i><code>--crit</code> rojo</span>
+            <span class="swatch"><i style="background:#57768c"></i><code>--accent</code> marca</span>
+          </div>
+
+          <h4>Regla no negociable documentada</h4>
+          <div class="code-block"><span class="cm">/* Estado de una tarjeta: SIEMPRE borde completo + sombra de color.
+   PROHIBIDO border-left/border-top de un solo lado. */</span>
+.unit-card.s-crit{
+  border-color: color-mix(in srgb, var(--crit) 46%, var(--line-2));
+  box-shadow: var(--glass-in), 0 10px 22px -12px color-mix(in srgb, var(--crit) 60%, transparent);
+}</div>
+        </div>
+      </section>
+
+      <!-- TAREA F0-3 -->
+      <section class="slide tarea" id="f0-t3" data-crumb="Fase 0 · Tarea 3">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 3</span>
+            <h3>Roadmap del proyecto</h3>
+            <span class="status done"><i class="dot"></i>Hecho</span>
+          </div>
+          <p class="lede">Se creó <code>documentacion/03_Roadmap.md</code>: 14 fases (Fase 0 a Fase 13), cubriendo los 19 módulos del Documento General sin dejar ninguno afuera. Cada bloque funcional dentro de una fase sigue el orden <strong>lógica → backend → frontend</strong>, y cada tarea es chica y verificable — se prueba y se aprueba una por una antes de seguir con la siguiente, nunca varios módulos en simultáneo.</p>
+
+          <h4>Mapa de fases</h4>
+          <div class="chip-row">
+            <span class="chip"><code>F0</code>Fundación</span>
+            <span class="chip"><code>F1</code>Usuarios y edificio</span>
+            <span class="chip"><code>F2</code>Financiero</span>
+            <span class="chip"><code>F3</code>Reclamos y mantenimiento</span>
+            <span class="chip"><code>F4</code>Activos</span>
+            <span class="chip"><code>F5</code>Dashboard Visual</span>
+            <span class="chip"><code>F6</code>Dashboard General</span>
+            <span class="chip"><code>F7</code>Documental y proveedores</span>
+            <span class="chip"><code>F8</code>Comunicación y reservas</span>
+            <span class="chip"><code>F9</code>Seguridad</span>
+            <span class="chip"><code>F10</code>Inteligencia Artificial</span>
+            <span class="chip"><code>F11</code>Config. avanzada</span>
+            <span class="chip"><code>F12</code>Pulido y PWA</span>
+            <span class="chip"><code>F13</code>Cierre</span>
+          </div>
+          <p>El detalle completo, con cada tarea individual, vive en <a href="documentacion/03_Roadmap.md" style="color:var(--accent-2);text-decoration:underline;">documentacion/03_Roadmap.md</a> — este documento (<code>que_hice.html</code>) es su bitácora en paralelo, no un duplicado.</p>
+        </div>
+      </section>
+
+      <!-- TAREA F0-4 -->
+      <section class="slide tarea" id="f0-t4" data-crumb="Fase 0 · Tarea 4">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 4</span>
+            <h3><code>iniciar.bat</code> <span style="font-size:.7em;color:var(--dimmer);font-weight:500;">(removido)</span></h3>
+            <span class="status done"><i class="dot"></i>Hecho — luego removido a pedido del usuario</span>
+          </div>
+          <p class="lede">Script de arranque único: levanta el backend (crea el entorno virtual e instala dependencias si es la primera vez, después corre Uvicorn en el puerto 8000), levanta el frontend (servidor estático en el puerto 8090) y por último abre el navegador. Libera los puertos 8000/8090 de una corrida anterior antes de levantar los nuevos procesos, para que nunca quede un servidor "zombie" respondiendo con código viejo.</p>
+          <p>Confirmado por el usuario con doble clic real, ya con <code>backend/app/main.py</code> y <code>frontend/index.html</code> existiendo: levanta backend y frontend y abre el navegador en el cascarón funcionando.</p>
+
+          <div class="correccion">
+            <div class="correccion-titulo">
+              <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              Corrección: el usuario no veía "Usuarios" en el sidebar tras una actualización
+            </div>
+            <p>El script ya mataba cualquier proceso viejo en los puertos 8000/8090 al arrancar (eso nunca fue el problema) — lo que faltaba era la otra mitad: decirle al <strong>navegador</strong> que no guarde en caché los archivos del frontend. <code>python -m http.server</code> (lo que se usaba hasta ahora) no manda ningún header de <code>Cache-Control</code>, así que el navegador podía seguir sirviendo una copia vieja de <code>layout.js</code> por su cuenta, sin volver a pedírsela al servidor — incluso después de recargar la página.</p>
+            <p>Se creó <code>frontend/servidor_dev.py</code> (mismo patrón ya probado en el proyecto anterior): agrega <code>Cache-Control: no-store, no-cache, must-revalidate</code> a cada respuesta. <code>iniciar.bat</code> ya lo buscaba automáticamente desde la Fase 0 (con <code>python -m http.server</code> como respaldo si no existiera) — con solo crear el archivo, ya queda activo sin tocar el script.</p>
+            <div class="code-block">$ curl -sI http://127.0.0.1:8090/assets/js/layout.js
+Cache-Control: no-store, no-cache, must-revalidate
+Pragma: no-cache
+Expires: 0</div>
+            <p>Verificado además con una sesión de navegador completamente nueva (sin cookies ni <code>localStorage</code> previos): al loguearse como Administrador General, "Edificios" y "Usuarios" aparecen los dos en el sidebar, y navegar a <code>usuarios.html</code> muestra el listado real correctamente.</p>
+          </div>
+
+          <div class="correccion">
+            <div class="correccion-titulo">
+              <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              Actualización: el archivo se eliminó — el proyecto pasa a versionarse en GitHub
+            </div>
+            <p>A pedido explícito del usuario, <code>iniciar.bat</code> se borró del proyecto. De acá en adelante backend y frontend se levantan a mano, cada uno en su propia terminal — el paso a paso queda documentado en <code>README.md</code> (raíz del proyecto). <code>frontend/servidor_dev.py</code> (el servidor sin caché de la corrección de arriba) sigue existiendo tal cual y se sigue usando — antes lo disparaba el script, ahora se ejecuta directo.</p>
+            <p>En paralelo, el proyecto se inicializó como repositorio git y se conectó a GitHub (<code>gusoliva85/Smart_Building</code>, por SSH) — el detalle de esa configuración queda en su propia sección más abajo, fuera de las fases del Roadmap (es infraestructura del proyecto, no una tarea funcional).</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAREA F0-5 -->
+      <section class="slide tarea" id="f0-t5" data-crumb="Fase 0 · Tarea 5">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 5</span>
+            <h3><code>que_hice.html</code></h3>
+            <span class="status done"><i class="dot"></i>Hecho</span>
+          </div>
+          <p class="lede">Este mismo archivo: la bitácora del proyecto, en formato de presentación — una slide por tarea, navegable con flechas o teclado, con el índice de la izquierda para saltar a cualquier punto. Cada tarea aprobada del Roadmap suma acá su propia slide, con una explicación en palabras de qué se hizo y por qué, más el código relevante. Las correcciones sobre una tarea ya aprobada se fusionan en su misma slide; no se crean slides nuevas para una corrección.</p>
+        </div>
+      </section>
+
+      <!-- TAREA F0-6 -->
+      <section class="slide tarea" id="f0-t6" data-crumb="Fase 0 · Tarea 6">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 6</span>
+            <h3>Backend: estructura de carpetas y entorno virtual</h3>
+            <span class="status done"><i class="dot"></i>Hecho</span>
+          </div>
+          <p class="lede">Primera pieza real de código del proyecto. Se creó el esqueleto de carpetas de <code>backend/app/</code> exactamente como lo fija el Documento Técnico (sección 2.3) — separado por responsabilidad (modelos, esquemas, rutas, servicios, configuración) para que cada fase futura sume sus archivos sin reordenar nada. Se creó también el entorno virtual de Python y se instalaron las dependencias fijadas en la sección 2.2 del Documento Técnico.</p>
+
+          <h4>Estructura creada</h4>
+          <div class="tree"><span class="dir">backend/</span>
+├── <span class="new">requirements.txt</span>
+├── venv/                    <span class="cm"># entorno virtual, no se versiona</span>
+└── <span class="dir">app/</span>
+    ├── <span class="new">__init__.py</span>
+    ├── <span class="dir">core/</span>       <span class="cm"># config.py y security.py — próxima tarea</span>
+    │   └── <span class="new">__init__.py</span>
+    ├── <span class="dir">models/</span>     <span class="cm"># un archivo por dominio (Usuario, Edificio, ...)</span>
+    │   └── <span class="new">__init__.py</span>
+    ├── <span class="dir">schemas/</span>    <span class="cm"># esquemas Pydantic de entrada/salida</span>
+    │   └── <span class="new">__init__.py</span>
+    ├── <span class="dir">routers/</span>    <span class="cm"># endpoints HTTP por dominio</span>
+    │   └── <span class="new">__init__.py</span>
+    └── <span class="dir">services/</span>   <span class="cm"># lógica de negocio reutilizable</span>
+        └── <span class="new">__init__.py</span></div>
+
+          <h4>requirements.txt</h4>
+          <div class="code-block">fastapi
+uvicorn[standard]
+sqlalchemy
+pydantic
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+qrcode[pil]</div>
+          <p>Cada paquete corresponde a una pieza ya decidida en el Documento Técnico: <code>fastapi</code>+<code>uvicorn</code> el framework y el servidor, <code>sqlalchemy</code> el ORM sobre SQLite, <code>pydantic</code> la validación (viene con FastAPI, se deja explícito), <code>python-jose</code>+<code>passlib</code> autenticación JWT y hash de contraseñas, <code>python-multipart</code> para poder recibir archivos (comprobantes, fotos, documentos de fases futuras), y <code>qrcode</code> para el código QR de los activos (Fase 4).</p>
+
+          <h4>Verificación</h4>
+          <p>Se instaló todo dentro de <code>backend/venv/</code> (no en el Python global) y se confirmó con <code>pip list</code> que las 8 dependencias y sus sub-dependencias quedaron resueltas sin conflictos, sobre Python 3.12.4.</p>
+          <p>Esta tarea no tiene todavía nada para "clickear" — es la única excepción prevista a la regla de probar en el navegador: es puramente esqueleto interno, sin ningún endpoint ni pantalla previstos en el Roadmap para este punto exacto. La próxima tarea (aplicación FastAPI mínima con <code>/api/salud</code>) sí va a ser verificable, primero desde <code>/docs</code> y después desde el cascarón del frontend.</p>
+        </div>
+      </section>
+
+      <!-- TAREA F0-7 -->
+      <section class="slide tarea" id="f0-t7" data-crumb="Fase 0 · Tarea 7">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 7</span>
+            <h3>Backend: aplicación FastAPI mínima</h3>
+            <span class="status done"><i class="dot"></i>Hecho</span>
+          </div>
+          <p class="lede">Primer código que corre de verdad. Se creó <code>core/config.py</code> (ruta de la base, orígenes CORS, secreto y algoritmo JWT — todo centralizado en un único lugar para no repetir valores sueltos en cada archivo futuro) y <code>main.py</code> (la instancia de FastAPI, el middleware de CORS habilitando el puerto 8090 donde va a correr el frontend, y el primer endpoint real: <code>GET /api/salud</code>).</p>
+
+          <h4>core/config.py</h4>
+          <div class="code-block">RAIZ_BACKEND = Path(__file__).resolve().parent.parent.parent
+RUTA_BASE_DATOS = RAIZ_BACKEND / "smart_building.db"
+
+NOMBRE_APP = "SMART Building API"
+
+<span class="cm"># Puertos fijados en iniciar.bat: backend 8000, frontend estático 8090.</span>
+ORIGENES_CORS = ["http://127.0.0.1:8090", "http://localhost:8090"]
+
+<span class="cm"># Válido solo para modo test — se reemplaza antes de un despliegue real (Fase 13).</span>
+JWT_SECRETO = "smart-building-dev-secret-no-usar-en-produccion"
+JWT_ALGORITMO = "HS256"
+JWT_MINUTOS_EXPIRACION = 60</div>
+
+          <h4>main.py</h4>
+          <div class="code-block">app = FastAPI(title=NOMBRE_APP)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ORIGENES_CORS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+<span class="kw">@app.get</span>("/api/salud")
+def leer_salud():
+    return {"estado": "ok", "mensaje": f"{NOMBRE_APP} activa"}</div>
+
+          <h4>Verificación</h4>
+          <p>Se levantó el servidor con Uvicorn en el puerto 8000 y se probó con <code>curl</code>:</p>
+          <div class="code-block">GET http://127.0.0.1:8000/api/salud
+→ {"estado":"ok","mensaje":"SMART Building API activa"}  (200)
+
+GET http://127.0.0.1:8000/docs
+→ 200  (Swagger cargó correctamente, sin routers todavía más allá de /api/salud)</div>
+          <p>Se probó desde <code>curl</code>/Swagger y no desde una pantalla porque el Roadmap todavía no tiene previsto ningún punto de interacción de usuario en este paso — el cascarón visual del frontend (con el indicador de conexión real) es la tarea siguiente, y ahí sí se valida desde el navegador.</p>
+        </div>
+      </section>
+
+      <!-- TAREA F0-8 -->
+      <section class="slide tarea" id="f0-t8" data-crumb="Fase 0 · Tarea 8">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 8</span>
+            <h3>Backend: conexión a base de datos</h3>
+            <span class="status done"><i class="dot"></i>Hecho</span>
+          </div>
+          <p class="lede">Se creó <code>database.py</code> con el engine de SQLAlchemy apuntando a <code>smart_building.db</code>, la fábrica de sesiones y la <code>Base</code> declarativa que van a heredar todos los modelos a partir de la Fase 1 (<code>Usuario</code>, <code>Edificio</code>, etc.). Es la última pieza de infraestructura antes de poder escribir el primer modelo real.</p>
+
+          <h4>database.py</h4>
+          <div class="code-block">engine = create_engine(
+    f"sqlite:///{RUTA_BASE_DATOS}",
+    connect_args={"check_same_thread": False},
+)
+
+SesionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+<span class="kw">def</span> obtener_db():
+    <span class="cm">"""Dependencia de FastAPI: entrega una sesión por request y la cierra al final."""</span>
+    db = SesionLocal()
+    try:
+        yield db
+    finally:
+        db.close()</div>
+          <p><code>check_same_thread=False</code> es necesario porque SQLite por default solo permite usar una conexión desde el thread que la abrió, y FastAPI atiende cada request en su propio thread — sin este flag, la primera consulta real desde un endpoint rompería.</p>
+
+          <h4>Verificación</h4>
+          <div class="code-block">from app.database import engine, Base, SesionLocal
+Base.metadata.create_all(bind=engine)
+db = SesionLocal()
+db.execute(text('SELECT 1')).scalar()  <span class="cm"># → 1</span>
+
+<span class="cm"># resultado:</span>
+Conexion OK, SELECT 1 devolvio: 1
+smart_building.db generado (0 tablas todavía — recién se crean con los
+primeros modelos de la Fase 1)</div>
+          <p>Se confirmó además que <code>app.main</code> y <code>app.database</code> se pueden importar juntos en el mismo proceso sin conflictos, ya que a partir de la próxima fase van a convivir siempre.</p>
+        </div>
+      </section>
+
+      <!-- TAREA F0-9 -->
+      <section class="slide tarea" id="f0-t9" data-crumb="Fase 0 · Tarea 9">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 9</span>
+            <h3>Frontend: <code>tokens.css</code> y <code>components.css</code></h3>
+            <span class="status done"><i class="dot"></i>Hecho</span>
+          </div>
+          <p class="lede">Primera pieza de frontend del proyecto. Todavía no hay ninguna pantalla (eso es la tarea siguiente) — esto es la "caja de herramientas" que todas las pantallas van a compartir de acá en adelante, extraída del mockup ya aprobado (<code>Mockup_3D_Vidrio_Grafito.html</code>).</p>
+
+          <div class="explicacion">
+            <div class="explicacion-titulo">
+              <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              ¿Qué son <code>tokens.css</code> y <code>components.css</code>?
+            </div>
+            <p>Son dos archivos de estilos (CSS) que en conjunto definen <strong>cómo se ve</strong> toda la aplicación, separados por un motivo simple: uno guarda los "ingredientes" y el otro guarda las "piezas ya armadas" con esos ingredientes. Ninguno de los dos muestra nada por sí solo — son la base que cada pantalla real (login, dashboard, reclamos...) va a usar para no tener que inventar su propio estilo de botón o de tarjeta cada vez.</p>
+            <div class="analogia-row">
+              <div class="analogia-card">
+                <b>tokens.css — el diccionario de materiales</b>
+                <span>Es una lista de "variables": acá decimos, una sola vez, qué color exacto es el "verde de estado", qué color es el "acento de marca", cómo es la sombra de una tarjeta, cómo es el efecto vidrio. No dibuja ningún botón ni tarjeta — solo declara los valores. Incluye la versión de cada valor para tema claro y para tema oscuro.</span>
+              </div>
+              <div class="analogia-card">
+                <b>components.css — el catálogo de piezas</b>
+                <span>Usa esos mismos ingredientes para armar las piezas visuales completas y reutilizables: la tarjeta de vidrio, la barra superior, la tarjeta de KPI, el semáforo de colores, el panel de detalle. Cada pantalla nueva elige piezas de este catálogo en vez de diseñar una tarjeta "a su manera".</span>
+              </div>
+            </div>
+            <p>La ventaja concreta: si mañana se decide ajustar el tono del color de "atención" (amarillo), se cambia <strong>un solo valor</strong> en <code>tokens.css</code> y automáticamente se actualiza en cada tarjeta, chip y borde de toda la aplicación que use ese estado — nadie tiene que salir a buscar dónde quedó ese color "pegado" a mano en 15 archivos distintos.</p>
+          </div>
+
+          <h4>tokens.css — extracto</h4>
+          <div class="code-block">:root{
+  <span class="cm">/* Semáforo funcional — idéntico en ambos temas, nunca decorativo */</span>
+  --ok:#2e8067;   <span class="cm">/* verde */</span>
+  --warn:#ba8c1f; <span class="cm">/* amarillo */</span>
+  --pend:#bd6c2c; <span class="cm">/* naranja */</span>
+  --crit:#b13c47; <span class="cm">/* rojo */</span>
+
+  <span class="cm">/* Acento de marca — acero/grafito, nunca se parece al semáforo */</span>
+  --accent:#57768c; --accent-2:#3e5a6d;
+}
+html[data-theme="dark"]{
+  --accent:#7ea3ba; --accent-2:#9bc0d4;
+  <span class="cm">/* el semáforo NO cambia con el tema: el significado de un estado</span>
+  <span class="cm">   no puede depender de si el usuario eligió modo oscuro o claro */</span>
+}</div>
+
+          <h4>components.css — extracto (una pieza del catálogo)</h4>
+          <div class="code-block"><span class="cm">/* la tarjeta de vidrio en dos capas: .shell para contenedores grandes */</span>
+.shell{
+  background:var(--glass-shell-bg);
+  backdrop-filter:blur(var(--glass-shell-blur)) saturate(1.15);
+  border:1px solid var(--line);
+  box-shadow:var(--glass-in), var(--sh-md);
+}
+
+<span class="cm">/* estado semáforo de una tarjeta: SIEMPRE borde completo + sombra de color */</span>
+.unit-card.s-crit{
+  border-color: color-mix(in srgb, var(--crit) 46%, var(--line-2));
+  box-shadow: var(--glass-in), 0 10px 22px -12px color-mix(in srgb, var(--crit) 60%, transparent);
+}</div>
+
+          <h4>assets/js/tailwind-config.js</h4>
+          <p>Se agregó también este archivo, que conecta las clases utilitarias de Tailwind (<code>bg-accent</code>, <code>text-ink-3</code>, etc.) con las mismas variables de <code>tokens.css</code> — así se puede maquetar rápido con clases sueltas de Tailwind sin perder el sistema de colores/tema de la aplicación. Se carga en cada página después del script del CDN de Tailwind.</p>
+
+          <h4>Verificación</h4>
+          <p>Se revisó que ambos archivos CSS tengan las llaves balanceadas (146 aperturas / 146 cierres en <code>components.css</code>, 2/2 en <code>tokens.css</code>) y que cada regla esté transcripta tal cual del mockup aprobado, sin desvíos. Todavía no hay una pantalla real que los cargue — eso es la tarea siguiente (el cascarón de <code>index.html</code>), que sí se va a poder ver y probar en el navegador.</p>
+        </div>
+      </section>
+
+      <!-- TAREA F0-10 -->
+      <section class="slide tarea" id="f0-t10" data-crumb="Fase 0 · Tarea 10">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 10</span>
+            <h3>Frontend: cascarón base (<code>index.html</code>)</h3>
+            <span class="status done"><i class="dot"></i>Hecho</span>
+          </div>
+          <p class="lede">Primera pantalla HTML real del proyecto: carga <code>tokens.css</code> + <code>components.css</code> + Tailwind (CDN), y arma la barra superior (topbar) con la marca, el botón de tema y un avatar genérico — sin usuario logueado todavía, así que en vez de mostrar iniciales inventadas se usa un ícono de persona neutro. Es el "HTML básico con el estilo implementado" que pedía la metodología del proyecto desde el inicio, sin ninguna sección de negocio todavía.</p>
+
+          <h4>Se agregó también <code>assets/js/theme.js</code></h4>
+          <p>Script chico y compartido por todas las pantallas futuras: escucha el clic del botón de tema, alterna el atributo <code>data-theme</code> del documento entre claro/oscuro, y usa la View Transitions API del navegador para animar el cambio (si el navegador no la soporta, cambia igual pero sin animación).</p>
+          <div class="code-block">boton.addEventListener('click', () => {
+  const siguiente = raiz.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  const aplicar = () => raiz.setAttribute('data-theme', siguiente);
+
+  <span class="kw">if</span> (document.startViewTransition) {
+    document.startViewTransition(aplicar);
+  } <span class="kw">else</span> {
+    aplicar();
+  }
+});</div>
+
+          <h4>Verificación visual (Playwright, headless)</h4>
+          <p>Antes de pedir tu revisión, levanté el servidor estático del frontend y lo probé yo mismo en un navegador headless: capturé la pantalla en desktop y en un viewport mobile (390px), hice clic en el botón de tema y confirmé que pasa a oscuro correctamente, y revisé la consola del navegador en busca de errores — no hubo ninguno.</p>
+          <ul>
+            <li>Desktop, tema claro: topbar de vidrio con reflejo especular, marca con ícono, fondo con degradé atmosférico visible.</li>
+            <li>Desktop, tras clic en el toggle: <code>data-theme="dark"</code> aplicado, toda la paleta (fondo, vidrio, acento) cambia junto con el ícono sol → luna implícito en el contraste.</li>
+            <li>Mobile (390px): mismo HTML, la topbar y la tarjeta se adaptan al ancho angosto sin desbordar ni recortarse — todavía no hay grillas que reacomodar (eso llega con los KPIs en fases posteriores), pero confirma que la base responsive funciona.</li>
+            <li>Consola del navegador: sin errores — los cuatro archivos (<code>tokens.css</code>, <code>components.css</code>, <code>tailwind-config.js</code>, <code>theme.js</code>) cargan y se aplican correctamente.</li>
+          </ul>
+          <p>Podés abrirlo vos mismo corriendo <code>python -m http.server 8090</code> dentro de <code>frontend/</code> y entrando a <code>http://127.0.0.1:8090/index.html</code> — o directamente con <code>iniciar.bat</code>.</p>
+        </div>
+      </section>
+
+      <!-- TAREA F0-11 -->
+      <section class="slide tarea" id="f0-t11" data-crumb="Fase 0 · Tarea 11">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 11</span>
+            <h3>Frontend: <code>assets/js/api.js</code></h3>
+            <span class="status done"><i class="dot"></i>Hecho</span>
+          </div>
+          <p class="lede">Wrapper único de <code>fetch()</code> para hablar con el backend. Centraliza acá lo que, si no, se repetiría en cada pantalla futura: la URL base de la API, agregar el token de sesión guardado en <code>localStorage</code>, convertir la respuesta a JSON y manejar los errores siempre de la misma forma — incluido el caso "el backend no está corriendo", que hoy es el más probable ya que todavía no hay login.</p>
+
+          <h4>api.js — núcleo</h4>
+          <div class="code-block">const API_BASE_URL = 'http://127.0.0.1:8000/api';
+
+<span class="kw">async function</span> apiFetch(ruta, opciones = {}) {
+  const token = obtenerToken();
+  const encabezados = { 'Content-Type': 'application/json', ...(opciones.headers || {}) };
+  if (token) encabezados['Authorization'] = `Bearer ${token}`;
+
+  let respuesta;
+  try {
+    respuesta = await fetch(`${API_BASE_URL}${ruta}`, { ...opciones, headers: encabezados });
+  } catch (error) {
+    <span class="cm">// ni siquiera hubo respuesta: el backend no está corriendo, o CORS lo bloqueó</span>
+    throw new Error('No se pudo conectar con el servidor. Verificá que el backend esté corriendo.');
+  }
+
+  if (respuesta.status === 401) {
+    borrarToken();
+    location.href = 'index.html'; <span class="cm">// listo para la Fase 1, hoy no se dispara todavía</span>
+    throw new Error('Sesión inválida o expirada.');
+  }
+
+  <span class="cm">// ...castea a JSON y lanza con el mensaje del backend si respuesta.ok es falso</span>
+}
+
+window.Api = { get, post, put, patch, eliminar, guardarToken, borrarToken, obtenerToken };</div>
+
+          <h4>Verificación (con el backend real corriendo, no simulado)</h4>
+          <p>Levanté el backend en el puerto 8000 y el frontend en el 8090, y desde un navegador headless probé <code>window.Api.get('/salud')</code> de verdad:</p>
+          <div class="code-block">Con backend corriendo   -> Api.get('/salud') devolvió:
+  { estado: "ok", mensaje: "SMART Building API activa" }
+
+Backend apagado (lo detuve a propósito) -> Api.get('/salud') lanzó:
+  "No se pudo conectar con el servidor. Verificá que el backend esté corriendo."</div>
+          <p>Los dos caminos importantes de este archivo — <strong>funciona cuando el backend está</strong> y <strong>avisa con claridad cuando no está</strong> — quedaron probados contra el backend real, no solo leídos en el código. La rama de sesión vencida (401) queda lista pero no se puede disparar todavía porque recién en la Fase 1 va a existir el primer endpoint protegido.</p>
+        </div>
+      </section>
+
+      <!-- TAREA F0-12 -->
+      <section class="slide tarea" id="f0-t12" data-crumb="Fase 0 · Tarea 12">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 12</span>
+            <h3>Verificación: primera conexión real frontend ↔ backend</h3>
+            <span class="status done"><i class="dot"></i>Hecho</span>
+          </div>
+          <p class="lede">Se conectó el cascarón con <code>api.js</code>: al cargar <code>index.html</code>, se llama a <code>GET /api/salud</code> y un indicador (punto + texto, reutilizando el patrón <code>.dot</code> del sistema de diseño) muestra si el backend respondió — verde y con el mensaje del servidor si sí, rojo con una explicación clara si no. Se agregó <code>assets/js/inicio.js</code>, la primera lógica propia de una pantalla.</p>
+
+          <h4>inicio.js</h4>
+          <div class="code-block">document.addEventListener('DOMContentLoaded', <span class="kw">async</span> () => {
+  <span class="kw">try</span> {
+    const salud = await window.Api.get('/salud');
+    punto.style.background = 'var(--ok)';
+    texto.textContent = `Backend conectado — ${salud.mensaje}`;
+  } <span class="kw">catch</span> (error) {
+    punto.style.background = 'var(--crit)';
+    texto.textContent = `Backend no disponible — ${error.message}`;
+  }
+});</div>
+
+          <h4>Verificación visual — los dos estados posibles</h4>
+          <p>Capturé la pantalla real con el backend arriba y después lo apagué a propósito para confirmar el otro camino:</p>
+          <ul>
+            <li><strong>Backend corriendo:</strong> punto verde, <em>"Backend conectado — SMART Building API activa"</em>.</li>
+            <li><strong>Backend apagado</strong> (lo detuve yo mismo para la prueba): punto rojo, <em>"Backend no disponible — No se pudo conectar con el servidor. Verificá que el backend esté corriendo."</em></li>
+          </ul>
+          <p>Con esto se cierra la infraestructura de la Fase 0: backend y frontend ya se hablan de verdad, con una señal visible en pantalla de que la conexión funciona — la base sobre la que se construye todo lo demás a partir de la Fase 1.</p>
+
+          <div class="cierre-fase">
+            <p class="titulo">Fase 0 completa — 12 / 12 tareas aprobadas</p>
+            <p>El usuario probó <code>iniciar.bat</code> con doble clic real y confirmó que levanta el backend, el frontend y abre el navegador correctamente. Backend y frontend están conectados de verdad (endpoint <code>/api/salud</code>), el sistema de diseño está extraído del mockup aprobado, y quedó verificado en desktop y mobile, con tema claro y oscuro. A partir de acá arranca la <strong>Fase 1 — Usuarios, autenticación y estructura del edificio</strong>.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SLIDE: DIVISOR FASE 1 ============ -->
+      <section class="slide slide-divider" id="fase-1-divider" data-crumb="Fase 1 — Usuarios y edificio">
+        <div class="slide-inner">
+          <div class="divider-num">01</div>
+          <h2>Fase 1 — Usuarios, autenticación y estructura del edificio</h2>
+          <div class="fase-frac-grande" id="fase1-frac">3 / 14 aprobadas</div>
+          <p class="divider-desc">Corresponde al Documento General, secciones 3 y 5; Documento Técnico, secciones 6 y 7. Es la base de datos de la que depende absolutamente todo lo demás — sin usuarios y edificios, ningún otro módulo tiene sobre qué trabajar.</p>
+        </div>
+      </section>
+
+      <!-- TAREA F1-1 -->
+      <section class="slide tarea" id="f1-t1" data-crumb="Fase 1 · Tarea 1">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 1</span>
+            <h3>Lógica: modelo de roles y reglas de acceso (RBAC)</h3>
+            <span class="status done"><i class="dot"></i>Hecho</span>
+          </div>
+          <p class="lede">Primera tarea de la Fase 1, y la primera del proyecto marcada explícitamente como "Lógica": antes de crear el modelo <code>Usuario</code> en la base de datos o cualquier endpoint, se define en código Python puro (sin FastAPI, sin SQLAlchemy) la matriz completa de roles y las reglas de acceso — para que cuando en la próxima tarea se escriba la dependencia de autorización de FastAPI, ya exista una regla clara y probada para reutilizar, en vez de improvisarla ahí mismo.</p>
+
+          <h4>services/autorizacion.py — la matriz de 8 roles</h4>
+          <p>Transcripción directa de la tabla del Documento Técnico (sección 6.2): cada rol con su alcance (cartera / edificio / unidad / sus OTs asignadas) y sus tres banderas de visibilidad/permiso.</p>
+          <div class="code-block">MATRIZ_ROLES = {
+  "admin_general":   {"alcance": CARTERA, "ve_fin_unidad": False, "ve_fin_edificio": True,  "solo_lectura": False},
+  "admin_consorcio": {"alcance": EDIFICIO, "ve_fin_unidad": False, "ve_fin_edificio": True,  "solo_lectura": False},
+  "encargado":       {"alcance": EDIFICIO, "ve_fin_unidad": False, "ve_fin_edificio": False, "solo_lectura": False},
+  "propietario":     {"alcance": UNIDAD,   "ve_fin_unidad": True,  "ve_fin_edificio": False, "solo_lectura": False},
+  "inquilino":       {"alcance": UNIDAD,   "ve_fin_unidad": False, "ve_fin_edificio": False, "solo_lectura": False},
+  "proveedor":       {"alcance": OTS_ASIGNADAS, ...},
+  "auditor":         {"alcance": EDIFICIO_O_CARTERA, "ve_fin_unidad": True, "ve_fin_edificio": True, "solo_lectura": True},
+  "seguridad":       {"alcance": EDIFICIO, ...},
+}</div>
+
+          <h4>La función central: <code>tiene_acceso_a_edificio()</code></h4>
+          <p>Es la regla que va a reutilizar <strong>cada</strong> endpoint que devuelva datos de un edificio, a partir de la próxima tarea. Nota importante: no toca la base de datos — recibe la lista de edificios del usuario ya resuelta (va a venir adentro del JWT) y responde con una regla pura, así se puede probar sin necesidad de una base de datos real.</p>
+          <div class="code-block"><span class="kw">def</span> tiene_acceso_a_edificio(rol, edificios_del_usuario, edificio_id):
+    <span class="kw">if</span> alcance_de(rol) == ALCANCE_CARTERA:
+        <span class="kw">return</span> True   <span class="cm"># Administrador General: siempre, toda la cartera</span>
+    <span class="kw">return</span> edificio_id in edificios_del_usuario</div>
+
+          <h4>Verificación: 13 tests automáticos (pytest)</h4>
+          <p>Es el primer módulo del proyecto con lógica de negocio no trivial (Documento Técnico, sección 20), y el control de acceso es además el tipo de regla donde un error sale caro (fuga de datos entre edificios distintos) — se cubre con tests desde el día uno en vez de confiar solo en la lectura del código. Se agregó <code>pytest</code> a <code>requirements.txt</code>.</p>
+          <div class="code-block">$ pytest -v
+
+test_admin_general_accede_a_cualquier_edificio_aunque_no_este_en_su_lista PASSED
+test_otros_roles_solo_acceden_a_sus_propios_edificios[admin_consorcio]    PASSED
+test_otros_roles_solo_acceden_a_sus_propios_edificios[encargado]         PASSED
+test_otros_roles_solo_acceden_a_sus_propios_edificios[propietario]       PASSED
+test_otros_roles_solo_acceden_a_sus_propios_edificios[inquilino]         PASSED
+test_otros_roles_solo_acceden_a_sus_propios_edificios[proveedor]         PASSED
+test_otros_roles_solo_acceden_a_sus_propios_edificios[auditor]           PASSED
+test_otros_roles_solo_acceden_a_sus_propios_edificios[seguridad]         PASSED
+test_rol_invalido_lanza_error_en_vez_de_fallar_en_silencio                PASSED
+test_visibilidad_financiera_por_unidad_solo_propietario_y_auditor         PASSED
+test_visibilidad_financiera_de_edificio_admins_y_auditor_no_encargado     PASSED
+test_solo_auditor_es_de_solo_lectura                                     PASSED
+test_todos_los_8_roles_del_documento_general_estan_en_la_matriz           PASSED
+
+============================= 13 passed in 0.04s ==============================</div>
+          <p>Entre lo que quedó probado: que el Administrador General entra a cualquier edificio aunque no figure en su lista (alcance de cartera), que el resto de los roles queda bloqueado fuera de sus propios edificios, que un rol inexistente lanza un error claro en vez de fallar en silencio, y que las banderas de visibilidad financiera coinciden exactamente con la tabla del Documento Técnico (por ejemplo, el Encargado nunca ve montos, solo el Propietario y el Auditor ven el financiero de una unidad puntual).</p>
+          <p>No hay nada para ver en el navegador todavía — es lógica interna sin ningún punto de entrada de usuario previsto en el Roadmap para este paso exacto (la excepción de testabilidad ya documentada). La próxima tarea sí empieza a tocar la base de datos: el modelo <code>Usuario</code>.</p>
+        </div>
+      </section>
+
+      <!-- TAREA F1-2 -->
+      <section class="slide tarea" id="f1-t2" data-crumb="Fase 1 · Tarea 2">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 2</span>
+            <h3>Backend: modelo <code>Usuario</code> y <code>UsuarioEdificio</code></h3>
+            <span class="status done"><i class="dot"></i>Hecho</span>
+          </div>
+          <p class="lede">Primeros modelos de base de datos del proyecto (SQLAlchemy). <code>Usuario</code> es la tabla base de todo el sistema de permisos; <code>UsuarioEdificio</code> es la tabla puente que permite que un mismo usuario esté vinculado a más de un edificio con un rol propio de cada vínculo.</p>
+
+          <div class="explicacion">
+            <div class="explicacion-titulo">
+              <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              Un detalle de orden, resuelto con cuidado
+            </div>
+            <p><code>UsuarioEdificio</code> necesita apuntar a la tabla <code>edificios</code>, pero el modelo <code>Edificio</code> recién se crea en la <strong>próxima</strong> tarea de esta fase (queda en el bloque "Estructura del edificio", después de "Usuarios y autenticación"). Eso es válido para definir la clase en Python — SQLAlchemy solo necesita que la tabla destino exista al momento de crear la tabla en la base, no al momento de leer el código. Por eso <code>usuario_edificio</code> todavía no se creó en la base de datos real: se verificó que su <strong>estructura</strong> (columnas y claves foráneas) está bien definida, y su creación real en la base queda para la tarea siguiente, cuando <code>Edificio</code> ya exista.</p>
+          </div>
+
+          <h4>models/usuario.py</h4>
+          <div class="code-block">_ROLES_SQL = ", ".join(f"'{rol}'" <span class="kw">for</span> rol <span class="kw">in</span> ROLES)  <span class="cm"># reutiliza la lista de autorizacion.py</span>
+
+<span class="kw">class</span> Usuario(Base):
+    __tablename__ = "usuarios"
+    __table_args__ = (CheckConstraint(f"rol IN ({_ROLES_SQL})", name="ck_usuarios_rol_valido"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=False)
+    password_hash = Column(String, nullable=False)
+    rol = Column(String, nullable=False)
+    telefono = Column(String, nullable=True)
+    activo = Column(Boolean, nullable=False, default=True)
+    creado_en = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))</div>
+          <p>El <code>CheckConstraint</code> reutiliza <code>ROLES</code> de <code>services/autorizacion.py</code> — la lista de los 8 roles válidos vive en un solo lugar del código, y tanto la lógica de permisos como la base de datos la comparten.</p>
+
+          <h4>models/usuario_edificio.py</h4>
+          <div class="code-block"><span class="kw">class</span> UsuarioEdificio(Base):
+    __tablename__ = "usuario_edificio"
+    __table_args__ = (CheckConstraint(f"rol_efectivo IN ({_ROLES_SQL})", name="ck_usuario_edificio_rol_valido"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
+    edificio_id = Column(Integer, ForeignKey("edificios.id"), nullable=False)
+    rol_efectivo = Column(String, nullable=False)</div>
+
+          <h4>Verificación: 4 tests nuevos (17 en total en el proyecto)</h4>
+          <div class="code-block">test_crear_usuario_con_rol_valido                       PASSED
+test_rol_invalido_rechazado_por_la_base                  PASSED
+test_email_duplicado_rechazado                           PASSED
+test_estructura_usuario_edificio_sin_crear_tabla_todavia PASSED
+
+============================= 17 passed in 0.31s ==============================</div>
+          <p>Los tests de <code>Usuario</code> corren contra una base SQLite <strong>en memoria</strong> (no contra <code>smart_building.db</code>), para no dejar filas de prueba en la base real. Se confirmó: se puede crear un usuario con un rol válido (y los valores por defecto — <code>activo=True</code>, fecha de alta — se completan solos); un rol inventado es <strong>rechazado por la base de datos</strong>, no solo por el código Python; y un email duplicado también se rechaza. El test de <code>UsuarioEdificio</code> confirma que sus columnas y claves foráneas apuntan exactamente a <code>usuarios.id</code> y <code>edificios.id</code>, sin necesidad de crear la tabla todavía.</p>
+        </div>
+      </section>
+
+      <!-- TAREA F1-3 -->
+      <section class="slide tarea" id="f1-t3" data-crumb="Fase 1 · Tarea 3">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 3</span>
+            <h3>Backend: hash de contraseñas y utilidades JWT</h3>
+            <span class="status done"><i class="dot"></i>Hecho</span>
+          </div>
+          <p class="lede">Se creó <code>core/security.py</code>: hash y verificación de contraseñas con bcrypt (vía passlib), y generación/decodificación de JWT de corta duración. Es la pieza que la próxima tarea (login) va a usar para nunca comparar contraseñas en texto plano y para emitir el token de sesión.</p>
+
+          <h4>core/security.py</h4>
+          <div class="code-block">_contexto_password = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+<span class="kw">def</span> hashear_password(password: str) -> str:
+    <span class="kw">return</span> _contexto_password.hash(password)
+
+<span class="kw">def</span> verificar_password(password: str, password_hash: str) -> bool:
+    <span class="kw">return</span> _contexto_password.verify(password, password_hash)
+
+<span class="kw">def</span> crear_token_acceso(datos: dict, minutos_expiracion=JWT_MINUTOS_EXPIRACION) -> str:
+    a_codificar = dict(datos)
+    a_codificar["exp"] = datetime.now(timezone.utc) + timedelta(minutes=minutos_expiracion)
+    <span class="kw">return</span> jwt.encode(a_codificar, JWT_SECRETO, algorithm=JWT_ALGORITMO)
+
+<span class="kw">def</span> decodificar_token(token: str) -> dict:
+    <span class="kw">try</span>:
+        <span class="kw">return</span> jwt.decode(token, JWT_SECRETO, algorithms=[JWT_ALGORITMO])
+    <span class="kw">except</span> JWTError <span class="kw">as</span> error:
+        <span class="kw">raise</span> TokenInvalido(str(error)) <span class="kw">from</span> error</div>
+
+          <div class="correccion">
+            <div class="correccion-titulo">
+              <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              Problema real encontrado al correr los tests, y cómo se resolvió
+            </div>
+            <p>Al correr los tests, <code>hashear_password()</code> falló para los tres casos que usan contraseñas de verdad (no para los de JWT, que no dependen de bcrypt). La causa: <code>passlib</code> (la librería que pide el Documento Técnico) no tuvo una actualización en varios años, y la versión más nueva de <code>bcrypt</code> que se instaló por default le eliminó un atributo interno (<code>bcrypt.__about__</code>) que passlib necesita para autodetectarse — es un problema de compatibilidad conocido entre esas dos librerías, no un error del código del proyecto.</p>
+            <p><strong>Solución:</strong> se fijó una versión de <code>bcrypt</code> anterior a la 4.1 (quedó en 4.0.1), que sí es compatible con la versión de passlib usada. No se cambió de librería — se mantiene Passlib tal como lo pide el Documento Técnico (sección 2.2), solo se fijó la versión de su dependencia.</p>
+            <div class="code-block">requirements.txt:
+  passlib[bcrypt]
+  bcrypt&lt;4.1  <span class="cm"># passlib 1.7.4 no reconoce bcrypt&gt;=4.1</span></div>
+          </div>
+
+          <h4>Verificación: 6 tests nuevos (23 en total)</h4>
+          <div class="code-block">test_el_hash_nunca_es_igual_a_la_password_original          PASSED
+test_la_misma_password_genera_hashes_distintos_cada_vez       PASSED
+test_verificar_password_correcta_e_incorrecta                 PASSED
+test_crear_y_decodificar_token_devuelve_los_mismos_datos      PASSED
+test_token_alterado_es_rechazado                              PASSED
+test_token_ya_vencido_es_rechazado                            PASSED
+
+============================= 23 passed in 1.87s ==============================</div>
+          <p>Se probó, entre otras cosas, algo no obvio: que hashear <strong>la misma</strong> contraseña dos veces da como resultado dos hashes distintos entre sí (por el salt aleatorio de bcrypt) — y que aun así ambos siguen validando correctamente esa contraseña. También que un token alterado a mano (se le cambiaron los últimos caracteres) y uno generado ya vencido se rechazan siempre, sin decodificarse "a medias".</p>
+        </div>
+      </section>
+
+      <!-- TAREA F1-4 -->
+      <section class="slide tarea" id="f1-t4" data-crumb="Fase 1 · Tarea 4">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 4</span>
+            <h3>Backend: script de seed del primer Administrador General</h3>
+            <span class="status done"><i class="dot"></i>Hecho</span>
+          </div>
+          <p class="lede">Como no existe un registro público (los usuarios los da de alta un administrador, no se anota cualquiera), hacía falta un comando que cree, la primera vez que se levanta el proyecto, un Administrador General inicial — de otro modo nadie podría loguearse nunca. Se creó <code>app/seed.py</code>, ejecutable con <code>python -m app.seed</code>, seguro de correr más de una vez.</p>
+
+          <h4>app/seed.py</h4>
+          <div class="code-block">EMAIL_ADMIN_GENERAL = "admin@smartbuilding.test"
+PASSWORD_ADMIN_GENERAL = "admin123"  <span class="cm"># trivial a propósito: proyecto en modo test</span>
+
+<span class="kw">def</span> crear_admin_general():
+    Base.metadata.create_all(bind=engine, tables=[Usuario.__table__])
+    db = SesionLocal()
+    <span class="kw">try</span>:
+        ya_existe = db.query(Usuario).filter(Usuario.email == EMAIL_ADMIN_GENERAL).first()
+        <span class="kw">if</span> ya_existe:
+            print(f"Ya existe un Administrador General ({EMAIL_ADMIN_GENERAL}) — no se crea de nuevo.")
+            <span class="kw">return</span> ya_existe
+
+        admin = Usuario(
+            nombre="Administrador General",
+            email=EMAIL_ADMIN_GENERAL,
+            password_hash=hashear_password(PASSWORD_ADMIN_GENERAL),  <span class="cm"># nunca texto plano</span>
+            rol="admin_general",
+        )
+        db.add(admin); db.commit()
+        <span class="kw">return</span> admin
+    <span class="kw">finally</span>:
+        db.close()</div>
+
+          <h4>Verificación — contra la base de datos real</h4>
+          <p>A diferencia de las tareas anteriores, acá no correspondía usar una base en memoria: el propósito del script es justamente crear el usuario real que se va a usar para loguearse en las próximas tareas. Se ejecutó dos veces seguidas y se inspeccionó el resultado:</p>
+          <div class="code-block">$ python -m app.seed
+Administrador General creado: admin@smartbuilding.test
+
+$ python -m app.seed        <span class="cm"># segunda vez — debe ser un no-op</span>
+Ya existe un Administrador General (admin@smartbuilding.test) — no se crea de nuevo.
+
+<span class="cm"># inspección directa de la fila creada:</span>
+Cantidad de usuarios en la base: 1
+email: admin@smartbuilding.test | rol: admin_general | activo: True
+password_hash NO es texto plano: True | empieza con $2b$12$
+verificar_password("admin123", hash) -> True
+verificar_password("incorrecta", hash) -> False</div>
+          <p>Quedó confirmado: correrlo dos veces no duplica el usuario, la contraseña se guardó hasheada con bcrypt (nunca en texto plano, ni siquiera acá en modo test), y el hash valida correctamente la contraseña real y rechaza una incorrecta.</p>
+
+          <div class="explicacion">
+            <div class="explicacion-titulo">
+              <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              Primera fila real en <code>que_hice.html</code>: credenciales de prueba
+            </div>
+            <p>La slide de <a onclick="document.querySelector('[data-goto=&quot;credenciales&quot;]').click()" style="color:var(--accent-2);text-decoration:underline;cursor:pointer;">Credenciales de prueba</a> ya no está vacía — tiene el primer usuario real del proyecto. Cada rol nuevo que se cree de acá en adelante (Administrador de Consorcio, Propietario, Inquilino...) suma su fila ahí mismo.</p>
+          </div>
+
+          <p>Sin punto de entrada visual todavía — el login real (donde este usuario se prueba "de verdad" entrando a la aplicación) es la próxima tarea.</p>
+        </div>
+      </section>
+
+      <!-- TAREA F1-5 -->
+      <section class="slide tarea" id="f1-t5" data-crumb="Fase 1 · Tarea 5">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 5</span>
+            <h3>Backend: endpoint de login</h3>
+            <span class="status done"><i class="dot"></i>Hecho</span>
+          </div>
+          <p class="lede">Primer router HTTP real de negocio del proyecto: <code>POST /api/auth/login</code> (valida email + password contra la base, devuelve un JWT) y <code>GET /api/auth/me</code> (dado ese JWT, devuelve quién está logueado). Es donde el Administrador General sembrado en la tarea anterior se usa por primera vez de verdad, a través de HTTP.</p>
+
+          <h4>routers/auth.py</h4>
+          <div class="code-block"><span class="kw">@router.post</span>("/login", response_model=TokenSalida)
+def login(datos: LoginEntrada, db: Session = Depends(obtener_db)):
+    usuario = db.query(Usuario).filter(Usuario.email == datos.email).first()
+    <span class="kw">if</span> not usuario or not verificar_password(datos.password, usuario.password_hash):
+        raise _ERROR_CREDENCIALES  <span class="cm"># mismo error tanto si el email no existe como si la clave está mal</span>
+    <span class="kw">if</span> not usuario.activo:
+        raise HTTPException(401, "Usuario desactivado")
+
+    token = crear_token_acceso({"sub": usuario.email, "rol": usuario.rol, "edificios": []})
+    <span class="kw">return</span> TokenSalida(access_token=token)
+
+<span class="kw">@router.get</span>("/me", response_model=UsuarioActual)
+def leer_usuario_actual(usuario: Usuario = Depends(obtener_usuario_desde_token)):
+    <span class="kw">return</span> usuario</div>
+
+          <div class="explicacion">
+            <div class="explicacion-titulo">
+              <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              Dos decisiones chicas, a propósito
+            </div>
+            <p><strong>Mismo mensaje de error</strong> ("Email o contraseña incorrectos") tanto si el email no existe como si la contraseña está mal — si fueran mensajes distintos, cualquiera podría usar el login para "adivinar" qué emails están registrados en el sistema.</p>
+            <p><strong>El JWT ya incluye un campo <code>edificios</code></strong>, vacío por ahora. Su forma queda fija desde el día uno: cuando <code>UsuarioEdificio</code> tenga su tabla real (próxima tarea), se completa con los edificios reales del usuario sin tener que cambiar el esquema del token ni el código que ya lo consume.</p>
+          </div>
+
+          <h4>Verificación: 7 tests nuevos (30 en total) + prueba real end-to-end</h4>
+          <p>Los tests corren contra la app real de FastAPI, pero con la base cambiada a una en memoria (vía <code>dependency_overrides</code>) — se prueba el flujo HTTP completo, no solo funciones sueltas.</p>
+          <div class="code-block">test_login_con_credenciales_correctas_devuelve_token       PASSED
+test_login_con_password_incorrecta_devuelve_401             PASSED
+test_login_con_email_inexistente_devuelve_401_no_500        PASSED
+test_login_de_usuario_desactivado_devuelve_401               PASSED
+test_me_sin_token_devuelve_401                                PASSED
+test_me_con_token_valido_devuelve_los_datos_del_usuario       PASSED
+test_me_con_token_invalido_devuelve_401                       PASSED
+
+============================== 30 passed in 5.34s ==============================</div>
+
+          <div class="correccion">
+            <div class="correccion-titulo">
+              <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              Otro problema real encontrado al escribir los tests
+            </div>
+            <p>Los primeros 5 tests fallaban con <code>no such table: usuarios</code> a pesar de haber creado la tabla. Causa: SQLite en memoria (<code>:memory:</code>) crea una base <strong>nueva y vacía por cada conexión</strong> — y el servidor de test abre una conexión distinta a la del setup en cada request. Se resolvió agregando <code>poolclass=StaticPool</code> al motor de test, que fuerza a reutilizar una única conexión para todo el test — patrón estándar recomendado por SQLAlchemy para testear con SQLite en memoria.</p>
+          </div>
+
+          <p>Además de los tests automáticos, se probó el flujo real levantando el backend y usando el usuario sembrado de verdad (no uno de test):</p>
+          <div class="code-block">POST /api/auth/login {"email":"admin@smartbuilding.test","password":"admin123"}
+→ 200 {"access_token":"eyJhbGciOi...", "token_type":"bearer"}
+
+POST /api/auth/login (password mala)
+→ 401 {"detail":"Email o contraseña incorrectos"}
+
+GET /api/auth/me (sin token)
+→ 401 {"detail":"Not authenticated"}
+
+GET /api/auth/me (con el token real recién obtenido)
+→ 200 {"id":1,"nombre":"Administrador General","email":"admin@smartbuilding.test","rol":"admin_general","activo":true}</div>
+          <p>Sin pantalla todavía — la pantalla de login real es la primera tarea de frontend de esta fase, más adelante. Se puede probar hoy desde <code>/docs</code> (Swagger) con el usuario ya sembrado.</p>
+        </div>
+      </section>
+
+      <!-- TAREA F1-6 -->
+      <section class="slide tarea" id="f1-t6" data-crumb="Fase 1 · Tarea 6">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 6</span>
+            <h3>Backend: dependencia de autorización</h3>
+            <span class="status done"><i class="dot"></i>Hecho</span>
+          </div>
+          <p class="lede">La tarea de login dejó la decodificación de token viviendo suelta adentro de <code>routers/auth.py</code>. Esta tarea la <strong>formaliza</strong> en <code>core/dependencies.py</code> — el lugar único que cada router futuro (Edificios, Reclamos, Financiero...) va a reutilizar para saber quién es el usuario y si tiene acceso a un edificio puntual, en vez de reinventar el chequeo cada vez.</p>
+
+          <h4>core/dependencies.py</h4>
+          <div class="code-block"><span class="kw">@dataclass</span>
+<span class="kw">class</span> UsuarioAutenticado:
+    usuario: Usuario
+    edificios: list = field(default_factory=list)
+
+<span class="kw">def</span> obtener_usuario_actual(credenciales=Depends(_esquema_bearer), db=Depends(obtener_db)) -> UsuarioAutenticado:
+    <span class="kw">try</span>:
+        datos = decodificar_token(credenciales.credentials)
+    <span class="kw">except</span> TokenInvalido:
+        raise HTTPException(401, "Token inválido o vencido")
+    usuario = db.query(Usuario).filter(Usuario.email == datos.get("sub")).first()
+    <span class="kw">if</span> not usuario or not usuario.activo:
+        raise HTTPException(401, "Usuario no encontrado o inactivo")
+    <span class="kw">return</span> UsuarioAutenticado(usuario=usuario, edificios=datos.get("edificios", []))
+
+<span class="kw">def</span> requerir_acceso_edificio(edificio_id: int, actual=Depends(obtener_usuario_actual)) -> UsuarioAutenticado:
+    <span class="kw">if</span> not tiene_acceso_a_edificio(actual.usuario.rol, actual.edificios, edificio_id):
+        raise HTTPException(403, "No tenés acceso a este edificio")
+    <span class="kw">return</span> actual</div>
+
+          <div class="explicacion">
+            <div class="explicacion-titulo">
+              <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              Cómo se va a usar esto en la práctica (todavía no existe el router, pero así se conecta)
+            </div>
+            <p><code>requerir_acceso_edificio</code> se agrega como <code>Depends(...)</code> a cualquier endpoint futuro cuya ruta tenga <code>{edificio_id}</code> — por ejemplo <code>GET /api/edificios/{edificio_id}/deudores</code>. FastAPI resuelve <code>edificio_id</code> automáticamente por coincidencia de nombre entre la ruta y el parámetro de la función; el router nuevo no vuelve a escribir la regla de alcance, solo declara la dependencia.</p>
+          </div>
+
+          <h4>Refactor de <code>routers/auth.py</code></h4>
+          <p><code>GET /api/auth/me</code> pasó a usar <code>obtener_usuario_actual</code> en vez de tener su propia copia de la decodificación de token — se borró la función duplicada del router. Es la primera prueba real de que "no se repite el chequeo a mano": el mismo código que hoy resuelve <code>/me</code> es el que va a resolver el acceso a edificios en la Fase 1 "Estructura del edificio".</p>
+
+          <h4>Verificación: 5 tests nuevos (35 en total) + refactor sin romper nada</h4>
+          <p><code>requerir_acceso_edificio</code> todavía no la consume ningún router real (el primer consumidor es el router de Edificios, próxima tarea) — se probó llamándola directamente como la función Python que es, mismo patrón que ya funcionó con <code>services/autorizacion.py</code>.</p>
+          <div class="code-block">test_obtener_usuario_actual_con_token_valido                    PASSED
+test_obtener_usuario_actual_con_token_invalido_lanza_401         PASSED
+test_obtener_usuario_actual_de_usuario_desactivado_lanza_401     PASSED
+test_requerir_acceso_edificio_admin_general_entra_a_cualquiera   PASSED
+test_requerir_acceso_edificio_propietario_solo_a_los_suyos       PASSED
+
+============================== 35 passed in 6.49s ==============================</div>
+          <p>Importante: los 7 tests de <code>test_auth.py</code> (login + <code>/me</code>) se corrieron de nuevo después del refactor y <strong>siguen pasando todos</strong> — confirma que mover la lógica a <code>core/dependencies.py</code> no rompió el comportamiento existente. También se confirmó que <code>app.main</code> sigue importando sin errores con el router refactorizado.</p>
+        </div>
+      </section>
+
+      <!-- TAREA F1-7 -->
+      <section class="slide tarea" id="f1-t7" data-crumb="Fase 1 · Tarea 7">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 7</span>
+            <h3>Backend: CRUD de usuarios</h3>
+            <span class="status done"><i class="dot"></i>Hecho</span>
+          </div>
+          <p class="lede">Se creó <code>routers/usuarios.py</code>: alta, listado, edición y baja lógica de usuarios. Es el primer router de negocio del proyecto que reutiliza la dependencia de autorización de la tarea anterior en vez de reinventarla.</p>
+
+          <div class="explicacion">
+            <div class="explicacion-titulo">
+              <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              Alcance de esta tarea, documentado a propósito
+            </div>
+            <p>El Documento Técnico prevé que tanto el Administrador General <strong>como</strong> el Administrador de Consorcio gestionen usuarios, este último acotado a su propio edificio. Pero esa restricción necesita <code>UsuarioEdificio</code> con datos reales para saber "cuál es su edificio", y ese modelo recién se completa en la <strong>próxima</strong> tarea de esta fase ("Estructura del edificio"). En vez de simular un alcance que hoy no se puede verificar de verdad, esta tarea deja la gestión de usuarios reservada solo al Administrador General — se amplía al Administrador de Consorcio en cuanto la estructura de edificios exista.</p>
+          </div>
+
+          <h4>Endpoints</h4>
+          <div class="chip-row">
+            <span class="chip"><code>POST</code> /api/usuarios — alta</span>
+            <span class="chip"><code>GET</code> /api/usuarios — listado</span>
+            <span class="chip"><code>PATCH</code> /api/usuarios/{id} — edición</span>
+            <span class="chip"><code>POST</code> /api/usuarios/{id}/desactivar — baja lógica</span>
+          </div>
+          <div class="code-block"><span class="kw">@router.post</span>("/{usuario_id}/desactivar", response_model=UsuarioSalida)
+def desactivar_usuario(usuario_id: int, db=Depends(obtener_db), _=Depends(_requerir_admin_general)):
+    usuario = db.get(Usuario, usuario_id)
+    <span class="kw">if</span> not usuario:
+        raise HTTPException(404, "Usuario no encontrado")
+    usuario.activo = False  <span class="cm"># baja lógica — nunca se borra la fila</span>
+    db.commit(); db.refresh(usuario)
+    <span class="kw">return</span> usuario</div>
+          <p>El esquema de entrada valida el <code>rol</code> contra la misma lista <code>ROLES</code> de <code>services/autorizacion.py</code> (tercera vez que se reutiliza esa lista, después del <code>CheckConstraint</code> de la base) — un rol inventado se rechaza con un <code>422</code> claro en el borde de la API, antes de siquiera llegar a la base de datos.</p>
+
+          <h4>Verificación: 9 tests nuevos (44 en total) + prueba real end-to-end</h4>
+          <div class="code-block">test_alta_de_usuario_como_admin_general          PASSED
+test_alta_con_email_duplicado_devuelve_400        PASSED
+test_alta_con_rol_invalido_devuelve_422_no_500     PASSED
+test_alta_como_propietario_devuelve_403            PASSED
+test_alta_sin_token_devuelve_401                   PASSED
+test_listado_incluye_los_usuarios_existentes       PASSED
+test_edicion_cambia_nombre_y_rol                   PASSED
+test_baja_logica_desactiva_sin_borrar              PASSED
+test_editar_usuario_inexistente_devuelve_404       PASSED
+
+============================== 44 passed in 11.61s ==============================</div>
+
+          <p>Además de los tests automáticos, se creó un usuario <strong>real</strong> contra el backend vivo — no descartable, queda documentado en <a onclick="document.querySelector('[data-goto=&quot;credenciales&quot;]').click()" style="color:var(--accent-2);text-decoration:underline;cursor:pointer;">Credenciales de prueba</a>:</p>
+          <div class="code-block">POST /api/usuarios (con el token del Admin General)
+  {"nombre":"Propietario de Prueba","email":"propietario@smartbuilding.test","rol":"propietario",...}
+→ 201 {"id":2,"nombre":"Propietario de Prueba","email":"propietario@smartbuilding.test","rol":"propietario","activo":true}
+
+GET /api/usuarios (con el token del Admin General)
+→ 200 [Administrador General, Propietario de Prueba]
+
+POST /api/auth/login como el Propietario de Prueba → token propio
+GET /api/usuarios con ESE token
+→ 403 {"detail":"Por ahora solo el Administrador General gestiona usuarios"}</div>
+          <p>Confirmado con datos reales: el Administrador General puede dar de alta y listar usuarios; un usuario con otro rol (Propietario, en este caso) queda correctamente bloqueado con un 403 claro al intentar lo mismo.</p>
+        </div>
+      </section>
+
+      <!-- TAREA F1-8 -->
+      <section class="slide tarea" id="f1-t8" data-crumb="Fase 1 · Tarea 8">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 8</span>
+            <h3>Lógica: reglas de alta y estructura vacía automática</h3>
+            <span class="status done"><i class="dot"></i>Hecho</span>
+          </div>
+          <p class="lede">Arranca el bloque "Estructura del edificio" de la Fase 1, otra vez empezando por lógica pura: cómo, al dar de alta un edificio indicando cantidad de pisos y unidades por piso, se genera automáticamente su estructura vacía — en vez de cargar piso por piso a mano (Documento General, sección 5.1).</p>
+
+          <h4>services/edificios.py</h4>
+          <div class="code-block"><span class="kw">def</span> generar_estructura_vacia(cantidad_pisos: int, unidades_por_piso: int) -> list[dict]:
+    <span class="cm">"""[{"numero": 1, "departamentos": ["1A", "1B", ...]}, {"numero": 2, ...}]"""</span>
+    <span class="kw">if</span> cantidad_pisos < 1:
+        raise ValueError("La cantidad de pisos debe ser al menos 1")
+    <span class="kw">if</span> unidades_por_piso < 1:
+        raise ValueError("La cantidad de unidades por piso debe ser al menos 1")
+    <span class="kw">if</span> unidades_por_piso > MAXIMO_UNIDADES_POR_PISO:  <span class="cm"># 26, A-Z</span>
+        raise ValueError(f"No se pueden generar más de {MAXIMO_UNIDADES_POR_PISO} unidades por piso (A-Z)")
+
+    letras = string.ascii_uppercase[:unidades_por_piso]
+    <span class="kw">return</span> [
+        {"numero": n, "departamentos": [f"{n}{letra}" <span class="kw">for</span> letra <span class="kw">in</span> letras]}
+        <span class="kw">for</span> n <span class="kw">in</span> range(1, cantidad_pisos + 1)
+    ]</div>
+
+          <div class="explicacion">
+            <div class="explicacion-titulo">
+              <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              La convención de nombrado no se inventó de cero
+            </div>
+            <p>Piso 1 = planta más baja (numeración ascendente), cada departamento se identifica como <code>"{piso}{letra}"</code> — es exactamente el mismo formato que ya usa <code>buildingData</code> en el mockup aprobado (<code>7A</code>, <code>7B</code>, <code>7C</code>, <code>7D</code> en el piso más alto de un edificio de 7 pisos). Así, cuando en la Fase 5 el Dashboard Visual reemplace los datos de ejemplo por datos reales, los identificadores ya van a coincidir con lo que la plantilla espera mostrar.</p>
+          </div>
+
+          <h4>Verificación: 9 tests (53 en total)</h4>
+          <div class="code-block">test_caso_tipico_3_pisos_4_unidades                              PASSED
+test_coincide_con_la_convencion_del_mockup_aprobado               PASSED
+test_un_piso_una_unidad                                            PASSED
+test_maximo_de_26_unidades_por_piso_usa_hasta_la_z                 PASSED
+test_cantidad_de_pisos_invalida_lanza_error[0]                     PASSED
+test_cantidad_de_pisos_invalida_lanza_error[-1]                    PASSED
+test_unidades_por_piso_invalidas_lanza_error[0]                    PASSED
+test_unidades_por_piso_invalidas_lanza_error[-1]                   PASSED
+test_mas_de_26_unidades_por_piso_lanza_error                       PASSED
+
+============================== 53 passed in 11.95s ==============================</div>
+          <p>Se probó explícitamente que, con 7 pisos y 4 unidades por piso (los mismos números que el mockup), el resultado coincide letra por letra con <code>buildingData</code>. También los bordes: 0 o negativo en cualquiera de los dos parámetros se rechaza, y más de 26 unidades por piso (se acaba el alfabeto A-Z) también.</p>
+          <p>Sin nada para ver en el navegador — es lógica interna, la misma excepción de testabilidad ya documentada. La próxima tarea recién crea el modelo <code>Edificio</code> real en la base.</p>
+        </div>
+      </section>
+
+      <!-- TAREA F1-9 -->
+      <section class="slide tarea" id="f1-t9" data-crumb="Fase 1 · Tarea 9">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 9</span>
+            <h3>Backend: modelo <code>Edificio</code></h3>
+            <span class="status done"><i class="dot"></i>Hecho</span>
+          </div>
+          <p class="lede">Se creó <code>models/edificio.py</code>. Con esto queda resuelta la referencia que <code>UsuarioEdificio</code> dejó pendiente en la Tarea 2 de esta fase: la tabla <code>edificios</code> ya existe de verdad, así que <code>usuario_edificio</code> se puede crear y usar en la base, no solo verificar su estructura.</p>
+
+          <h4>models/edificio.py</h4>
+          <div class="code-block"><span class="kw">class</span> Edificio(Base):
+    __tablename__ = "edificios"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String, nullable=False)
+    direccion = Column(String, nullable=False)
+    ciudad = Column(String, nullable=True)
+    cuit = Column(String, nullable=True)
+
+    <span class="cm"># nullable: validar que sea rol admin_consorcio es una regla de</span>
+    <span class="cm"># aplicación (endpoint de alta, próxima tarea), no un CHECK de SQLite</span>
+    admin_consorcio_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+
+    dias_vencimiento_expensas = Column(Integer, nullable=False, default=10)
+    recargo_mora_porcentual = Column(Integer, nullable=False, default=0)
+
+    activo = Column(Boolean, nullable=False, default=True)
+    creado_en = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))</div>
+
+          <h4>Verificación: 3 tests nuevos (56 en total) — incluye la deuda pendiente</h4>
+          <div class="code-block">test_crear_edificio_con_valores_por_defecto                       PASSED
+test_edificio_vinculado_a_un_administrador_de_consorcio             PASSED
+test_usuario_edificio_ya_se_puede_crear_de_verdad_en_la_base         PASSED
+
+============================== 56 passed in 11.61s ==============================</div>
+
+          <div class="explicacion">
+            <div class="explicacion-titulo">
+              <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              Se cerró el círculo con <code>UsuarioEdificio</code>
+            </div>
+            <p>El tercer test crea las tres tablas juntas (<code>usuarios</code>, <code>edificios</code>, <code>usuario_edificio</code>) por primera vez, inserta una fila real vinculando un propietario a un edificio con su rol efectivo, y la vuelve a leer — confirmando de punta a punta lo que unas tareas atrás solo se pudo verificar "en estructura". Nada quedó como deuda técnica sin cerrar.</p>
+          </div>
+
+          <p>Sin pantalla ni endpoint todavía — el modelo se usa recién en la próxima tarea (<code>Piso</code>, <code>Departamento</code>, <code>Cochera</code>, <code>EspacioComun</code>) y después en el endpoint de alta con generación automática de estructura.</p>
+        </div>
+      </section>
+
+      <!-- TAREA F1-10 -->
+      <section class="slide tarea" id="f1-t10" data-crumb="Fase 1 · Tarea 10">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 10</span>
+            <h3>Backend: modelos <code>Piso</code>, <code>Departamento</code>, <code>Cochera</code>, <code>EspacioComun</code></h3>
+            <span class="status done"><i class="dot"></i>Hecho</span>
+          </div>
+          <p class="lede">Se completó <code>models/edificio.py</code> con las cuatro entidades que faltaban del dominio "Edificios" — un solo archivo para las cinco (<code>Edificio</code> incluido), tal como fija la sección 2.3 del Documento Técnico ("un archivo por dominio", no uno por tabla).</p>
+
+          <h4>Piso y Departamento</h4>
+          <div class="code-block"><span class="kw">class</span> Piso(Base):
+    __tablename__ = "pisos"
+    id = Column(Integer, primary_key=True, index=True)
+    edificio_id = Column(Integer, ForeignKey("edificios.id"), nullable=False)
+    numero = Column(String, nullable=False)   <span class="cm"># "7" — lo que ve el usuario</span>
+    orden = Column(Integer, nullable=False)   <span class="cm"># apilado real en el Dashboard Visual</span>
+
+<span class="kw">class</span> Departamento(Base):
+    __tablename__ = "departamentos"
+    id = Column(Integer, primary_key=True, index=True)
+    piso_id = Column(Integer, ForeignKey("pisos.id"), nullable=False)
+    identificador = Column(String, nullable=False)  <span class="cm"># "7A" — igual a services/edificios.py</span>
+    m2 = Column(Float, nullable=True)
+    propietario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    inquilino_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    ocupado = Column(Boolean, nullable=False, default=False)</div>
+
+          <div class="explicacion">
+            <div class="explicacion-titulo">
+              <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              Por qué <code>Piso</code> tiene <code>numero</code> Y <code>orden</code> por separado
+            </div>
+            <p>El Documento Técnico distingue explícitamente el nombre que ve el usuario ("número/nombre") del valor que decide el apilado real en el Dashboard Visual ("un orden"). Hoy, con la generación automática de <code>services/edificios.py</code>, los dos van a coincidir siempre (piso "7" tiene orden 7) — pero separarlos desde ahora deja la puerta abierta a un piso "PB" o "Subsuelo" con nombre no numérico, sin tener que rediseñar la tabla el día que haga falta.</p>
+          </div>
+
+          <h4>Cochera y EspacioComun</h4>
+          <div class="code-block"><span class="kw">class</span> Cochera(Base):
+    __tablename__ = "cocheras"
+    __table_args__ = (CheckConstraint("tipo IN ('fija', 'rotativa')", name="ck_cocheras_tipo_valido"),)
+    ...
+    departamento_id = Column(Integer, ForeignKey("departamentos.id"), nullable=True)  <span class="cm"># puede estar suelta</span>
+
+<span class="kw">class</span> EspacioComun(Base):
+    __tablename__ = "espacios_comunes"
+    ...
+    capacidad = Column(Integer, nullable=True)
+    reglas_uso = Column(Text, nullable=True)</div>
+
+          <h4>Verificación: 4 tests nuevos (60 en total)</h4>
+          <p>Se armó un edificio de prueba completo — no solo cada tabla aislada — para confirmar que todo el dominio funciona junto:</p>
+          <div class="code-block">test_estructura_completa_de_un_edificio_de_prueba                    PASSED
+  <span class="cm">(piso 7, deptos 7A con propietario+inquilino+cochera fija, 7B vacío, SUM)</span>
+test_cochera_con_tipo_invalido_rechazada_por_la_base                  PASSED
+test_cochera_puede_no_estar_vinculada_a_un_departamento                PASSED
+test_departamento_sin_asignar_queda_libre_para_generacion_automatica   PASSED
+
+============================== 60 passed in 11.64s ==============================</div>
+          <p>Con esto queda completo el modelo de datos de toda la estructura del edificio — Piso, Departamento, Cochera y EspacioComun conviviendo con Usuario y Edificio en la misma base. Sin pantalla ni endpoint todavía: la próxima tarea es el endpoint de alta de edificio, que va a usar <code>services/edificios.py</code> (Tarea 8) para crear todas estas filas de una sola vez.</p>
+        </div>
+      </section>
+
+      <!-- TAREA F1-11 -->
+      <section class="slide tarea" id="f1-t11" data-crumb="Fase 1 · Tarea 11">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 11</span>
+            <h3>Backend: endpoint de alta de edificio</h3>
+            <span class="status done"><i class="dot"></i>Hecho</span>
+          </div>
+          <p class="lede">Se creó <code>routers/edificios.py</code>: <code>POST /api/edificios</code>, solo Administrador General. En la misma operación se genera la estructura vacía completa reutilizando <code>services/edificios.py</code> (Tarea 8) — nada de esto se carga piso por piso a mano.</p>
+
+          <h4>routers/edificios.py — núcleo</h4>
+          <div class="code-block">edificio = Edificio(nombre=datos.nombre, direccion=datos.direccion, ...)
+db.add(edificio)
+db.flush()  <span class="cm"># asigna edificio.id sin cerrar la transacción todavía</span>
+
+estructura = generar_estructura_vacia(datos.cantidad_pisos, datos.unidades_por_piso)
+<span class="kw">for</span> piso_data <span class="kw">in</span> estructura:
+    piso = Piso(edificio_id=edificio.id, numero=str(piso_data["numero"]), orden=piso_data["numero"])
+    db.add(piso); db.flush()
+    <span class="kw">for</span> identificador <span class="kw">in</span> piso_data["departamentos"]:
+        db.add(Departamento(piso_id=piso.id, identificador=identificador))
+
+db.commit(); db.refresh(edificio)
+<span class="kw">return</span> edificio  <span class="cm"># con .pisos y .departamentos ya anidados (relationship nueva en el modelo)</span></div>
+          <p>Los rangos de <code>cantidad_pisos</code> y <code>unidades_por_piso</code> se validan con <code>Field(ge=1, le=...)</code> directamente en el esquema Pydantic — un valor fuera de rango nunca llega a <code>services/edificios.py</code>, se rechaza con <code>422</code> en el borde de la API.</p>
+
+          <div class="correccion">
+            <div class="correccion-titulo">
+              <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              Bug real encontrado recién al probar contra el backend vivo — los 68 tests no lo detectaron
+            </div>
+            <p>Los tests pasaban todos porque cada uno arma su propia base en memoria con <code>Base.metadata.create_all(bind=engine, tables=[...])</code> pasando la lista completa de tablas a mano. Pero al probar el alta de un edificio real contra <code>smart_building.db</code>, explotó: <code>sqlite3.OperationalError: no such table: edificios</code>. Causa raíz: <code>main.py</code> nunca creaba las tablas de verdad al arrancar — <code>seed.py</code> solo había creado <code>usuarios</code> (lo único que importaba en ese momento), y nada más había importado los modelos de edificio en ese proceso.</p>
+            <p><strong>Solución:</strong> se creó <code>app/models/__init__.py</code>, que importa todos los modelos existentes — con eso, <code>import app.models</code> alcanza para que <code>Base.metadata</code> conozca cada tabla. Se agregó <code>Base.metadata.create_all(bind=engine)</code> al final de <code>main.py</code> (crea, al arrancar, cualquier tabla que falte — idempotente, no toca las que ya existen) y se simplificó <code>seed.py</code> para usar el mismo patrón. Cualquier modelo nuevo de una fase futura se suma una vez en <code>models/__init__.py</code> y automáticamente queda disponible en los dos lugares, sin volver a tocarlos.</p>
+          </div>
+
+          <h4>Verificación: 6 tests nuevos (68 en total) + prueba real contra la base de verdad</h4>
+          <div class="code-block">test_alta_de_edificio_genera_estructura_completa            PASSED
+test_departamentos_generados_no_tienen_dueno_todavia          PASSED
+test_alta_con_admin_consorcio_valido                          PASSED
+test_alta_con_admin_consorcio_de_rol_incorrecto_devuelve_400  PASSED
+test_alta_como_propietario_devuelve_403                       PASSED
+test_alta_con_valores_fuera_de_rango_devuelve_422 (x3)         PASSED
+
+============================== 68 passed in 17.49s ==============================</div>
+
+          <p>Después de la corrección, se creó <strong>"Torre Central"</strong> real (mismo nombre que el edificio de ejemplo del mockup), con 2 pisos y 4 unidades por piso, contra el backend vivo:</p>
+          <div class="code-block">POST /api/edificios {"nombre":"Torre Central","direccion":"Av. Siempre Viva 742","ciudad":"Buenos Aires","cantidad_pisos":2,"unidades_por_piso":4}
+→ 201 { "id": 1, "nombre": "Torre Central", ...,
+        "pisos": [
+          {"numero":"1", "departamentos": ["1A","1B","1C","1D"] (8 deptos en 2 pisos)},
+          {"numero":"2", "departamentos": ["2A","2B","2C","2D"]}
+        ] }
+
+POST /api/edificios (con el token del Propietario de Prueba)
+→ 403 {"detail":"Solo el Administrador General puede dar de alta un edificio"}</div>
+          <p>"Torre Central" queda como el edificio real de prueba del proyecto de acá en adelante — el mismo que se va a usar en la prueba de punta a punta que cierra esta fase.</p>
+        </div>
+      </section>
+
+      <!-- TAREA F1-12 -->
+      <section class="slide tarea" id="f1-t12" data-crumb="Fase 1 · Tarea 12">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 12</span>
+            <h3>Backend: configuración y estructura del edificio</h3>
+            <span class="status done"><i class="dot"></i>Hecho</span>
+          </div>
+          <p class="lede">La tarea más grande del proyecto hasta ahora: <code>PATCH /api/edificios/{id}</code> (contacto de emergencia, vencimientos, roles habilitados), CRUD anidado de pisos/departamentos/cocheras/espacios comunes, y el endpoint de asignación/desvinculación de propietario e inquilino a un departamento.</p>
+
+          <div class="explicacion">
+            <div class="explicacion-titulo">
+              <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              Dos ampliaciones al modelo, resueltas con cuidado
+            </div>
+            <p><strong>Se agregaron 3 columnas a <code>Edificio</code></strong> (contacto de emergencia, roles habilitados) que la Configuración pedía y que no existían todavía. Como <code>create_all()</code> solo crea tablas nuevas — nunca les agrega columnas a las que ya existen — y "Torre Central" ya vivía en la base real, se corrió un <code>ALTER TABLE</code> puntual contra <code>smart_building.db</code> antes de tocar el modelo, para no perder los datos de prueba ya cargados.</p>
+            <p><strong><code>roles_habilitados</code> se guarda como texto separado por comas</strong> (SQLite no tiene tipo lista nativo) y se convierte a lista de ida y vuelta con un <code>field_validator</code> de Pydantic — <code>NULL</code> en la base significa "todos los roles habilitados", el default real hasta que alguien lo configure.</p>
+          </div>
+
+          <h4>Regla de acceso: Admin General, o el Admin de Consorcio de ESE edificio</h4>
+          <div class="code-block"><span class="kw">def</span> _requerir_admin_del_edificio(edificio_id: int, db=Depends(obtener_db), actual=Depends(obtener_usuario_actual)) -> Edificio:
+    edificio = _obtener_edificio_o_404(edificio_id, db)
+    es_admin_general = actual.usuario.rol == "admin_general"
+    es_admin_de_este_edificio = (
+        actual.usuario.rol == "admin_consorcio" <span class="kw">and</span> edificio.admin_consorcio_id == actual.usuario.id
+    )
+    <span class="kw">if</span> not (es_admin_general <span class="kw">or</span> es_admin_de_este_edificio):
+        raise HTTPException(403, "No administrás este edificio")
+    <span class="kw">return</span> edificio</div>
+          <p>Se resolvió comparando directo contra <code>Edificio.admin_consorcio_id</code> — más simple y ya verificable hoy, a diferencia del acceso genérico multi-edificio vía <code>UsuarioEdificio</code>/JWT, que sigue pendiente de que el login empiece a poblarlo con vínculos reales.</p>
+
+          <h4>Endpoints nuevos</h4>
+          <div class="chip-row">
+            <span class="chip"><code>PATCH</code> /api/edificios/{id}</span>
+            <span class="chip"><code>GET/POST</code> /api/edificios/{id}/pisos</span>
+            <span class="chip"><code>POST</code> /api/edificios/{id}/departamentos</span>
+            <span class="chip"><code>PATCH</code> /api/edificios/departamentos/{id}/asignacion</span>
+            <span class="chip"><code>GET/POST</code> /api/edificios/{id}/cocheras</span>
+            <span class="chip"><code>GET/POST</code> /api/edificios/{id}/espacios-comunes</span>
+          </div>
+
+          <h4>Verificación: 13 tests nuevos (81 en total) + prueba real contra Torre Central</h4>
+          <div class="code-block">test_admin_consorcio_del_edificio_puede_configurarlo               PASSED
+test_admin_consorcio_de_otro_edificio_no_puede_configurarlo         PASSED
+test_configurar_roles_habilitados_y_volver_a_leerlos                PASSED
+test_configurar_con_rol_invalido_devuelve_422                       PASSED
+test_alta_manual_de_piso_y_departamento                             PASSED
+test_departamento_en_piso_de_otro_edificio_devuelve_400             PASSED
+test_asignar_propietario_e_inquilino_marca_ocupado                  PASSED
+test_desvincular_propietario_marca_desocupado_si_no_hay_inquilino   PASSED
+test_asignar_con_usuario_de_rol_incorrecto_devuelve_400             PASSED
+test_alta_y_listado_de_cochera_y_espacio_comun                      PASSED
+test_cochera_con_tipo_invalido_devuelve_422                         PASSED
+test_configurar_edificio_inexistente_devuelve_404                   PASSED
+(+1 más)
+
+============================== 81 passed in 31.92s ==============================</div>
+
+          <p>Contra el backend vivo, con "Torre Central" real: se configuró contacto de emergencia y roles habilitados, se asignó el <strong>Propietario de Prueba</strong> real al departamento 1A (quedó <code>ocupado: true</code>), se creó una cochera fija vinculada a ese mismo depto y un espacio común "SUM". Un intento de <code>curl</code> con tilde falló por un problema de encoding de la terminal (no del backend) — se confirmó pasando el mismo payload por archivo, sin cambios en el código.</p>
+          <div class="code-block">PATCH /api/edificios/departamentos/1/asignacion {"propietario_id": 2}
+→ 200 {"id":1,"identificador":"1A","ocupado":true,"propietario_id":2,"inquilino_id":null}
+
+POST /api/edificios/1/cocheras {"numero":"12","tipo":"fija","departamento_id":1}
+→ 201 {"id":1,"numero":"12","tipo":"fija","departamento_id":1}
+
+POST /api/edificios/1/espacios-comunes {"nombre":"SUM","capacidad":40,...}
+→ 201 {"id":1,"nombre":"SUM","capacidad":40,...}</div>
+          <p>Con esto termina todo el backend de la Fase 1. Quedan las tres tareas de frontend (login, alta de edificio, usuarios, estructura) y la prueba final de punta a punta.</p>
+        </div>
+      </section>
+
+      <!-- TAREA F1-13 -->
+      <section class="slide tarea" id="f1-t13" data-crumb="Fase 1 · Tarea 13">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 13</span>
+            <h3>Frontend: pantalla de login</h3>
+            <span class="status done"><i class="dot"></i>Hecho</span>
+          </div>
+          <p class="lede"><code>index.html</code> pasa de ser el cascarón de la Fase 0 a la pantalla de login real: formulario de email/contraseña, mensaje de error claro, token guardado en <code>localStorage</code>, y una vista de "sesión activa" (todavía no hay Dashboard real — llega en fases posteriores). Sin selector de rol visible: el rol lo determina el backend.</p>
+
+          <div class="correccion">
+            <div class="correccion-titulo">
+              <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              Bug encontrado ANTES de escribir la pantalla, revisando api.js
+            </div>
+            <p>El manejo genérico de 401 en <code>api.js</code> (Fase 0) asumía que 401 siempre significa "se venció la sesión" — pero <code>/auth/login</code> también responde 401 cuando la contraseña está mal, y ahí el significado es otro. Con el código tal cual estaba, cualquier intento de login con una contraseña incorrecta iba a mostrar <em>"Sesión inválida o expirada"</em> en vez del mensaje real del backend. Se corrigió con una excepción puntual y documentada:</p>
+            <div class="code-block"><span class="kw">if</span> (respuesta.status === 401 && ruta !== '/auth/login') {
+  borrarToken();
+  <span class="cm">// ... redirección + mensaje genérico de sesión vencida</span>
+}
+<span class="cm">// /auth/login sigue de largo a la rama genérica de abajo, que sí</span>
+<span class="cm">// conserva el detalle real que mandó el backend ("Email o contraseña incorrectos")</span></div>
+          </div>
+
+          <h4>Nuevo patrón en components.css: formularios</h4>
+          <p>El mockup original nunca tuvo un formulario (era solo el dashboard) — se agregaron <code>.campo</code>, <code>.boton-primario</code> y <code>.mensaje-error</code> con los mismos tokens del sistema (<code>--r-sm</code>, <code>--glass-content-bg</code>, <code>--accent</code>, <code>--crit</code>). Es el primero de muchos formularios del proyecto — alta de edificio y de usuario, en las próximas dos tareas, van a reutilizar este mismo bloque en vez de inventar uno nuevo cada vez.</p>
+
+          <h4>login.js — núcleo</h4>
+          <div class="code-block">formulario.addEventListener('submit', <span class="kw">async</span> (evento) => {
+  evento.preventDefault();
+  <span class="kw">try</span> {
+    const respuesta = await window.Api.post('/auth/login', { email, password });
+    window.Api.guardarToken(respuesta.access_token);
+    await mostrarSesionActiva();  <span class="cm">// llama a /auth/me y muestra nombre/email/rol</span>
+  } <span class="kw">catch</span> (error) {
+    mensajeErrorTexto.textContent = error.message;  <span class="cm">// el mensaje REAL del backend</span>
+  }
+});
+
+<span class="cm">// si ya hay token guardado (recarga de página), retoma la sesión sin pedir credenciales de nuevo</span>
+<span class="kw">if</span> (window.Api.obtenerToken()) { mostrarSesionActiva(); }</div>
+
+          <h4>Verificación completa con Playwright, contra el backend real</h4>
+          <ul>
+            <li><strong>Contraseña incorrecta:</strong> el formulario muestra "Email o contraseña incorrectos" — el mensaje real del backend, no el genérico de sesión vencida (confirma la corrección de arriba).</li>
+            <li><strong>Login correcto</strong> con el Administrador General real: pasa a la vista de sesión mostrando "Hola, Administrador General", el email y un pill con el rol. El token quedó guardado en <code>localStorage</code> (199 caracteres).</li>
+            <li><strong>Recarga de página</strong> con el token ya guardado: retoma la sesión directamente, sin volver a pedir credenciales.</li>
+            <li><strong>Cerrar sesión:</strong> vuelve al formulario de login y borra el token de <code>localStorage</code>.</li>
+            <li><strong>Tema oscuro:</strong> el formulario completo (inputs, botón, mensaje de error) respeta la paleta oscura sin ningún valor "pegado" al tema claro.</li>
+          </ul>
+          <p>El único mensaje en la consola del navegador fue el log informativo del propio Chrome ante una respuesta 401 ("Failed to load resource") — no es un error de JavaScript de la aplicación, es cómo el navegador reporta cualquier respuesta HTTP no exitosa, inevitable y esperado en el intento de contraseña incorrecta.</p>
+
+          <div class="correccion">
+            <div class="correccion-titulo">
+              <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              Corrección: arquitectura de sidebar (pedido explícito del usuario)
+            </div>
+            <p>Todos los menús de acciones de la aplicación pasan a vivir en un <strong>sidebar fijo a la izquierda</strong> (mobile: menú hamburguesa desplegable), reemplazando los "chips" sueltos que había en la vista de sesión de esta pantalla. Se documentó primero en el Documento Técnico (sección 4.1) y en la skill <code>premium-uiux</code> antes de tocar código — arquitectura nueva, no una pantalla puntual.</p>
+            <p><strong>index.html vuelve a ser solo login</strong> (ya no muestra una vista de sesión adentro de la misma página). Al loguearse — o si ya hay un token guardado — redirige a <code>dashboard.html</code>, un cascarón nuevo que sí tiene el sidebar. Es el "home" de la zona autenticada que la Fase 6 va a terminar de llenar con KPIs reales; por ahora es una bienvenida simple, pero ya deja el sidebar funcionando para cualquier pantalla futura.</p>
+            <div class="code-block"><span class="cm">// login.js — ahora solo hace esto:</span>
+window.Api.guardarToken(respuesta.access_token);
+location.href = 'dashboard.html';</div>
+            <p><strong>assets/js/layout.js</strong> (nuevo): lo que antes vivía suelto en <code>login.js</code> (armar accesos según el rol) se promovió a un módulo compartido que monta el sidebar completo — guarda de sesión, <code>/auth/me</code>, accesos por rol, marcado del activo, logout y el toggle mobile — en una sola llamada (<code>window.Layout.montar('pagina-actual.html')</code>) que cualquier pantalla nueva reutiliza sin volver a escribir nada de esto.</p>
+            <p><strong>Verificado con Playwright, contra el backend real:</strong> login redirige a <code>dashboard.html</code>; el sidebar muestra "Edificios" solo para el Admin General (un Propietario ve el mismo sidebar, pero con "Todavía no hay pantallas para tu rol"); el menú hamburguesa en mobile (400px) abre y cierra el panel deslizante con el mismo patrón ya usado en el Dashboard Visual; el tema oscuro se ve correcto en el sidebar, el topbar y el panel mobile.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAREA F1-14 -->
+      <section class="slide tarea" id="f1-t14" data-crumb="Fase 1 · Tarea 14">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 14</span>
+            <h3>Frontend: pantalla de alta de edificio</h3>
+            <span class="status done"><i class="dot"></i>Hecho</span>
+          </div>
+          <p class="lede">Se creó <code>edificios.html</code> con el formulario de alta (Documento General 5.1), visible solo para Administrador General. También se conectó la navegación: la vista de sesión de <code>index.html</code> ahora muestra accesos según el rol logueado — hoy solo "Edificios" para <code>admin_general</code>, y se suma "Usuarios" en la próxima tarea.</p>
+
+          <h4>Guarda de acceso en dos capas</h4>
+          <div class="code-block"><span class="cm">// sin token -> ni se intenta pedir nada, directo al login</span>
+<span class="kw">if</span> (!window.Api.obtenerToken()) { location.href = 'index.html'; <span class="kw">return</span>; }
+
+<span class="cm">// con token pero sin el rol correcto -> aviso, nunca el formulario</span>
+<span class="kw">if</span> (usuarioActual.rol !== 'admin_general') {
+  vistaNoAutorizado.style.display = 'block';
+  <span class="kw">return</span>;
+}</div>
+          <p>El backend ya rechaza esto con <code>403</code> — la pantalla no debería ni ofrecer el formulario a quien no puede usarlo.</p>
+
+          <div class="correccion">
+            <div class="correccion-titulo">
+              <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              Dos bugs visuales encontrados y corregidos — ninguno se ve leyendo el código
+            </div>
+            <p><strong>1) El link "Edificios" no tenía estilo.</strong> Usé <code>class="chip"</code> copiando el nombre de un patrón que solo existe en el CSS interno de <em>este mismo</em> <code>que_hice.html</code> — no en <code>components.css</code> del frontend real, donde esa clase nunca se definió. Se veía como texto plano sin forma de pill. Se agregó <code>.chip-link</code> de verdad a <code>components.css</code> (vidrio de contenido + borde, mismo lenguaje que <code>.icon-btn</code>) y se corrigió la referencia.</p>
+            <p><strong>2) El campo CUIT desbordaba la tarjeta 11px hacia la derecha</strong> — medido con Playwright, no a simple vista. Causa: los inputs dependían del <em>stretch</em> implícito de flexbox dentro de <code>.campo</code>, que dejó de alcanzar en cuanto <code>.campo</code> pasó a vivir dentro de una grilla de 2 columnas (Ciudad/CUIT) — sin <code>width:100%</code> explícito, un <code>&lt;input&gt;</code> vuelve a su ancho intrínseco (~20 caracteres) y estira la columna. Se agregó <code>width:100%; min-width:0; box-sizing:border-box</code> a los inputs — un fix general, no específico de esta pantalla, que va a evitar el mismo problema en cualquier formulario futuro con columnas.</p>
+          </div>
+
+          <h4>Verificación con Playwright, contra el backend real</h4>
+          <ul>
+            <li>Se creó un <strong>Administrador de Consorcio de Prueba</strong> real (<code>consorcio@smartbuilding.test</code>) para probar el <code>&lt;select&gt;</code> con datos reales, no vacío.</li>
+            <li>Alta real de <strong>"Torre Playwright"</strong> (2 pisos, 3 unidades por piso, con el admin de consorcio asignado) → pantalla de éxito: <em>"Torre Playwright" — 2 piso(s), 6 departamento(s) generados automáticamente</em>.</li>
+            <li>El link "Edificios" <strong>no aparece</strong> en la sesión de un Propietario — y si entra directo a <code>edificios.html</code> por URL, ve el aviso de no autorizado, nunca el formulario.</li>
+            <li>Medición de layout con <code>boundingBox()</code>: ancho de "Ciudad" y "CUIT" ahora idénticos (207px cada uno), sin desborde.</li>
+          </ul>
+          <p>Con esto, "Torre Playwright" queda como segundo edificio real de prueba del proyecto, junto a "Torre Central".</p>
+
+          <div class="correccion">
+            <div class="correccion-titulo">
+              <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              Corrección: sidebar, CP en vez de Ciudad, y mapa con geocodificación
+            </div>
+            <p>Esta pantalla ahora vive dentro del layout con sidebar (mismo cambio que en la Tarea 13). Además, tres pedidos puntuales sobre el formulario:</p>
+
+            <h4 style="margin-top:.9rem;">1) Ciudad → CP</h4>
+            <p>El campo <code>ciudad</code> se reemplazó por <code>cp</code> (código postal) — tanto en el formulario como en el modelo <code>Edificio</code> del backend (columna nueva, <code>ciudad</code> queda huérfana sin uso en la base real, no se borró para no arriesgar el resto de la fila). Es más preciso para geocodificar que una ciudad sola.</p>
+
+            <h4>2) Mapa con geocodificación, entre CP/CUIT y Administrador de Consorcio</h4>
+            <p>Al perder el foco de <strong>Dirección</strong> o <strong>CP</strong>, si <em>ambos</em> tienen datos, se geocodifica contra Nominatim (OpenStreetMap, gratuito, sin API key) y se dibuja un mapa Leaflet con un marcador en el resultado. Si falta cualquiera de los dos campos, no pasa nada — la validación final completa sigue siendo al presionar "Crear edificio".</p>
+            <div class="code-block"><span class="kw">async function</span> intentarGeocodificar() {
+  const direccion = campoDireccion.value.trim();
+  const cp = campoCp.value.trim();
+  <span class="kw">if</span> (!direccion || !cp) <span class="kw">return</span>;  <span class="cm">// falta uno de los dos: no se hace nada todavía</span>
+
+  const resultado = await window.Mapa.geocodificar(direccion, cp);
+  <span class="kw">if</span> (!resultado) { abrirModalDireccion(); <span class="kw">return</span>; }  <span class="cm">// no encontrado -> modal</span>
+
+  ultimaUbicacion = { lat: parseFloat(resultado.lat), lon: parseFloat(resultado.lon) };
+  dibujarMapa(ultimaUbicacion.lat, ultimaUbicacion.lon);
+}</div>
+            <p>Se agregó <code>assets/js/mapa.js</code> (geocodificación + creación del mapa Leaflet, reutilizable por cualquier formulario futuro) y <code>latitud</code>/<code>longitud</code> a <code>Edificio</code> — las coordenadas encontradas viajan con el alta y quedan guardadas, no se pierden ni hay que re-geocodificar después.</p>
+
+            <h4>3) Modal cuando la dirección no se encuentra</h4>
+            <p>Primer modal del proyecto (documentado en la skill <code>premium-uiux</code>) — ícono de advertencia (<code>--warn</code>, no <code>--crit</code>: es recuperable, no un error del sistema), mensaje claro, botón "Entendido". No bloquea poder seguir completando el resto del formulario si el usuario decide continuar igual (una dirección nueva puede no estar todavía indexada en OpenStreetMap).</p>
+
+            <h4>Verificación con Playwright, contra servicios reales (backend + Nominatim + Leaflet)</h4>
+            <ul>
+              <li>Dirección real (<strong>Av. Corrientes 348, CP C1043</strong>, Buenos Aires) → mapa dibujado con el marcador en el microcentro porteño, correcto a simple vista.</li>
+              <li>Dirección inventada (<strong>"asdkjfhaslkdjfh inexistente 99999", CP 00000</strong>) → modal "No encontramos esa dirección" — y el mapa detrás queda en estado "Dirección no encontrada", no con el mapa anterior pegado.</li>
+              <li>Alta real de <strong>"Torre Geocodificada"</strong> con <code>latitud</code>/<code>longitud</code> reales → confirmado con <code>GET</code> que el backend las devuelve intactas.</li>
+              <li>CP y CUIT completo con dirección vacía o CP vacío → sin geocodificar, sin mapa, exactamente como se pidió.</li>
+            </ul>
+            <p>Nota honesta: la primera corrida de este chequeo con Playwright dio un falso negativo ("mapa no renderizado") por un selector CSS mal elegido en el script de prueba, no por un bug real — la captura de pantalla mostró el mapa perfecto. Se corrigió el chequeo, no el código de la aplicación.</p>
+          </div>
+
+          <div class="correccion">
+            <div class="correccion-titulo">
+              <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              Corrección: dos bugs reales que el usuario encontró usando la pantalla de verdad
+            </div>
+            <p>Los dos chequeos automáticos anteriores no los detectaron — hicieron falta manos reales sobre el formulario.</p>
+
+            <h4 style="margin-top:.9rem;">1) La tarjeta no estaba centrada</h4>
+            <p><code>.main-column</code> (la columna al lado del sidebar) es <code>flex:1</code> — un <code>.shell</code> con <code>max-width</code> suelto ahí adentro queda pegado a la izquierda, no centrado, porque un bloque normal no se autocentra solo (le faltaba <code>margin:0 auto</code>). Se agregó <code>.panel-centrado</code> a <code>components.css</code> — clase reutilizable, no un fix puntual de esta pantalla — y se aplicó a <code>vista-alta</code>, <code>vista-exito</code> y <code>vista-no-autorizado</code> acá, y a la tarjeta de bienvenida de <code>dashboard.html</code>. De paso se agrandó el ancho (480px → 640px): más espacio, menos margen desperdiciado, tal como se pidió.</p>
+            <div class="code-block">.panel-centrado{ max-width:640px; width:100%; margin:0 auto; }</div>
+
+            <h4>2) Enter enviaba el formulario en vez de pasar al siguiente campo</h4>
+            <p>Comportamiento por default del HTML: un <code>&lt;form&gt;</code> con más de un campo se envía apenas se presiona Enter en cualquier input de texto, sin hacer falta ni tocar el botón. Eso fue justo lo que pasó: se completaron Nombre y Dirección (los dos <code>required</code>), y al presionar Enter en CP —para "pasar al siguiente campo", como con Tab— el formulario se mandó entero con Cantidad de pisos y Unidades por piso en sus valores por default (1 y 4), sin CUIT, sin Administrador de Consorcio, y sin llegar a ver el mapa. Se creó un edificio real ("Torres Independencia 3252") con datos a medio cargar.</p>
+            <p><strong>Se borró ese edificio de la base</strong> (id 5, con su piso y sus 4 departamentos generados) — confirmado que no quedó ningún rastro.</p>
+            <p>Se agregó <code>assets/js/formularios.js</code> (reutilizable, ya conectado también en el login): Enter mueve el foco al siguiente campo visible, como Tab — solo en el <strong>último</strong> campo del formulario Enter sí dispara el envío normal, que es el comportamiento esperado ahí.</p>
+            <div class="code-block"><span class="kw">function</span> habilitarEnterComoTab(formulario) {
+  formulario.addEventListener('keydown', (evento) => {
+    <span class="kw">if</span> (evento.key !== 'Enter') <span class="kw">return</span>;
+    <span class="kw">if</span> (objetivo.tagName === 'TEXTAREA' || objetivo.type === 'submit') <span class="kw">return</span>;
+
+    const campos = [...campos visibles y habilitados del formulario...];
+    const siguiente = campos[campos.indexOf(evento.target) + 1];
+    <span class="kw">if</span> (siguiente) { evento.preventDefault(); siguiente.focus(); siguiente.select?.(); }
+    <span class="cm">// si es el último campo, no se previene nada: Enter dispara el submit normal</span>
+  });
+}</div>
+
+            <h4>Verificación con Playwright, contra el backend real</h4>
+            <ul>
+              <li><strong>Centrado:</strong> margen izquierdo y derecho de la tarjeta, medidos con <code>boundingBox()</code> — 206.0px y 206.0px, diferencia 0.</li>
+              <li><strong>Enter en Nombre</strong> → foco pasa a Dirección. <strong>Enter en Dirección</strong> → foco pasa a CP. <strong>Enter en CP</strong> → foco pasa a CUIT.</li>
+              <li>Tras los tres Enter, <code>vista-alta</code> seguía visible y <code>vista-exito</code> no — el formulario <strong>no</strong> se había enviado, a diferencia del comportamiento original que reportó el usuario.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAREA F1-15 -->
+      <section class="slide tarea" id="f1-t15" data-crumb="Fase 1 · Tarea 15">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 15</span>
+            <h3>Frontend: pantalla de gestión de usuarios</h3>
+            <span class="status pend"><i class="dot"></i>Implementado — pendiente de tu revisión</span>
+          </div>
+          <p class="lede">Se creó <code>usuarios.html</code>: listado, alta y activar/desactivar. Visible solo para Administrador General. Primera pantalla que combina listado + alta usando el patrón <code>.detail</code> documentado en la skill (hoja inferior en mobile, panel lateral en desktop) — el mismo componente que ya validaba el Dashboard Visual, reutilizado tal cual para un caso de uso distinto.</p>
+
+          <div class="explicacion">
+            <div class="explicacion-titulo">
+              <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              Por qué el alta no es una página aparte
+            </div>
+            <p>El Documento Técnico (sección 4.1) es explícito: las sub-vistas dentro de un mismo dominio (listado, alta, edición) no generan un archivo <code>.html</code> nuevo — se resuelven con el patrón <code>.detail</code> ya validado. Acá se aplicó por primera vez a un caso "lista + alta" (antes solo se había usado para fichas de detalle) — mismo componente, otro uso, cero código nuevo de layout.</p>
+          </div>
+
+          <h4>Reutilización real, no solo declarada</h4>
+          <ul>
+            <li><strong>Formulario:</strong> los mismos <code>.campo</code>/<code>.boton-primario</code>/<code>.mensaje-error</code> del login y de edificios.</li>
+            <li><strong>Enter-como-Tab:</strong> <code>window.Formularios.habilitarEnterComoTab()</code>, el mismo utilitario creado para corregir el bug de edificios — acá se conectó desde el primer momento, no como corrección posterior.</li>
+            <li><strong>Sidebar:</strong> <code>window.Layout.montar('usuarios.html')</code> — cero código nuevo de navegación.</li>
+            <li><strong>Badge de rol:</strong> nuevo (<code>.rol-badge</code>, acento de marca — nunca semáforo, porque un rol no es un estado de severidad) y ya pensado para reutilizarse en proveedores/reclamos más adelante.</li>
+          </ul>
+
+          <h4>Activar/desactivar — el backend ya tenía las dos piezas, faltaba conectarlas</h4>
+          <p><code>desactivar_usuario</code> ya existía; para "reactivar" no hay un endpoint dedicado, pero <code>PATCH /api/usuarios/{id}</code> ya aceptaba <code>activo: true</code> desde la Tarea 7 — sin esto, la pantalla hubiera tenido un camino sin salida (una vez desactivado, nadie podría reactivarlo desde la interfaz).</p>
+          <div class="code-block"><span class="kw">async function</span> alternarEstado(boton) {
+  <span class="kw">if</span> (estaActivo) {
+    await window.Api.post(`/usuarios/${id}/desactivar`);
+  } <span class="kw">else</span> {
+    await window.Api.patch(`/usuarios/${id}`, { activo: true });  <span class="cm">// ya existía, solo faltaba un botón</span>
+  }
+  await cargarListado();
+}</div>
+
+          <div class="correccion">
+            <div class="correccion-titulo">
+              <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              Detalle encontrado al probar: el rol se veía mal escrito
+            </div>
+            <p><code>.rol-badge</code> tenía <code>text-transform:capitalize</code> pensando en mostrar el slug crudo (<code>admin_consorcio</code>) — pero como el badge ya recibe la etiqueta bien formateada ("Administrador de Consorcio"), el CSS capitalizaba también la palabra "de" → <em>"Administrador De Consorcio"</em>. Se sacó ese <code>text-transform</code>. De paso se encontró el mismo problema en el pie del sidebar (mostraba <code>Admin_general</code> crudo en <strong>todas</strong> las pantallas, no solo acá): se centralizó <code>ETIQUETAS_ROL</code> en <code>layout.js</code> (antes solo iba a vivir en <code>usuarios.js</code>) y ahora el sidebar también muestra "Administrador General" en vez del slug interno — corregido en un solo lugar, arreglado en toda la aplicación a la vez.</p>
+          </div>
+
+          <h4>Verificación con Playwright, contra el backend real</h4>
+          <ul>
+            <li>Listado real: Administrador General, Propietario de Prueba, Administrador de Consorcio de Prueba.</li>
+            <li>Alta real de <strong>"Encargado de Prueba"</strong> (<code>encargado@smartbuilding.test</code>) desde el panel — Enter avanzó de campo en campo correctamente, el listado pasó de 4 a 5 usuarios, y el panel se cerró solo al terminar.</li>
+            <li>Desactivar → pill pasa a "Inactivo" y el botón cambia a "Reactivar"; Reactivar → vuelve a "Activo". Probado de ida y vuelta sobre el usuario real recién creado.</li>
+            <li>Un Propietario no ve el link "Usuarios" en el sidebar, y si entra directo por URL ve el aviso de no autorizado.</li>
+            <li>Verificado en mobile (hoja inferior con drag-handle) y en tema oscuro — sin ningún valor pegado al tema claro.</li>
+          </ul>
+          <p>Nota honesta: la primera corrida del chequeo automático dio un falso "no se creó" porque el script midió el resultado 700ms después del clic, antes de que terminaran las dos llamadas de red (crear + refrescar listado) — se confirmó con una espera realista que sí funciona, y la captura de ese primer intento incluso mostró el botón todavía en "Creando…", confirmando que era un problema de timing del script, no de la aplicación.</p>
+          <p>Se limpió además un usuario de prueba duplicado que había quedado de una corrida de verificación anterior, para no ensuciar la tabla de credenciales.</p>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var tocLinks = Array.prototype.slice.call(document.querySelectorAll('[data-goto]'));
+  var idx = {};
+  slides.forEach(function(s, i){ idx[s.id] = i; });
+
+  var current = 0;
+  var elCrumb = document.getElementById('crumb-text');
+  var elCounter = document.getElementById('slide-counter');
+  var elProgress = document.getElementById('stage-progress-fill');
+  var btnPrev = document.getElementById('btn-prev');
+  var btnNext = document.getElementById('btn-next');
+  var toc = document.getElementById('toc');
+  var tocBackdrop = document.getElementById('toc-backdrop');
+  var menuBtn = document.getElementById('menu-btn');
+
+  function render(){
+    slides.forEach(function(s, i){ s.classList.toggle('active', i === current); });
+    var activo = slides[current];
+    elCrumb.textContent = activo.getAttribute('data-crumb') || activo.id;
+    elCounter.textContent = (current + 1) + ' / ' + slides.length;
+    elProgress.style.width = (((current + 1) / slides.length) * 100) + '%';
+    btnPrev.disabled = current === 0;
+    btnNext.disabled = current === slides.length - 1;
+    tocLinks.forEach(function(a){ a.classList.toggle('activo', a.getAttribute('data-goto') === activo.id); });
+    history.replaceState(null, '', '#' + activo.id);
+    closeToc();
+  }
+
+  function goTo(i){
+    current = Math.max(0, Math.min(slides.length - 1, i));
+    render();
+  }
+  function next(){ goTo(current + 1); }
+  function prev(){ goTo(current - 1); }
+
+  btnPrev.addEventListener('click', prev);
+  btnNext.addEventListener('click', next);
+
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'ArrowRight' || e.key === 'PageDown'){ e.preventDefault(); next(); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp'){ e.preventDefault(); prev(); }
+    else if (e.key === 'Home'){ e.preventDefault(); goTo(0); }
+    else if (e.key === 'End'){ e.preventDefault(); goTo(slides.length - 1); }
+    else if (e.key === 'Escape'){ closeToc(); }
+  });
+
+  tocLinks.forEach(function(a){
+    a.addEventListener('click', function(){
+      var id = a.getAttribute('data-goto');
+      if (idx.hasOwnProperty(id)) goTo(idx[id]);
+    });
+  });
+
+  function openToc(){ toc.classList.add('open'); tocBackdrop.classList.add('open'); }
+  function closeToc(){ toc.classList.remove('open'); tocBackdrop.classList.remove('open'); }
+  menuBtn.addEventListener('click', openToc);
+  tocBackdrop.addEventListener('click', closeToc);
+
+  // deep-link: si la URL ya trae #id de una slide, arranca ahí.
+  var inicial = location.hash ? location.hash.slice(1) : null;
+  goTo(inicial && idx.hasOwnProperty(inicial) ? idx[inicial] : 0);
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="es" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SMART Building · Dashboard — Vidrio Medianoche</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg-1:#eef1f6; --bg-2:#e7ebf3; --wash-a:#c7d6f2; --wash-b:#e9dcc9;
+  --ink:#151b26; --ink-2:#454e60; --ink-3:#747d91; --ink-4:#a1a8ba;
+  --line:rgba(21,27,38,.10); --line-2:rgba(21,27,38,.07); --line-strong:rgba(21,27,38,.16);
+
+  --glass-shell-bg:rgba(255,255,255,.52); --glass-shell-blur:22px; --glass-shell-fallback:rgba(255,255,255,.92);
+  --glass-content-bg:rgba(255,255,255,.68); --glass-content-blur:7px; --glass-content-fallback:rgba(255,255,255,.94);
+  --glass-in:inset 0 1px 0 rgba(255,255,255,.85),inset 0 0 0 1px rgba(255,255,255,.45);
+  --glass-sheen:linear-gradient(120deg,rgba(255,255,255,.55),transparent 45%);
+
+  --navy:#0b1220;
+  --accent:#3f6fd1; --accent-2:#2a4fa8; --accent-soft:#dde4f7; --accent-ring:rgba(63,111,209,.28);
+  --ok:#2e8067; --warn:#ba8c1f; --pend:#bd6c2c; --crit:#b13c47;
+  --mix-tint:#fff; --mix-ink:#151b26;
+  --shadow-rgb:14,20,32;
+  --sh-sm:0 1px 2px rgba(var(--shadow-rgb),.06),0 4px 12px -4px rgba(var(--shadow-rgb),.12);
+  --sh-md:0 2px 6px rgba(var(--shadow-rgb),.07),0 16px 34px -16px rgba(var(--shadow-rgb),.22);
+  --sh-lg:0 4px 16px rgba(var(--shadow-rgb),.09),0 34px 70px -26px rgba(var(--shadow-rgb),.32);
+  --r-card:20px; --r-lg:24px; --r-sm:12px;
+}
+html[data-theme="dark"]{
+  --bg-1:#070a10; --bg-2:#090d14; --wash-a:#152a52; --wash-b:#2c2312;
+  --ink:#eef1f8; --ink-2:#b6c0d6; --ink-3:#828ea8; --ink-4:#525d78;
+  --line:rgba(238,241,248,.10); --line-2:rgba(238,241,248,.06); --line-strong:rgba(238,241,248,.16);
+
+  --glass-shell-bg:rgba(17,24,38,.5); --glass-shell-fallback:rgba(10,14,22,.94);
+  --glass-content-bg:rgba(17,24,38,.72); --glass-content-fallback:rgba(10,14,22,.96);
+  --glass-in:inset 0 1px 0 rgba(255,255,255,.08),inset 0 0 0 1px rgba(255,255,255,.06);
+  --glass-sheen:linear-gradient(120deg,rgba(255,255,255,.08),transparent 45%);
+
+  --navy:#040710;
+  --accent:#6f97e8; --accent-2:#93b3f2; --accent-soft:#131d33; --accent-ring:rgba(111,151,232,.32);
+  --mix-tint:#131a29; --mix-ink:#f3f6fc;
+  --shadow-rgb:0,0,0;
+  --sh-sm:0 1px 2px rgba(0,0,0,.45),0 4px 14px -4px rgba(0,0,0,.55);
+  --sh-md:0 2px 8px rgba(0,0,0,.4),0 18px 38px -16px rgba(0,0,0,.6);
+  --sh-lg:0 4px 18px rgba(0,0,0,.45),0 44px 84px -28px rgba(0,0,0,.7);
+}
+*{box-sizing:border-box}
+body{margin:0;color:var(--ink);font:15px/1.5 Inter,ui-sans-serif,system-ui,sans-serif;
+  background:
+    radial-gradient(ellipse 58% 42% at 8% -8%,var(--wash-a),transparent 60%),
+    radial-gradient(ellipse 42% 30% at 108% 4%,var(--wash-b),transparent 56%),
+    radial-gradient(ellipse 46% 32% at 50% 106%,var(--wash-a),transparent 64%),
+    linear-gradient(180deg,var(--bg-1),var(--bg-2));
+  background-attachment:fixed;
+  -webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0;z-index:999;pointer-events:none;opacity:.04;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>")}
+h1,h2,h3,.display{font-family:Outfit,sans-serif;letter-spacing:-.015em}
+.app{position:relative;max-width:1180px;margin:0 auto;padding:16px 14px 90px}
+
+.shell{position:relative;overflow:hidden;background:var(--glass-shell-bg);backdrop-filter:blur(var(--glass-shell-blur)) saturate(1.3);-webkit-backdrop-filter:blur(var(--glass-shell-blur)) saturate(1.3);border:1px solid var(--line);box-shadow:var(--glass-in),var(--sh-md)}
+.shell::before{content:"";position:absolute;inset:0;background:var(--glass-sheen);pointer-events:none}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .shell{background:var(--glass-shell-fallback)}
+  .content-glass{background:var(--glass-content-fallback)!important}
+}
+.content-glass{background:var(--glass-content-bg);backdrop-filter:blur(var(--glass-content-blur));-webkit-backdrop-filter:blur(var(--glass-content-blur));border:1px solid var(--line-2);box-shadow:var(--glass-in)}
+
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-radius:var(--r-lg)}
+.brand{display:flex;align-items:center;gap:11px;min-width:0}
+.brand-mark{width:38px;height:38px;border-radius:13px;flex:none;background:linear-gradient(155deg,var(--accent),var(--accent-2));display:grid;place-items:center;box-shadow:var(--glass-in),0 6px 16px -4px rgba(var(--shadow-rgb),.5);position:relative;overflow:hidden}
+.brand-mark::after{content:"";position:absolute;inset:0;background:linear-gradient(125deg,rgba(255,255,255,.5),transparent 50%)}
+.brand-mark svg{width:19px;height:19px;stroke:#fff;position:relative}
+.brand-text b{display:block;font-family:Outfit;font-size:16.5px;font-weight:700}
+.brand-text span{display:block;font-size:10.5px;color:var(--ink-3);letter-spacing:.04em}
+.topbar-actions{display:flex;align-items:center;gap:8px;flex:none}
+.icon-btn{position:relative;width:38px;height:38px;border-radius:13px;background:var(--glass-content-bg);border:1px solid var(--line);box-shadow:var(--glass-in);color:var(--ink-2);display:grid;place-items:center;cursor:pointer;transition:transform .18s ease-out}
+.icon-btn:hover{transform:translateY(-1px)}
+.icon-btn svg{width:16px;height:16px}
+.icon-btn .badge{position:absolute;top:-3px;right:-3px;min-width:15px;height:15px;padding:0 3px;border-radius:99px;background:var(--crit);color:#fff;font-size:9px;font-weight:800;display:grid;place-items:center;border:2px solid var(--bg-1)}
+.avatar{width:38px;height:38px;border-radius:13px;background:linear-gradient(155deg,#3c4a6b,#1f2740);display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff;box-shadow:var(--glass-in)}
+
+.kpi-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:14px}
+.kpi{border-radius:var(--r-card);padding:15px}
+.kpi--hero{grid-column:span 2;padding:18px}
+.kpi-label{font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3)}
+.kpi-num{font-family:Outfit;font-size:26px;font-weight:700;margin:5px 0 2px;letter-spacing:-.02em;position:relative}
+.kpi-sub{font-size:11.5px;color:var(--ink-3)}
+.kpi-metric .kpi-num{font-size:22px}
+.status-bar{display:flex;height:9px;border-radius:99px;overflow:hidden;margin:13px 0 10px;background:rgba(var(--shadow-rgb),.08);box-shadow:inset 0 1px 2px rgba(0,0,0,.08)}
+.status-bar i{display:block;height:100%}
+.status-legend{display:flex;flex-wrap:wrap;gap:10px 16px;font-size:12px;color:var(--ink-2)}
+.status-legend b{color:var(--ink)}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;box-shadow:0 0 0 3px color-mix(in srgb,currentColor 15%,transparent)}
+.fin-row{display:flex;align-items:baseline;justify-content:space-between;margin-top:10px}
+.fin-track{height:8px;border-radius:99px;background:rgba(var(--shadow-rgb),.08);overflow:hidden;margin-top:8px;box-shadow:inset 0 1px 2px rgba(0,0,0,.08)}
+.fin-fill{height:100%;background:linear-gradient(90deg,var(--accent-2),var(--accent));border-radius:99px}
+.fin-foot{display:flex;justify-content:space-between;margin-top:9px;font-size:11.5px;color:var(--ink-3)}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:700}
+.pill.crit{background:color-mix(in srgb,var(--crit) 15%,var(--mix-tint));color:color-mix(in srgb,var(--crit) 80%,var(--mix-ink))}
+.pill.warn{background:color-mix(in srgb,var(--warn) 16%,var(--mix-tint));color:color-mix(in srgb,var(--warn) 78%,var(--mix-ink))}
+.pill.pend{background:color-mix(in srgb,var(--pend) 16%,var(--mix-tint));color:color-mix(in srgb,var(--pend) 78%,var(--mix-ink))}
+.pill.ok{background:color-mix(in srgb,var(--ok) 15%,var(--mix-tint));color:color-mix(in srgb,var(--ok) 78%,var(--mix-ink))}
+
+@media(min-width:640px){.kpi-grid{grid-template-columns:repeat(4,1fr)}.kpi--hero{grid-column:span 2}}
+@media(min-width:1024px){.kpi-grid{grid-template-columns:repeat(6,1fr)}.kpi--hero{grid-column:span 3}}
+
+.visual-card{margin-top:14px;border-radius:var(--r-lg);overflow:hidden}
+.visual-head{display:flex;flex-direction:column;gap:12px;padding:19px 19px 0}
+.visual-head h2{margin:0;font-size:19px;font-weight:700}
+.visual-head p{margin:3px 0 0;color:var(--ink-3);font-size:12.5px}
+.view-switch{display:flex;gap:4px;padding:4px;background:rgba(var(--shadow-rgb),.06);border-radius:99px;width:max-content;max-width:100%;overflow-x:auto;box-shadow:inset 0 1px 3px rgba(0,0,0,.08)}
+.view-switch button{border:0;background:transparent;padding:8px 13px;border-radius:99px;font-size:12px;font-weight:600;color:var(--ink-3);cursor:pointer;white-space:nowrap;transition:color .18s}
+.view-switch button.active{background:var(--glass-content-bg);color:var(--accent-2);box-shadow:var(--glass-in),var(--sh-sm)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;align-items:center;padding:14px 19px;color:var(--ink-3);font-size:11.5px;border-bottom:1px solid var(--line-2)}
+.legend span{display:flex;align-items:center}
+
+.scene{padding:20px 14px 10px}
+.building{position:relative;max-width:760px;margin:0 auto;border-radius:20px 20px 0 0;overflow:hidden;background:var(--glass-content-bg);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);box-shadow:var(--glass-in)}
+.building::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(255,255,255,.28),transparent 13%,transparent 87%,rgba(255,255,255,.16));z-index:2}
+html[data-theme="dark"] .building::after{background:linear-gradient(90deg,rgba(255,255,255,.07),transparent 13%,transparent 87%,rgba(255,255,255,.05))}
+.roof{position:relative;height:38px;background:linear-gradient(135deg,var(--navy),color-mix(in srgb,var(--navy) 78%,var(--accent)));display:flex;align-items:center;justify-content:space-between;padding:0 16px;color:#eef1f8;font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;overflow:hidden}
+.roof::before{content:"";position:absolute;inset:0;background:linear-gradient(115deg,rgba(255,255,255,.22),transparent 40%)}
+.roof span{position:relative}
+.roof .live{color:var(--accent-2);display:flex;align-items:center;gap:5px}
+.roof .live i{width:6px;height:6px;border-radius:50%;background:var(--accent-2);box-shadow:0 0 8px var(--accent-2)}
+
+.floor{position:relative;border-top:1px solid var(--line-2);z-index:1}
+.floor-row{width:100%;border:0;background:transparent;cursor:pointer;color:inherit;text-align:left;display:grid;grid-template-columns:52px 1fr 18px;gap:10px;align-items:center;padding:11px 13px}
+.floor-num b{display:block;font-size:14.5px;font-weight:700;font-family:Outfit}
+.floor-num span{font-size:9px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.floor-windows{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.window{position:relative;min-height:38px;border-radius:11px 11px 4px 4px;display:grid;place-items:center;font-size:11px;font-weight:700;color:var(--ink)}
+.window .dot{position:absolute;top:4px;right:4px;width:5px;height:5px;border-radius:50%}
+.chevron{color:var(--ink-4);transition:transform .25s;justify-self:end}
+.floor.open .chevron{transform:rotate(180deg);color:var(--accent)}
+.floor.open .floor-row{background:rgba(255,255,255,.15)}
+html[data-theme="dark"] .floor.open .floor-row{background:rgba(255,255,255,.04)}
+
+.floor-body{display:grid;grid-template-rows:0fr;transition:grid-template-rows .32s ease}
+.floor.open .floor-body{grid-template-rows:1fr}
+.floor-body-inner{min-height:0;overflow:hidden}
+.units-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:4px 13px 16px}
+.unit-card{border-radius:14px;padding:11px;text-align:left;cursor:pointer;transition:transform .18s ease-out,box-shadow .18s}
+.unit-card:hover{transform:translateY(-2px)}
+.unit-card.selected{outline:2px solid var(--accent);outline-offset:1px}
+.unit-card-top{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:6px}
+.unit-card-top b{font-size:14px;font-family:Outfit}
+.unit-tag{font-size:8.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 6px;border-radius:99px}
+.unit-summary{font-size:11px;color:var(--ink-3);line-height:1.4}
+
+.s-ok{--c:var(--ok)}.s-warn{--c:var(--warn)}.s-pend{--c:var(--pend)}.s-crit{--c:var(--crit)}
+.window.s-ok,.window.s-warn,.window.s-pend,.window.s-crit{background:color-mix(in srgb,var(--c) 26%,rgba(255,255,255,.4));border:1px solid color-mix(in srgb,var(--c) 45%,transparent)}
+html[data-theme="dark"] .window.s-ok,html[data-theme="dark"] .window.s-warn,html[data-theme="dark"] .window.s-pend,html[data-theme="dark"] .window.s-crit{background:color-mix(in srgb,var(--c) 30%,rgba(255,255,255,.06))}
+.window .dot{background:var(--c)}
+.floor-num span{color:var(--c)}
+.unit-card.s-ok,.unit-card.s-warn,.unit-card.s-pend,.unit-card.s-crit{border-left:3px solid var(--c)}
+.unit-tag{background:color-mix(in srgb,var(--c) 18%,var(--mix-tint));color:color-mix(in srgb,var(--c) 78%,var(--mix-ink))}
+
+.lobby{position:relative;height:44px;background:linear-gradient(180deg,rgba(255,255,255,.2),rgba(255,255,255,.05));border-top:1px solid var(--line)}
+html[data-theme="dark"] .lobby{background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.01))}
+
+.assets{padding:17px 19px 21px;border-top:1px solid var(--line-2)}
+.assets h3{margin:0 0 10px;font-size:13px;font-weight:700;color:var(--ink-2)}
+.assets-row{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px}
+.asset-chip{flex:none;min-width:170px;border-radius:16px;padding:12px}
+.asset-chip-top{display:flex;justify-content:space-between;align-items:flex-start;gap:6px}
+.asset-chip-top b{font-size:12.5px;font-family:Outfit}
+.asset-chip p{margin:6px 0 0;font-size:10.5px;color:var(--ink-3);line-height:1.4}
+.asset-zone{font-size:9.5px;color:var(--ink-4);text-transform:uppercase;letter-spacing:.04em;font-weight:700}
+.asset-chip.s-ok,.asset-chip.s-warn,.asset-chip.s-pend,.asset-chip.s-crit{border-top:3px solid var(--c)}
+
+@media(min-width:640px){.floor-row{grid-template-columns:78px 1fr 22px;padding:13px 22px}.floor-windows{gap:9px}.window{min-height:50px}.units-grid{grid-template-columns:repeat(4,1fr);padding:6px 22px 20px}.assets{padding:19px 22px 24px}}
+
+.backdrop{position:fixed;inset:0;z-index:40;background:transparent;pointer-events:none}
+.backdrop.open{pointer-events:auto}
+.detail{position:fixed;left:0;right:0;bottom:0;max-height:85vh;background:var(--glass-shell-bg);backdrop-filter:blur(26px) saturate(1.3);-webkit-backdrop-filter:blur(26px) saturate(1.3);border-radius:24px 24px 0 0;border:1px solid var(--line);box-shadow:var(--glass-in),var(--sh-lg);z-index:50;transform:translateY(105%);transition:transform .34s cubic-bezier(.32,.72,0,1);overflow:auto}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.detail{background:var(--glass-shell-fallback)}}
+.detail.open{transform:translateY(0)}
+.detail-drag{width:36px;height:4px;border-radius:99px;background:var(--line);margin:10px auto}
+.detail-head{display:flex;justify-content:space-between;align-items:flex-start;padding:2px 20px 14px;border-bottom:1px solid var(--line-2)}
+.detail-head h3{margin:0;font-size:20px}
+.detail-head span{display:block;color:var(--ink-3);font-size:12px;margin-top:2px}
+.detail-close{width:30px;height:30px;border-radius:11px;background:var(--glass-content-bg);border:1px solid var(--line-2);cursor:pointer;color:var(--ink-2)}
+.detail-body{padding:16px 20px 28px}
+.detail-section{margin-bottom:18px}
+.detail-section h4{margin:0 0 8px;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3)}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.detail-field{border-radius:13px;padding:9px 11px}
+.detail-field span{display:block;font-size:10px;color:var(--ink-3)}
+.detail-field b{font-size:13.5px}
+.detail-item{border-radius:14px;padding:10px 12px;margin-bottom:8px}
+.detail-item-top{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:3px}
+.detail-item-top b{font-size:13px}
+.detail-item time{font-size:11px;color:var(--ink-3)}
+.detail-empty{font-size:12.5px;color:var(--ink-3);padding:8px 0}
+
+@media(min-width:1024px){
+  .detail{left:auto;right:24px;bottom:24px;top:24px;width:380px;border-radius:24px;transform:translateX(420px)}
+  .detail.open{transform:translateX(0)}
+  .detail-drag{display:none}
+}
+</style>
+</head>
+<body>
+<main class="app">
+  <header class="topbar shell">
+    <div class="brand">
+      <span class="brand-mark"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M4 21V6l8-3 8 3v15"/><path d="M9 21v-6h6v6"/><path d="M9 10h.01M15 10h.01M9 14h.01M15 14h.01"/></svg></span>
+      <div class="brand-text"><b>Torre Central</b><span>SMART Building · Panel administrador</span></div>
+    </div>
+    <div class="topbar-actions">
+      <button class="icon-btn" aria-label="Notificaciones"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 8a6 6 0 1112 0c0 5 2 6 2 6H4s2-1 2-6"/><path d="M10 20a2 2 0 004 0"/></svg><span class="badge">6</span></button>
+      <button class="icon-btn" aria-label="Cambiar tema" id="theme-toggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+      <div class="avatar">AC</div>
+    </div>
+  </header>
+
+  <section class="kpi-grid">
+    <article class="kpi kpi--hero shell">
+      <div class="kpi-label">Estado del edificio</div>
+      <div class="kpi-num">19 <span style="font-size:14px;color:var(--ink-3);font-family:Inter">de 28 unidades en verde</span></div>
+      <div class="status-bar"><i style="width:67.9%;background:var(--ok)"></i><i style="width:14.3%;background:var(--warn)"></i><i style="width:7.1%;background:var(--pend)"></i><i style="width:10.7%;background:var(--crit)"></i></div>
+      <div class="status-legend">
+        <span><i class="dot" style="background:var(--ok);color:var(--ok)"></i><b>19</b>&nbsp;verde</span>
+        <span><i class="dot" style="background:var(--warn);color:var(--warn)"></i><b>4</b>&nbsp;amarillo</span>
+        <span><i class="dot" style="background:var(--pend);color:var(--pend)"></i><b>2</b>&nbsp;naranja</span>
+        <span><i class="dot" style="background:var(--crit);color:var(--crit)"></i><b>3</b>&nbsp;rojo</span>
+      </div>
+    </article>
+
+    <article class="kpi kpi--hero shell">
+      <div class="kpi-label">Estado financiero</div>
+      <div class="fin-row"><span class="kpi-num">92,5%</span><span class="kpi-sub">recaudado del mes</span></div>
+      <div class="fin-track"><div class="fin-fill" style="width:92.5%"></div></div>
+      <div class="fin-foot"><span>$8.420.000 de $9.100.000</span><span>Morosidad 7,4%</span></div>
+    </article>
+
+    <article class="kpi kpi-metric shell">
+      <div class="kpi-label">Reclamos abiertos</div>
+      <div class="kpi-num">6</div>
+      <div class="kpi-sub"><span class="pill crit">3 críticos</span></div>
+    </article>
+
+    <article class="kpi kpi-metric shell">
+      <div class="kpi-label">Riesgos normativos</div>
+      <div class="kpi-num">2</div>
+      <div class="kpi-sub">1 vencido · 1 por vencer</div>
+    </article>
+
+    <article class="kpi kpi-metric shell">
+      <div class="kpi-label">Mantenimiento</div>
+      <div class="kpi-num">4</div>
+      <div class="kpi-sub">2 en curso · 3 programadas</div>
+    </article>
+
+    <article class="kpi kpi-metric shell">
+      <div class="kpi-label">Tiempo de resolución</div>
+      <div class="kpi-num">3,2<span style="font-size:13px;color:var(--ink-3)"> días</span></div>
+      <div class="kpi-sub">Promedio últimos 30 días</div>
+    </article>
+  </section>
+
+  <section class="visual-card shell">
+    <div class="visual-head">
+      <div><h2>Dashboard visual del edificio</h2><p>Tocá un piso para expandirlo y un departamento para ver su ficha completa.</p></div>
+      <div class="view-switch" role="tablist" id="view-switch">
+        <button class="active" data-view="general">General</button>
+        <button data-view="incidentes">Incidentes</button>
+        <button data-view="deudores">Deudores</button>
+        <button data-view="mantenimiento">Mantenimiento</button>
+      </div>
+    </div>
+    <div class="legend">
+      <span><i class="dot" style="background:var(--ok);color:var(--ok)"></i>Sin novedades</span>
+      <span><i class="dot" style="background:var(--warn);color:var(--warn)"></i>Atención</span>
+      <span><i class="dot" style="background:var(--pend);color:var(--pend)"></i>Pendiente</span>
+      <span><i class="dot" style="background:var(--crit);color:var(--crit)"></i>Crítico</span>
+    </div>
+    <div class="scene">
+      <div class="building">
+        <div class="roof"><span>Torre Central</span><span class="live"><i></i>Sistema en vivo</span></div>
+        <div id="floors"></div>
+        <div class="lobby"></div>
+      </div>
+    </div>
+    <div class="assets">
+      <h3>Activos y equipamiento común</h3>
+      <div class="assets-row" id="assets-row"></div>
+    </div>
+  </section>
+</main>
+
+<div class="backdrop" id="backdrop"></div>
+<aside class="detail" id="detail">
+  <div class="detail-drag"></div>
+  <div class="detail-head">
+    <div><h3 id="detail-title">—</h3><span id="detail-sub">—</span></div>
+    <button class="detail-close" id="detail-close">✕</button>
+  </div>
+  <div class="detail-body" id="detail-body"></div>
+</aside>
+
+<script>
+const STATE_ORDER=['ok','warn','pend','crit'];
+const STATE_LABEL={ok:'Sin novedades',warn:'Atención',pend:'Pendiente',crit:'Crítico'};
+const PRIORITY_LABEL={critico:'Crítico',medio:'Medio',leve:'Leve'};
+
+const buildingData=[
+ {floor:7,units:{
+   '7A':{owner:'M. Ferreyra',tenant:null,m2:68,reclamos:[],deuda:null,ot:null},
+   '7B':{owner:'Consorcio (vacío)',tenant:null,m2:54,reclamos:[],deuda:null,ot:null},
+   '7C':{owner:'J. Ibarra',tenant:'L. Sosa',m2:72,reclamos:[],deuda:null,ot:null},
+   '7D':{owner:'R. Peralta',tenant:null,m2:61,reclamos:[],deuda:null,ot:null}}},
+ {floor:6,units:{
+   '6A':{owner:'C. Ortega',tenant:'F. Bianchi',m2:70,reclamos:[{title:'Pérdida de agua en baño principal',priority:'critico',time:'Hace 8 min'}],deuda:{months:2,amount:145000},ot:null},
+   '6B':{owner:'S. Molina',tenant:null,m2:58,reclamos:[],deuda:null,ot:null},
+   '6C':{owner:'D. Aguirre',tenant:null,m2:65,reclamos:[{title:'Tablero eléctrico con disyuntor suelto',priority:'medio',time:'Hace 32 min'}],deuda:null,ot:null},
+   '6D':{owner:'N. Cabrera',tenant:'P. Duarte',m2:60,reclamos:[],deuda:null,ot:null}}},
+ {floor:5,units:{
+   '5A':{owner:'O. Vega',tenant:null,m2:66,reclamos:[],deuda:null,ot:null},
+   '5B':{owner:'V. Herrera',tenant:null,m2:63,reclamos:[],deuda:{months:1,amount:78000},ot:null},
+   '5C':{owner:'E. Suárez',tenant:'M. Lucero',m2:69,reclamos:[{title:'Puerta de acceso con bisagra rota',priority:'medio',time:'Hace 1 h'}],deuda:null,ot:{title:'Reparación de puerta — técnico asignado',state:'en_curso',provider:'Cerrajería Rivas'}},
+   '5D':{owner:'T. Iturbe',tenant:null,m2:64,reclamos:[],deuda:null,ot:null}}},
+ {floor:4,units:{
+   '4A':{owner:'P. Domínguez',tenant:null,m2:67,reclamos:[],deuda:null,ot:null},
+   '4B':{owner:'A. Villalba',tenant:'R. Nuñez',m2:59,reclamos:[],deuda:null,ot:null},
+   '4C':{owner:'L. Godoy',tenant:'A. Franco',m2:66,reclamos:[{title:'Sin suministro de gas',priority:'critico',time:'Hace 5 min'}],deuda:null,ot:null},
+   '4D':{owner:'B. Castro',tenant:null,m2:61,reclamos:[],deuda:null,ot:null}}},
+ {floor:3,units:{
+   '3A':{owner:'H. Ríos',tenant:null,m2:70,reclamos:[{title:'Sin servicios (agua y luz)',priority:'critico',time:'Hace 5 min'}],deuda:{months:2,amount:152000},ot:null},
+   '3B':{owner:'K. Moyano',tenant:null,m2:58,reclamos:[],deuda:null,ot:null},
+   '3C':{owner:'W. Salinas',tenant:'C. Ojeda',m2:63,reclamos:[],deuda:null,ot:null},
+   '3D':{owner:'G. Paz',tenant:'C. Medina',m2:59,reclamos:[{title:'Filtración en techo de living',priority:'leve',time:'Hace 2 h'}],deuda:null,ot:null}}},
+ {floor:2,units:{
+   '2A':{owner:'Y. Quiroga',tenant:null,m2:65,reclamos:[],deuda:null,ot:null},
+   '2B':{owner:'F. Acosta',tenant:null,m2:64,reclamos:[],deuda:null,ot:{title:'Pintura de palier — programada',state:'programada',provider:'Pinturería Sur'}},
+   '2C':{owner:'Z. Ledesma',tenant:null,m2:60,reclamos:[],deuda:null,ot:null},
+   '2D':{owner:'I. Correa',tenant:'B. Ramos',m2:62,reclamos:[],deuda:{months:1,amount:81000},ot:null}}},
+ {floor:1,units:{
+   '1A':{owner:'Portería / uso común',tenant:null,m2:0,reclamos:[],deuda:null,ot:null},
+   '1B':{owner:'D. Farías',tenant:null,m2:57,reclamos:[],deuda:null,ot:null},
+   '1C':{owner:'Q. Benítez',tenant:null,m2:55,reclamos:[],deuda:null,ot:null},
+   '1D':{owner:'N. Escobar',tenant:null,m2:56,reclamos:[],deuda:null,ot:null}}}
+];
+
+const assetsData=[
+ {name:'Ascensor 1',zone:'General',state:'ok',next:'Próximo service en 45 días'},
+ {name:'Ascensor 2',zone:'General',state:'warn',next:'Revisión trimestral vence en 18 días'},
+ {name:'Matafuego P3-01',zone:'Piso 3',state:'crit',next:'Vencido hace 5 días'},
+ {name:'Bomba de agua principal',zone:'Subsuelo',state:'pend',next:'OT en curso — reparación de sello'},
+ {name:'Boca de incendio PB',zone:'Planta baja',state:'ok',next:'Habilitada — vence en 8 meses'}
+];
+
+let currentView='general';
+
+function fmt(n){return n.toLocaleString('es-AR')}
+function reclamoSeverity(u){if(u.reclamos.some(r=>r.priority==='critico'))return'crit';if(u.reclamos.length)return'warn';return'ok'}
+function deudaSeverity(u){if(!u.deuda)return'ok';return u.deuda.months>1?'crit':'warn'}
+function otSeverity(u){return u.ot?'pend':'ok'}
+function maxSeverity(list){return list.reduce((m,s)=>STATE_ORDER.indexOf(s)>STATE_ORDER.indexOf(m)?s:m,'ok')}
+function severityForView(u,view){
+  if(view==='incidentes')return reclamoSeverity(u);
+  if(view==='deudores')return deudaSeverity(u);
+  if(view==='mantenimiento')return otSeverity(u);
+  return maxSeverity([reclamoSeverity(u),deudaSeverity(u),otSeverity(u)]);
+}
+function unitSummary(u,view){
+  if(view==='incidentes')return u.reclamos.length?u.reclamos[0].title+(u.reclamos.length>1?` (+${u.reclamos.length-1} más)`:''):'Sin reclamos abiertos';
+  if(view==='deudores')return u.deuda?`Deuda de ${u.deuda.months} mes(es) · $${fmt(u.deuda.amount)}`:'Expensas al día';
+  if(view==='mantenimiento')return u.ot?u.ot.title:'Sin órdenes activas';
+  const sevs={reclamo:reclamoSeverity(u),deuda:deudaSeverity(u),ot:otSeverity(u)};
+  const top=Object.entries(sevs).sort((a,b)=>STATE_ORDER.indexOf(b[1])-STATE_ORDER.indexOf(a[1]))[0];
+  if(top[1]==='ok')return'Todo en orden';
+  if(top[0]==='reclamo')return u.reclamos[0].title;
+  if(top[0]==='deuda')return`Deuda de ${u.deuda.months} mes(es) · $${fmt(u.deuda.amount)}`;
+  return u.ot.title;
+}
+
+const floorsEl=document.getElementById('floors');
+const assetsEl=document.getElementById('assets-row');
+const detailEl=document.getElementById('detail');
+const backdropEl=document.getElementById('backdrop');
+
+function renderFloors(){
+  floorsEl.innerHTML=buildingData.map(f=>{
+    const entries=Object.entries(f.units).map(([k,u])=>[k,u,severityForView(u,currentView)]);
+    const floorSeverity=maxSeverity(entries.map(e=>e[2]));
+    const windows=entries.map(([k,u,s])=>`<div class="window s-${s}"><span>${k}</span><i class="dot"></i></div>`).join('');
+    const cards=entries.map(([k,u,s])=>`
+      <button class="unit-card content-glass s-${s}" data-floor="${f.floor}" data-unit="${k}">
+        <div class="unit-card-top"><b>${k}</b><span class="unit-tag">${STATE_LABEL[s]}</span></div>
+        <div class="unit-summary">${unitSummary(u,currentView)}</div>
+      </button>`).join('');
+    return `<div class="floor s-${floorSeverity}" data-floor="${f.floor}">
+      <button class="floor-row" aria-expanded="false">
+        <div class="floor-num"><b>Piso ${f.floor}</b><span>${floorSeverity==='ok'?'Sin novedades':STATE_LABEL[floorSeverity]}</span></div>
+        <div class="floor-windows">${windows}</div>
+        <span class="chevron">⌄</span>
+      </button>
+      <div class="floor-body"><div class="floor-body-inner"><div class="units-grid">${cards}</div></div></div>
+    </div>`;
+  }).join('');
+
+  floorsEl.querySelectorAll('.floor-row').forEach(btn=>btn.addEventListener('click',()=>{
+    const floor=btn.closest('.floor');
+    const open=floor.classList.toggle('open');
+    btn.setAttribute('aria-expanded',open);
+  }));
+  floorsEl.querySelectorAll('.unit-card').forEach(btn=>btn.addEventListener('click',(e)=>{
+    e.stopPropagation();
+    openDetail(btn.dataset.floor,btn.dataset.unit);
+  }));
+}
+
+function renderAssets(){
+  assetsEl.innerHTML=assetsData.map(a=>`
+    <div class="asset-chip content-glass s-${a.state}">
+      <div class="asset-chip-top"><b>${a.name}</b><span class="unit-tag">${STATE_LABEL[a.state]}</span></div>
+      <div class="asset-zone">${a.zone}</div>
+      <p>${a.next}</p>
+    </div>`).join('');
+}
+
+function openDetail(floor,unitKey){
+  const u=buildingData.find(f=>f.floor==floor).units[unitKey];
+  document.querySelectorAll('.unit-card').forEach(c=>c.classList.remove('selected'));
+  document.querySelector(`.unit-card[data-floor="${floor}"][data-unit="${unitKey}"]`)?.classList.add('selected');
+
+  document.getElementById('detail-title').textContent=`Depto ${unitKey}`;
+  document.getElementById('detail-sub').textContent=`Piso ${floor} · ${u.m2?u.m2+' m²':'Uso común'}`;
+
+  const reclamosHtml=u.reclamos.length?u.reclamos.map(r=>`
+    <div class="detail-item content-glass"><div class="detail-item-top"><b>${r.title}</b><span class="pill ${r.priority==='critico'?'crit':'warn'}">${PRIORITY_LABEL[r.priority]}</span></div><time>${r.time}</time></div>`).join(''):'<div class="detail-empty">Sin reclamos abiertos.</div>';
+
+  const deudaHtml=u.deuda?`<div class="detail-item content-glass"><div class="detail-item-top"><b>Deuda de ${u.deuda.months} mes(es)</b><span class="pill ${u.deuda.months>1?'crit':'warn'}">$${fmt(u.deuda.amount)}</span></div></div>`:'<div class="detail-empty">Expensas al día.</div>';
+
+  const otHtml=u.ot?`<div class="detail-item content-glass"><div class="detail-item-top"><b>${u.ot.title}</b><span class="pill pend">${u.ot.state==='en_curso'?'En curso':'Programada'}</span></div><time>Proveedor: ${u.ot.provider}</time></div>`:'<div class="detail-empty">Sin órdenes de trabajo activas.</div>';
+
+  document.getElementById('detail-body').innerHTML=`
+    <div class="detail-section">
+      <h4>Datos de la unidad</h4>
+      <div class="detail-grid">
+        <div class="detail-field content-glass"><span>Propietario</span><b>${u.owner}</b></div>
+        <div class="detail-field content-glass"><span>Inquilino</span><b>${u.tenant||'—'}</b></div>
+      </div>
+    </div>
+    <div class="detail-section"><h4>Reclamos abiertos</h4>${reclamosHtml}</div>
+    <div class="detail-section"><h4>Estado de expensas</h4>${deudaHtml}</div>
+    <div class="detail-section"><h4>Mantenimiento</h4>${otHtml}</div>`;
+
+  detailEl.classList.add('open');
+  backdropEl.classList.add('open');
+}
+function closeDetail(){
+  detailEl.classList.remove('open');
+  backdropEl.classList.remove('open');
+  document.querySelectorAll('.unit-card').forEach(c=>c.classList.remove('selected'));
+}
+document.getElementById('detail-close').addEventListener('click',closeDetail);
+backdropEl.addEventListener('click',closeDetail);
+
+document.querySelectorAll('#view-switch button').forEach(btn=>btn.addEventListener('click',()=>{
+  document.querySelectorAll('#view-switch button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  currentView=btn.dataset.view;
+  renderFloors();
+}));
+
+document.getElementById('theme-toggle').addEventListener('click',(e)=>{
+  const root=document.documentElement;
+  const next=root.getAttribute('data-theme')==='dark'?'light':'dark';
+  const apply=()=>root.setAttribute('data-theme',next);
+  if(document.startViewTransition){document.startViewTransition(apply)}else{apply()}
+});
+
+renderFloors();
+renderAssets();
+</script>
+</body>
+</html>

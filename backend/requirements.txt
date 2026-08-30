@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+pydantic
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt<4.1  # passlib 1.7.4 (sin mantenimiento) no reconoce bcrypt>=4.1 (elimina bcrypt.__about__)
+python-multipart
+qrcode[pil]
+pytest
+httpx  # requerido por fastapi.testclient.TestClient

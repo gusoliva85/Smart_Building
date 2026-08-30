@@ -1,0 +1,30 @@
+Vamos a trabajar en el proyecto Smart_Building_ver3, vamos hacer una web que se puede ver web y mobile first (es uso principal).
+Para mayor detalle del proyecto vas a tener toda la información de que trata dentro del archivo "documentación\01_Documento_General.md", leelo para tener el contexto completo del proyecto.
+
+Una vez que tengas todo listo vamos a pasar al archivo "documentación\02_Documento_Tecnico.md" este documento es el deseable de lo que se quiere tener en el proyecto a la hora del desarrollo con opción de mejora constante.
+Este documento esta recién iniciado pero lo vas a tener que hacer en base a las siguientes condiciones:
+1. Entender todo el documento general para saber que se espera obtener y en base a eso se diseña el frontend
+2. El punto fuerte de este proyecto es la visualización del edificio en tiempo real con sus alertas, el código del edificio a implementar lo vas a encontrar en "\documentacion\mockups\Edificio_Solid.html"
+3. Para poder definir como se va a implementar el front vas a tener que hacer 5 mockups todos diferentes entre si (pueden ser artísticos, empresariales, premium, profesionales, etc) de la pantalla principal, teniendo en cuenta todos los pedidos anteriores, haciéndolos fácil de entender, y enfocados siempre en una buena presentación destacable, premium y profesional, con buenos efectos visuales (nada de neon).
+Una vez que definamos cual es el el frontend en base a los mockups y como queda el edificio en estos mockups, vas a completar todo el documento técnico.
+Para el frontend vamos a utilizar HTML + css + tailwind y para el backend Python y SQLite.
+
+
+Quiero que leas toda la carpeta de documentación, ahí es donde esta definido el proyecto en el archivo "documentación\01_Documento_General.md" y el archivo "documentación\02_Documento_Tecnico.md" es una idea de que es lo que se quiere hacer.
+Ya esta definido cual va a ser el front, va a ser igual a "Mockup_3D_Vidrio_Grafito" por lo que vas a tener que guardar ese formato en la skill de este proyecto u otro lugar.
+Perfecto ahora que ya esta definido el front que va a ser el archivo "Mockup_3D_Vidrio_Grafito" que usaremos como ejemplo, vas a armar toda la documentación "documentación\02_Documento_Tecnico.md" en base al mockup y el pedido de la aplicación del documento "documentación\01_Documento_General.md". 
+Como dije antes la aplicacion va a ser mobile first con su version web, pero al salir de la resolución mobile va a pasar a la versión web con su formato correspondiente, no solo tiene que ser responsibe sino que las barras de menú y todo lo visual se va adaptar para que en formato web también sea algo visualmente agradable y profesional sin perder la estética, no dejar botones o tarjetas ensanchadas y sin aprovechar los espacios.
+El frontend va a ser html + css + tailwind, y el backend python y sqlite.
+La arquitectura que vas armar tiene que ser simple, respetando las carpetas "backend" y "frontend", con la posibilidad de que sea escalable.
+
+De momento necesito que entiendas todo el proyecto, hagas un archivo llamado 03_Roadmap.md en el cual vas a documentar todas las fases que vamos a ir implementando y dentro de cada fase tareas mas chicas las cual vamos a ir implementando una a una, estas tareas y fases van a estar bien detallada y no vas a dejar pasar nada, todo lo que fue descripto en el documento inicial vamos a ir implementadolo de forma escalada.
+Es importante destacar que cada fase va a estar dividido en diferentes temas que vamos a ir abordando, no es necesario resumir sino que pueden existir muchos temas ya que el proyecto abarca muchas cosas. Lo importante es que cada Fase va a tener muchas tareas y la idea es que primero apliques la lógica, luego el backend y luego lo implementes en el front asi cada fase y tarea lo voy probando y validando al momento, no quiero que nada se implemente sin probar su funcionamiento. Te doy un ejemplo, empezamos con el alta de usuarios, entonces vas a trabajar la lógica SOLO de usuarios, luego vas a trabajar en el backend SOLO de usuarios y roles, y por ultimo para poder probar el funcionamiento voy a ver dentro del front SOLO lo de usuarios porque es lo primero que estamos haciendo y la funcionalidad para poder agregarlo, si en el caso siguiente se agrega el alta de edificio, ya empezare a ver USUARIO y EDIFICIO, los nombres y orden son a modo ejemplo, solo quiero que se entienda la idea.
+Por el motivo previo esta prohibido implementar todo junto, vamos a empezar con un HTML básico solo con el estilo implementado y vamos a ir agregando de a poco a medida que vamos creando las funcionalidades respetando el documento técnico y el roadmap. La idea es ir escalando de a poco cada funcionalidad y cuando finalices cada tarea voy a probarla tal y como ya se menciono.
+Si o si para avanzar vas a esperar mi aprobación para avanzar, una vez que tengas mi aprobación vas a marcarla como realizada con un check a la tarea realizada y en caso de que no vas a revisar la tarea.
+
+También vas a crear el archivo "iniciar.bat" que al ejecutarlo se va a levantar primero el backend, luego el frontend y por ultimo va a levantar el proyecto en un navegador.
+
+También vas a crear el archivo "que_hice.html" en donde vas a ir haciendo una bitácora de todo lo que se va haciendo, un resumen en cada slide de todo lo que se hizo en cada tarea explicándolo con palabras todo lo que se hizo en ese punto y al mismo tiempo mostrando el código implementado, vas a ir actualizando este archivo cada vez que termines una tarea.
+En caso de que te pida corregir una tarea no vas a crear un nuevo slide, sino que vas a actualizar la que se hizo.
+
+Como en este proyecto vamos a ir creando diferentes usuarios, cada usuario y contraseña (van a ser muy sencillos, ya que van a ser modo test) van a estar documentados en los primeros slides de "que_hice.html"

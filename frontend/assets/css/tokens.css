@@ -1,0 +1,73 @@
+/*
+  tokens.css — el "diccionario" de colores, sombras y vidrio de SMART Building.
+
+  Este archivo NO dibuja nada por sí solo: no tiene ni una sola clase (.algo).
+  Lo único que hace es declarar variables CSS (custom properties, el prefijo
+  --nombre) con los valores exactos tomados del mockup aprobado
+  (documentacion/mockups/Mockup_3D_Vidrio_Grafito.html) y documentados en
+  .claude/skills/premium-uiux/references/paleta-color.md.
+
+  Por qué existe separado de components.css: si el día de mañana se ajusta
+  un matiz de color, se cambia UNA vez acá y automáticamente se actualiza en
+  cada componente que lo use — nadie vuelve a escribir un color "a mano"
+  suelto en ningún otro archivo del proyecto.
+*/
+
+:root{
+  /* Neutros y superficies — tema claro (default) */
+  --bg-1:#f1f2f3; --bg-2:#e9ebec;
+  --wash-a:#d6dee3; --wash-b:#e6e2d8;
+  --ink:#1c2024;    --ink-2:#4b5157;
+  --ink-3:#7c828a;  --ink-4:#a8adb3;
+  --line:rgba(28,32,36,.10); --line-2:rgba(28,32,36,.07); --line-strong:rgba(28,32,36,.16);
+
+  /* Vidrio — dos niveles (shell = contenedores grandes, content = contenido denso) */
+  --glass-shell-bg:rgba(255,255,255,.52);   --glass-shell-blur:22px;  --glass-shell-fallback:rgba(255,255,255,.92);
+  --glass-content-bg:rgba(255,255,255,.68); --glass-content-blur:7px; --glass-content-fallback:rgba(255,255,255,.94);
+  --glass-in:inset 0 1px 0 rgba(255,255,255,.85),inset 0 0 0 1px rgba(255,255,255,.45);
+  --glass-sheen:linear-gradient(120deg,rgba(255,255,255,.55),transparent 45%);
+
+  --navy:#15181b;
+
+  /* Acento de marca — acero/grafito, deliberadamente fuera de la familia del semáforo */
+  --accent:#57768c; --accent-2:#3e5a6d; --accent-soft:#e2e9ed; --accent-ring:rgba(87,118,140,.28);
+
+  /* Semáforo funcional — idéntico en ambos temas, nunca decorativo */
+  --ok:#2e8067;   /* verde */
+  --warn:#ba8c1f; /* amarillo */
+  --pend:#bd6c2c; /* naranja */
+  --crit:#b13c47; /* rojo */
+
+  --mix-tint:#fff; --mix-ink:#1c2024;
+  --shadow-rgb:20,22,25;
+
+  /* Sombras en capas */
+  --sh-sm:0 1px 2px rgba(var(--shadow-rgb),.06), 0 4px 12px -4px rgba(var(--shadow-rgb),.12);
+  --sh-md:0 2px 6px rgba(var(--shadow-rgb),.07), 0 16px 34px -16px rgba(var(--shadow-rgb),.22);
+  --sh-lg:0 4px 16px rgba(var(--shadow-rgb),.09), 0 34px 70px -26px rgba(var(--shadow-rgb),.32);
+
+  /* Radios */
+  --r-card:20px; --r-lg:24px; --r-sm:12px;
+}
+
+html[data-theme="dark"]{
+  --bg-1:#0c0d0e; --bg-2:#0f1011; --wash-a:#1c2529; --wash-b:#221f18;
+  --ink:#eef0f1;  --ink-2:#bcc0c4; --ink-3:#868b91; --ink-4:#54585d;
+  --line:rgba(238,240,241,.10); --line-2:rgba(238,240,241,.06); --line-strong:rgba(238,240,241,.16);
+
+  --glass-shell-bg:rgba(22,25,28,.5);   --glass-shell-fallback:rgba(13,15,17,.94);
+  --glass-content-bg:rgba(22,25,28,.72); --glass-content-fallback:rgba(13,15,17,.96);
+  --glass-in:inset 0 1px 0 rgba(255,255,255,.07),inset 0 0 0 1px rgba(255,255,255,.05);
+  --glass-sheen:linear-gradient(120deg,rgba(255,255,255,.07),transparent 45%);
+
+  --navy:#050607;
+  --accent:#7ea3ba; --accent-2:#9bc0d4; --accent-soft:#151e23; --accent-ring:rgba(126,163,186,.3);
+  --mix-tint:#181b1e; --mix-ink:#f2f4f5;
+  --shadow-rgb:0,0,0;
+
+  --sh-sm:0 1px 2px rgba(0,0,0,.4), 0 4px 14px -4px rgba(0,0,0,.5);
+  --sh-md:0 2px 8px rgba(0,0,0,.35), 0 18px 38px -16px rgba(0,0,0,.55);
+  --sh-lg:0 4px 18px rgba(0,0,0,.4), 0 40px 80px -28px rgba(0,0,0,.65);
+
+  /* --ok/--warn/--pend/--crit NO se redefinen: el significado del estado no depende del tema */
+}

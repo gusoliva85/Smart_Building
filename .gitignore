@@ -1,0 +1,20 @@
+# Entorno virtual de Python (se recrea con requirements.txt)
+backend/venv/
+
+# Cachés de Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Base de datos SQLite — se genera en runtime (seed.py / la propia app),
+# nunca se versiona a mano (Documento Técnico, sección 2.3).
+backend/smart_building.db
+
+# Tailwind CLI standalone (Fase 12) generará esto — no se edita a mano.
+frontend/assets/css/output.css
+
+# Editor / SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

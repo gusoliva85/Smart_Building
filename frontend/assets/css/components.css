@@ -1,0 +1,410 @@
+/*
+  components.css — el "catálogo de piezas ya armadas" de SMART Building.
+
+  Acá sí hay clases (.shell, .topbar, .kpi, .unit-card, ...). Cada una usa
+  los ingredientes de tokens.css para construir una pieza visual completa y
+  reutilizable: la tarjeta de vidrio, la barra superior, el semáforo de
+  estado, el panel de detalle, etc. Ninguna pantalla nueva del proyecto
+  inventa su propia tarjeta o botón desde cero — todas reutilizan lo que
+  está definido acá (ver .claude/skills/premium-uiux/references/componentes.md,
+  que documenta cada patrón con su porqué).
+
+  Fuente exacta: documentacion/mockups/Mockup_3D_Vidrio_Grafito.html.
+
+  Nota de migración (Documento Técnico, sección 1.3.1): mientras el proyecto
+  usa el CDN de Tailwind (sin build), este archivo se enlaza tal cual con
+  <link rel="stylesheet">. Cuando la Fase 12 migre a Tailwind CLI standalone,
+  todo este contenido pasa a vivir dentro de un bloque `@layer components { }`
+  para integrarse formalmente con las capas de Tailwind — no cambia una sola
+  regla, solo el envoltorio.
+*/
+
+/* ============ Base de página ============ */
+
+*{ box-sizing:border-box; }
+
+body{
+  margin:0; color:var(--ink); font:15px/1.5 Inter, ui-sans-serif, system-ui, sans-serif;
+  background:
+    radial-gradient(ellipse 52% 34% at 10% -6%, var(--wash-a), transparent 62%),
+    radial-gradient(ellipse 42% 28% at 106% 6%, var(--wash-b), transparent 58%),
+    radial-gradient(ellipse 38% 26% at 50% 104%, var(--wash-a), transparent 66%),
+    linear-gradient(180deg, var(--bg-1), var(--bg-2));
+  background-attachment:fixed;
+  -webkit-font-smoothing:antialiased;
+}
+/* Textura de grano fija sobre toda la pantalla — la diferencia entre "un blur" y "vidrio real" */
+body::before{
+  content:""; position:fixed; inset:0; z-index:999; pointer-events:none;
+  opacity:.035; mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+h1, h2, h3, .display{ font-family:Outfit, sans-serif; letter-spacing:-.015em; }
+.app{ position:relative; max-width:1180px; margin:0 auto; padding:16px 14px 90px; }
+
+/* ============ Vidrio en dos capas ============ */
+
+.shell{
+  position:relative; overflow:hidden;
+  background:var(--glass-shell-bg);
+  backdrop-filter:blur(var(--glass-shell-blur)) saturate(1.15);
+  -webkit-backdrop-filter:blur(var(--glass-shell-blur)) saturate(1.15);
+  border:1px solid var(--line);
+  box-shadow:var(--glass-in), var(--sh-md);
+}
+.shell::before{ content:""; position:absolute; inset:0; background:var(--glass-sheen); pointer-events:none; }
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .shell{ background:var(--glass-shell-fallback); }
+  .content-glass{ background:var(--glass-content-fallback) !important; }
+}
+.content-glass{
+  background:var(--glass-content-bg);
+  backdrop-filter:blur(var(--glass-content-blur));
+  -webkit-backdrop-filter:blur(var(--glass-content-blur));
+  border:1px solid var(--line-2);
+  box-shadow:var(--glass-in);
+}
+
+/* ============ Topbar ============ */
+
+.topbar{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 16px; border-radius:var(--r-lg); }
+.brand{ display:flex; align-items:center; gap:11px; min-width:0; }
+.brand-mark{
+  width:38px; height:38px; border-radius:13px; flex:none;
+  background:linear-gradient(155deg, var(--accent), var(--accent-2));
+  display:grid; place-items:center;
+  box-shadow:var(--glass-in), 0 6px 16px -4px rgba(var(--shadow-rgb),.35);
+  position:relative; overflow:hidden;
+}
+.brand-mark::after{ content:""; position:absolute; inset:0; background:linear-gradient(125deg, rgba(255,255,255,.55), transparent 50%); }
+.brand-mark svg{ width:19px; height:19px; stroke:#fff; position:relative; }
+.brand-text b{ display:block; font-family:Outfit; font-size:16.5px; font-weight:700; }
+.brand-text span{ display:block; font-size:10.5px; color:var(--ink-3); letter-spacing:.04em; }
+.topbar-actions{ display:flex; align-items:center; gap:8px; flex:none; }
+.icon-btn{
+  position:relative; width:38px; height:38px; border-radius:13px;
+  background:var(--glass-content-bg); border:1px solid var(--line); box-shadow:var(--glass-in);
+  color:var(--ink-2); display:grid; place-items:center; cursor:pointer; transition:transform .18s ease-out;
+}
+.icon-btn:hover{ transform:translateY(-1px); }
+.icon-btn svg{ width:16px; height:16px; }
+.icon-btn .badge{
+  position:absolute; top:-3px; right:-3px; min-width:15px; height:15px; padding:0 3px; border-radius:99px;
+  background:var(--crit); color:#fff; font-size:9px; font-weight:800; display:grid; place-items:center;
+  border:2px solid var(--bg-1);
+}
+.avatar{
+  width:38px; height:38px; border-radius:13px;
+  background:linear-gradient(155deg,#5c6469,#33383c);
+  display:grid; place-items:center; font-size:12px; font-weight:700; color:#fff; box-shadow:var(--glass-in);
+}
+
+/* ============ Grilla de KPIs (bento) ============ */
+
+.kpi-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-top:14px; }
+.kpi{ border-radius:var(--r-card); padding:15px; }
+.kpi--hero{ grid-column:span 2; padding:18px; }
+.kpi-label{ font-size:10.5px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-3); }
+.kpi-num{ font-family:Outfit; font-size:26px; font-weight:700; margin:5px 0 2px; letter-spacing:-.02em; position:relative; }
+.kpi-sub{ font-size:11.5px; color:var(--ink-3); }
+.kpi-metric .kpi-num{ font-size:22px; }
+
+.status-bar{ display:flex; height:9px; border-radius:99px; overflow:hidden; margin:13px 0 10px; background:rgba(var(--shadow-rgb),.08); box-shadow:inset 0 1px 2px rgba(0,0,0,.08); }
+.status-bar i{ display:block; height:100%; }
+.status-legend{ display:flex; flex-wrap:wrap; gap:10px 16px; font-size:12px; color:var(--ink-2); }
+.status-legend b{ color:var(--ink); }
+.dot{ width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:6px; box-shadow:0 0 0 3px color-mix(in srgb, currentColor 15%, transparent); }
+
+.fin-row{ display:flex; align-items:baseline; justify-content:space-between; margin-top:10px; }
+.fin-track{ height:8px; border-radius:99px; background:rgba(var(--shadow-rgb),.08); overflow:hidden; margin-top:8px; box-shadow:inset 0 1px 2px rgba(0,0,0,.08); }
+.fin-fill{ height:100%; background:linear-gradient(90deg, var(--accent-2), var(--accent)); border-radius:99px; }
+.fin-foot{ display:flex; justify-content:space-between; margin-top:9px; font-size:11.5px; color:var(--ink-3); }
+
+.pill{ display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:99px; font-size:11px; font-weight:700; }
+.pill.crit{ background:color-mix(in srgb, var(--crit) 15%, var(--mix-tint)); color:color-mix(in srgb, var(--crit) 80%, var(--mix-ink)); }
+.pill.warn{ background:color-mix(in srgb, var(--warn) 16%, var(--mix-tint)); color:color-mix(in srgb, var(--warn) 78%, var(--mix-ink)); }
+.pill.pend{ background:color-mix(in srgb, var(--pend) 16%, var(--mix-tint)); color:color-mix(in srgb, var(--pend) 78%, var(--mix-ink)); }
+.pill.ok{ background:color-mix(in srgb, var(--ok) 15%, var(--mix-tint)); color:color-mix(in srgb, var(--ok) 78%, var(--mix-ink)); }
+
+@media(min-width:640px){ .kpi-grid{ grid-template-columns:repeat(4,1fr); } .kpi--hero{ grid-column:span 2; } }
+@media(min-width:1024px){ .kpi-grid{ grid-template-columns:repeat(6,1fr); } .kpi--hero{ grid-column:span 3; } }
+
+/* ============ Dashboard Visual del edificio ============ */
+
+.visual-card{ margin-top:14px; border-radius:var(--r-lg); overflow:hidden; }
+.visual-head{ display:flex; flex-direction:column; gap:12px; padding:19px 19px 0; }
+.visual-head h2{ margin:0; font-size:19px; font-weight:700; }
+.visual-head p{ margin:3px 0 0; color:var(--ink-3); font-size:12.5px; }
+.view-switch{ display:flex; gap:4px; padding:4px; background:rgba(var(--shadow-rgb),.06); border-radius:99px; width:max-content; max-width:100%; overflow-x:auto; box-shadow:inset 0 1px 3px rgba(0,0,0,.08); }
+.view-switch button{ border:0; background:transparent; padding:8px 13px; border-radius:99px; font-size:12px; font-weight:600; color:var(--ink-3); cursor:pointer; white-space:nowrap; transition:color .18s; }
+.view-switch button.active{ background:var(--glass-content-bg); color:var(--accent-2); box-shadow:var(--glass-in), var(--sh-sm); }
+.legend{ display:flex; flex-wrap:wrap; gap:14px; align-items:center; padding:14px 19px; color:var(--ink-3); font-size:11.5px; border-bottom:1px solid var(--line-2); }
+.legend span{ display:flex; align-items:center; }
+
+.scene{ padding:20px 14px 10px; }
+.building{
+  position:relative; max-width:760px; margin:0 auto; border-radius:20px 20px 0 0; overflow:hidden;
+  background:var(--glass-content-bg); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+  border:1px solid var(--line); box-shadow:var(--glass-in);
+}
+.building::after{
+  content:""; position:absolute; inset:0; pointer-events:none; z-index:2;
+  background:linear-gradient(90deg, rgba(255,255,255,.28), transparent 13%, transparent 87%, rgba(255,255,255,.16));
+}
+html[data-theme="dark"] .building::after{ background:linear-gradient(90deg, rgba(255,255,255,.06), transparent 13%, transparent 87%, rgba(255,255,255,.04)); }
+
+.roof{
+  position:relative; height:38px; background:linear-gradient(135deg, var(--navy), color-mix(in srgb, var(--navy) 78%, var(--accent)));
+  display:flex; align-items:center; justify-content:space-between; padding:0 16px; color:#eef0f1;
+  font-size:9.5px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; overflow:hidden;
+}
+.roof::before{ content:""; position:absolute; inset:0; background:linear-gradient(115deg, rgba(255,255,255,.22), transparent 40%); }
+.roof span{ position:relative; }
+.roof .live{ color:var(--accent-2); display:flex; align-items:center; gap:5px; }
+.roof .live i{ width:6px; height:6px; border-radius:50%; background:var(--accent-2); box-shadow:0 0 8px var(--accent-2); }
+
+.floor{ position:relative; border-top:1px solid var(--line-2); z-index:1; }
+.floor-row{ width:100%; border:0; background:transparent; cursor:pointer; color:inherit; text-align:left; display:grid; grid-template-columns:52px 1fr 18px; gap:10px; align-items:center; padding:11px 13px; }
+.floor-num b{ display:block; font-size:14.5px; font-weight:700; font-family:Outfit; }
+.floor-num span{ font-size:9px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; }
+.floor-windows{ display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+.window{ position:relative; min-height:38px; border-radius:11px 11px 4px 4px; display:grid; place-items:center; font-size:11px; font-weight:700; color:var(--ink); }
+.window .dot{ position:absolute; top:4px; right:4px; width:5px; height:5px; border-radius:50%; }
+.chevron{ color:var(--ink-4); transition:transform .25s; justify-self:end; }
+.floor.open .chevron{ transform:rotate(180deg); color:var(--accent); }
+.floor.open .floor-row{ background:rgba(255,255,255,.15); }
+html[data-theme="dark"] .floor.open .floor-row{ background:rgba(255,255,255,.04); }
+
+.floor-body{ display:grid; grid-template-rows:0fr; transition:grid-template-rows .32s ease; }
+.floor.open .floor-body{ grid-template-rows:1fr; }
+.floor-body-inner{ min-height:0; overflow:hidden; }
+.units-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:8px; padding:4px 13px 16px; }
+.unit-card{ border-radius:14px; padding:11px; text-align:left; cursor:pointer; transition:transform .18s ease-out, box-shadow .18s; }
+.unit-card:hover{ transform:translateY(-2px); }
+.unit-card.selected{ outline:2px solid var(--accent); outline-offset:1px; }
+.unit-card-top{ display:flex; justify-content:space-between; align-items:center; gap:6px; margin-bottom:6px; }
+.unit-card-top b{ font-size:14px; font-family:Outfit; }
+.unit-tag{ font-size:8.5px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; padding:2px 6px; border-radius:99px; }
+.unit-summary{ font-size:11px; color:var(--ink-3); line-height:1.4; }
+
+/* Estado semáforo — SIEMPRE borde completo + sombra de color, nunca barra lateral */
+.s-ok{ --c:var(--ok); } .s-warn{ --c:var(--warn); } .s-pend{ --c:var(--pend); } .s-crit{ --c:var(--crit); }
+.window.s-ok, .window.s-warn, .window.s-pend, .window.s-crit{
+  background:color-mix(in srgb, var(--c) 26%, rgba(255,255,255,.4));
+  border:1px solid color-mix(in srgb, var(--c) 45%, transparent);
+}
+html[data-theme="dark"] .window.s-ok, html[data-theme="dark"] .window.s-warn,
+html[data-theme="dark"] .window.s-pend, html[data-theme="dark"] .window.s-crit{
+  background:color-mix(in srgb, var(--c) 30%, rgba(255,255,255,.06));
+}
+.window .dot{ background:var(--c); }
+.floor-num span{ color:var(--c); }
+.unit-card.s-ok, .unit-card.s-warn, .unit-card.s-pend, .unit-card.s-crit{
+  border-color:color-mix(in srgb, var(--c) 46%, var(--line-2));
+  box-shadow:var(--glass-in), 0 10px 22px -12px color-mix(in srgb, var(--c) 60%, transparent);
+}
+.unit-tag{ background:color-mix(in srgb, var(--c) 18%, var(--mix-tint)); color:color-mix(in srgb, var(--c) 78%, var(--mix-ink)); }
+
+.lobby{ position:relative; height:44px; background:linear-gradient(180deg, rgba(255,255,255,.2), rgba(255,255,255,.05)); border-top:1px solid var(--line); }
+html[data-theme="dark"] .lobby{ background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.01)); }
+
+.assets{ padding:17px 19px 21px; border-top:1px solid var(--line-2); }
+.assets h3{ margin:0 0 10px; font-size:13px; font-weight:700; color:var(--ink-2); }
+.assets-row{ display:flex; gap:10px; overflow-x:auto; padding-bottom:4px; }
+.asset-chip{ flex:none; min-width:170px; border-radius:16px; padding:12px; }
+.asset-chip-top{ display:flex; justify-content:space-between; align-items:flex-start; gap:6px; }
+.asset-chip-top b{ font-size:12.5px; font-family:Outfit; }
+.asset-chip p{ margin:6px 0 0; font-size:10.5px; color:var(--ink-3); line-height:1.4; }
+.asset-zone{ font-size:9.5px; color:var(--ink-4); text-transform:uppercase; letter-spacing:.04em; font-weight:700; }
+.asset-chip.s-ok, .asset-chip.s-warn, .asset-chip.s-pend, .asset-chip.s-crit{
+  border-color:color-mix(in srgb, var(--c) 46%, var(--line-2));
+  box-shadow:var(--glass-in), 0 10px 22px -12px color-mix(in srgb, var(--c) 60%, transparent);
+}
+
+@media(min-width:640px){
+  .floor-row{ grid-template-columns:78px 1fr 22px; padding:13px 22px; }
+  .floor-windows{ gap:9px; }
+  .window{ min-height:50px; }
+  .units-grid{ grid-template-columns:repeat(4,1fr); padding:6px 22px 20px; }
+  .assets{ padding:19px 22px 24px; }
+}
+
+/* ============ Panel de detalle (hoja inferior en mobile, lateral fijo en desktop) ============ */
+
+.backdrop{ position:fixed; inset:0; z-index:40; background:transparent; pointer-events:none; }
+.backdrop.open{ pointer-events:auto; }
+
+.detail{
+  position:fixed; left:0; right:0; bottom:0; max-height:85vh;
+  background:var(--glass-shell-bg); backdrop-filter:blur(26px) saturate(1.15); -webkit-backdrop-filter:blur(26px) saturate(1.15);
+  border-radius:24px 24px 0 0; border:1px solid var(--line); box-shadow:var(--glass-in), var(--sh-lg);
+  z-index:50; transform:translateY(105%); transition:transform .34s cubic-bezier(.32,.72,0,1); overflow:auto;
+}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){ .detail{ background:var(--glass-shell-fallback); } }
+.detail.open{ transform:translateY(0); }
+.detail-drag{ width:36px; height:4px; border-radius:99px; background:var(--line); margin:10px auto; }
+.detail-head{ display:flex; justify-content:space-between; align-items:flex-start; padding:2px 20px 14px; border-bottom:1px solid var(--line-2); }
+.detail-head h3{ margin:0; font-size:20px; }
+.detail-head span{ display:block; color:var(--ink-3); font-size:12px; margin-top:2px; }
+.detail-close{ width:30px; height:30px; border-radius:11px; background:var(--glass-content-bg); border:1px solid var(--line-2); cursor:pointer; color:var(--ink-2); }
+.detail-body{ padding:16px 20px 28px; }
+.detail-section{ margin-bottom:18px; }
+.detail-section h4{ margin:0 0 8px; font-size:10.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-3); }
+.detail-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.detail-field{ border-radius:13px; padding:9px 11px; }
+.detail-field span{ display:block; font-size:10px; color:var(--ink-3); }
+.detail-field b{ font-size:13.5px; }
+.detail-item{ border-radius:14px; padding:10px 12px; margin-bottom:8px; }
+.detail-item-top{ display:flex; justify-content:space-between; gap:8px; align-items:center; margin-bottom:3px; }
+.detail-item-top b{ font-size:13px; }
+.detail-item time{ font-size:11px; color:var(--ink-3); }
+.detail-empty{ font-size:12.5px; color:var(--ink-3); padding:8px 0; }
+
+@media(min-width:1024px){
+  .detail{ left:auto; right:24px; bottom:24px; top:24px; width:380px; border-radius:24px; transform:translateX(420px); }
+  .detail.open{ transform:translateX(0); }
+  .detail-drag{ display:none; }
+}
+
+/* ============ Formularios ============
+   El mockup base (solo el dashboard) nunca incluyó un formulario, así que
+   este patrón no viene "extraído" de ahí — se construye con los mismos
+   tokens (--r-sm, --glass-content-bg, --line, --accent, --crit) para que
+   se sienta parte del mismo sistema. Es el primero de muchos formularios
+   del proyecto (login hoy; alta de edificio, de usuario, de reclamo...
+   después) — todos reutilizan este mismo bloque, no uno nuevo por pantalla.
+*/
+
+.campo{ display:flex; flex-direction:column; gap:6px; margin-bottom:14px; min-width:0; }
+.campo label{ font-size:12px; font-weight:600; color:var(--ink-2); }
+.campo input, .campo select, .campo textarea{
+  width:100%; min-width:0; box-sizing:border-box; font:inherit; padding:10px 13px; border-radius:var(--r-sm);
+  background:var(--glass-content-bg); border:1px solid var(--line);
+  color:var(--ink); outline:none; transition:border-color .18s, box-shadow .18s;
+}
+.campo input:focus, .campo select:focus, .campo textarea:focus{
+  border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-ring);
+}
+
+.boton-primario{
+  width:100%; padding:11px; border-radius:var(--r-sm); border:0; cursor:pointer;
+  background:linear-gradient(155deg, var(--accent), var(--accent-2)); color:#fff;
+  font-family:Outfit; font-weight:700; font-size:14px; transition:transform .18s ease-out, opacity .18s;
+}
+.boton-primario:hover:not(:disabled){ transform:translateY(-1px); }
+.boton-primario:disabled{ opacity:.6; cursor:default; transform:none; }
+
+.mensaje-error{
+  display:flex; align-items:center; gap:8px; padding:10px 13px; border-radius:var(--r-sm);
+  background:color-mix(in srgb, var(--crit) 15%, var(--mix-tint));
+  color:color-mix(in srgb, var(--crit) 80%, var(--mix-ink));
+  font-size:13px; font-weight:600; margin-bottom:14px;
+}
+
+/* Enlace de navegación entre pantallas — pill con vidrio de contenido,
+   mismo lenguaje que .icon-btn/.view-switch (borde + leve elevación al
+   pasar el mouse). Distinto de .pill (esa es exclusiva del semáforo de
+   estado, nunca para navegación). */
+.chip-link{
+  display:inline-flex; align-items:center; padding:8px 16px; border-radius:99px;
+  font-size:12.5px; font-weight:600; color:var(--ink-2);
+  background:var(--glass-content-bg); border:1px solid var(--line);
+  text-decoration:none; transition:transform .18s ease-out, color .18s, border-color .18s;
+}
+.chip-link:hover{ transform:translateY(-1px); color:var(--accent-2); border-color:var(--accent); }
+
+/* ============ Sidebar de navegación (zona autenticada) ============
+   Documento Técnico, sección 4.1. Toda pantalla detrás de login comparte
+   este layout: sidebar fija (desktop) o panel deslizante (mobile) +
+   columna principal con su propio topbar. Se monta con assets/js/layout.js.
+*/
+.layout-app{ display:flex; min-height:100vh; align-items:flex-start; }
+
+.sidebar{
+  width:248px; flex:none; display:flex; flex-direction:column; padding:18px 14px;
+  border-radius:0; position:sticky; top:0; height:100vh; gap:18px; overflow-y:auto;
+}
+.sidebar-brand{ display:flex; align-items:center; gap:10px; padding:0 6px; }
+.sidebar-nav{ display:flex; flex-direction:column; gap:4px; flex:1; }
+.sidebar-link{
+  display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:var(--r-sm);
+  color:var(--ink-2); font-size:13.5px; font-weight:600; text-decoration:none;
+  transition:background .18s, color .18s;
+}
+.sidebar-link:hover{ background:var(--glass-content-bg); color:var(--ink); }
+.sidebar-link.activo{ background:var(--accent-soft); color:var(--accent-2); }
+.sidebar-link svg{ width:17px; height:17px; flex:none; }
+.sidebar-footer{ border-top:1px solid var(--line-2); padding-top:14px; display:flex; flex-direction:column; gap:10px; }
+.sidebar-user{ display:flex; align-items:center; gap:10px; padding:0 6px; }
+.sidebar-user .nombre{ font-size:12.5px; font-weight:700; color:var(--ink); }
+.sidebar-user .rol{ font-size:10.5px; color:var(--ink-3); }
+
+.main-column{ flex:1; min-width:0; padding:16px 20px 60px; }
+.hamburger-btn{ display:none; }
+
+.sidebar-backdrop{ position:fixed; inset:0; z-index:55; background:transparent; pointer-events:none; }
+.sidebar-backdrop.open{ pointer-events:auto; }
+
+@media(max-width:1023px){
+  .sidebar{
+    position:fixed; left:0; top:0; bottom:0; z-index:60; width:82vw; max-width:300px;
+    transform:translateX(-105%); transition:transform .3s cubic-bezier(.32,.72,0,1); border-radius:0 20px 20px 0;
+  }
+  .sidebar.open{ transform:translateX(0); }
+  .hamburger-btn{ display:grid; }
+}
+@media(min-width:1024px){ .hamburger-btn{ display:none; } }
+
+/* ============ Modal de aviso ============ */
+.modal-backdrop{
+  position:fixed; inset:0; z-index:80; background:rgba(0,0,0,.35);
+  display:flex; align-items:center; justify-content:center; padding:20px;
+  opacity:0; pointer-events:none; transition:opacity .22s ease;
+}
+.modal-backdrop.open{ opacity:1; pointer-events:auto; }
+.modal{
+  max-width:360px; width:100%; padding:24px 22px; text-align:center;
+  transform:scale(.96); transition:transform .22s ease;
+}
+.modal-backdrop.open .modal{ transform:scale(1); }
+.modal-icono{
+  width:44px; height:44px; margin:0 auto 12px; border-radius:50%; display:grid; place-items:center;
+  background:color-mix(in srgb, var(--warn) 16%, var(--mix-tint)); color:color-mix(in srgb, var(--warn) 75%, var(--mix-ink));
+}
+.modal h3{ margin:0 0 8px; font-size:16.5px; }
+.modal p{ margin:0 0 18px; font-size:13px; color:var(--ink-3); line-height:1.5; }
+
+/* ============ Mapa (Leaflet) dentro del formulario ============ */
+.mapa-campo{ margin-bottom:14px; }
+.mapa-campo label{ font-size:12px; font-weight:600; color:var(--ink-2); display:block; margin-bottom:6px; }
+.mapa-contenedor{
+  height:200px; border-radius:var(--r-sm); overflow:hidden; border:1px solid var(--line);
+  background:var(--glass-content-bg);
+}
+.mapa-vacio{ height:100%; display:flex; align-items:center; justify-content:center; font-size:12px; color:var(--ink-4); text-align:center; padding:0 20px; }
+
+/* ============ Panel centrado dentro de .main-column ============
+   .main-column es flex:1 (ocupa todo el ancho restante del sidebar) — un
+   .shell con max-width suelto ahí adentro queda pegado a la izquierda, no
+   centrado, porque un bloque normal no se autocentra solo. Cualquier
+   tarjeta de contenido (formulario, aviso, confirmación) usa esta clase
+   en vez de un max-width + margin sueltos por pantalla. */
+.panel-centrado{ max-width:640px; width:100%; margin:0 auto; }
+
+/* Badge de rol — acento de marca, nunca semáforo (el rol de un usuario no
+   es un estado de severidad). Reutilizable en cualquier listado futuro
+   que muestre el rol de alguien (proveedores, reclamos asignados...). */
+.rol-badge{
+  display:inline-flex; align-items:center; padding:3px 9px; border-radius:99px;
+  font-size:10.5px; font-weight:700; white-space:nowrap;
+  background:var(--accent-soft); color:var(--accent-2);
+}
+
+/* Fila de listado — mismo look que .detail-item, para cualquier pantalla
+   con "lista de cosas + alta en panel .detail" (usuarios hoy, después
+   proveedores, reclamos, activos...). */
+.fila-lista{
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  flex-wrap:wrap;
+}
+.fila-lista-acciones{ display:flex; align-items:center; gap:8px; flex:none; }
