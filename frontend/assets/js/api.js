@@ -5,7 +5,7 @@
 // manejar los errores siempre de la misma forma. Cada pantalla usa
 // `Api.get(...)`, `Api.post(...)`, etc. en vez de llamar a fetch() directo.
 
-const API_BASE_URL = 'http://127.0.0.1:8000/api';
+const API_BASE_URL = window.API_BASE_URL; // definido en config.js, según el entorno
 const CLAVE_TOKEN = 'smart_building_token';
 
 function obtenerToken() {

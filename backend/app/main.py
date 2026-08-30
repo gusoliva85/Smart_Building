@@ -10,9 +10,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 import app.models  # noqa: F401 — registra todos los modelos en Base.metadata
-from app.core.config import NOMBRE_APP, ORIGENES_CORS
+from app.core.config import NOMBRE_APP, ORIGENES_CORS, verificar_configuracion_produccion
 from app.database import Base, engine
 from app.routers import auth, edificios, usuarios
+
+verificar_configuracion_produccion()
 
 app = FastAPI(title=NOMBRE_APP)
 

@@ -1,6 +1,7 @@
 fastapi
 uvicorn[standard]
 sqlalchemy
+psycopg2-binary  # driver de Postgres — se usa solo cuando DATABASE_URL apunta a Supabase
 pydantic
 python-jose[cryptography]
 passlib[bcrypt]
