@@ -286,6 +286,7 @@
     <div class="toc-group">
       <a class="toc-link" data-goto="portada"><span class="n">—</span>Portada</a>
       <a class="toc-link" data-goto="credenciales"><span class="n">01</span>Credenciales de prueba</a>
+      <a class="toc-link" data-goto="infra-github"><span class="n">02</span>Control de versiones (GitHub)</a>
     </div>
 
     <div class="toc-group">
@@ -337,7 +338,7 @@
       <div class="stage-crumb"><strong id="crumb-text">Portada</strong></div>
       <div class="stage-nav">
         <button class="nav-btn" id="btn-prev" aria-label="Slide anterior"><svg><use href="#i-prev"/></svg></button>
-        <span class="slide-counter" id="slide-counter">1 / 31</span>
+        <span class="slide-counter" id="slide-counter">1 / 32</span>
         <button class="nav-btn" id="btn-next" aria-label="Slide siguiente"><svg><use href="#i-next"/></svg></button>
       </div>
     </div>
@@ -876,6 +877,69 @@ Backend apagado (lo detuve a propósito) -> Api.get('/salud') lanzó:
             <p class="titulo">Fase 0 completa — 12 / 12 tareas aprobadas</p>
             <p>El usuario probó <code>iniciar.bat</code> con doble clic real y confirmó que levanta el backend, el frontend y abre el navegador correctamente. Backend y frontend están conectados de verdad (endpoint <code>/api/salud</code>), el sistema de diseño está extraído del mockup aprobado, y quedó verificado en desktop y mobile, con tema claro y oscuro. A partir de acá arranca la <strong>Fase 1 — Usuarios, autenticación y estructura del edificio</strong>.</p>
           </div>
+        </div>
+      </section>
+
+      <!-- ============ SLIDE: INFRAESTRUCTURA — GITHUB ============
+           No pertenece a ninguna Fase del Roadmap: es infraestructura del
+           proyecto (control de versiones), pedida directamente por el
+           usuario fuera del flujo tarea-por-tarea. Queda documentada acá,
+           en su propia slide, en vez de forzarla dentro de una fase a la
+           que no pertenece. -->
+      <section class="slide tarea" id="infra-github" data-crumb="Infraestructura · Control de versiones">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Infraestructura</span>
+            <h3>El proyecto pasa a versionarse en GitHub</h3>
+            <span class="status done"><i class="dot"></i>Hecho</span>
+          </div>
+          <p class="lede">A pedido explícito del usuario: se dejó de usar <code>iniciar.bat</code> (cada quien levanta backend y frontend a mano, documentado en <code>README.md</code>) y el proyecto se inicializó como repositorio git, conectado a <code>github.com/gusoliva85/Smart_Building</code> por SSH.</p>
+
+          <h4>Qué se armó</h4>
+          <ul>
+            <li><code>.gitignore</code>: excluye <code>backend/venv/</code>, <code>__pycache__/</code>, <code>.pytest_cache/</code> y <code>backend/smart_building.db</code> (esta última ya estaba documentada como "se genera en runtime, no se versiona a mano" desde el Documento Técnico original — nunca debió versionarse).</li>
+            <li><code>README.md</code> nuevo, en la raíz: qué es el proyecto, links a la documentación, y los pasos manuales para levantar backend y frontend en dos terminales (reemplaza lo que hacía <code>iniciar.bat</code>).</li>
+            <li><code>git init</code> + identidad de commits configurada <strong>local a este repo</strong> (no global, para no afectar otros proyectos en la misma máquina) con el email ya conocido del usuario y <code>gusoliva85</code> (su usuario de GitHub) como nombre.</li>
+            <li>Primer commit: 70 archivos, ~11.300 líneas — toda la documentación, la skill de diseño, el backend y el frontend hasta la Fase 1 inclusive, más esta misma bitácora.</li>
+          </ul>
+
+          <div class="explicacion">
+            <div class="explicacion-titulo">
+              <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              Antes de comprometerse a nada: dos preguntas y un chequeo técnico
+            </div>
+            <p>"Dejar de tener <code>iniciar.bat</code>" y "manejar todo en GitHub" son dos decisiones con implicancias distintas — no asumí ninguna de las dos. Se le preguntó al usuario explícitamente: <strong>(1)</strong> qué reemplaza a <code>iniciar.bat</code> para probar cada tarea de acá en adelante (respuesta: nada, lo levanta a mano) y <strong>(2)</strong> si "todo en GitHub" significa solo control de versiones o también CI/CD (respuesta: solo control de versiones, por ahora).</p>
+            <p>Antes de prometer nada, se verificó el entorno: <code>git</code> instalado (2.55.0), pero <strong>sin ninguna clave SSH configurada</strong> en la máquina — el test de conexión a GitHub devolvió <code>Permission denied (publickey)</code>. Eso se le explicó al usuario de entrada, junto con la aclaración de que agregar la clave a su cuenta de GitHub es un paso que <strong>solo él puede hacer</strong> — no algo que se pueda resolver desde acá.</p>
+          </div>
+
+          <h4>Clave SSH: generada acá, autorizada del lado del usuario</h4>
+          <div class="code-block">$ ssh-keygen -t ed25519 -C "auranegra360@gmail.com" -f ~/.ssh/id_ed25519_smartbuilding
+
+<span class="cm"># + entrada en ~/.ssh/config para que git use esta clave (no la default) al hablar con github.com</span></div>
+          <p>Clave dedicada a este proyecto (no se tocó ninguna clave default que pudiera existir), con su propia entrada en <code>~/.ssh/config</code> apuntando a <code>github.com</code>.</p>
+
+          <div class="correccion">
+            <div class="correccion-titulo">
+              <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              El primer push falló — mensaje de error interpretado, no adivinado
+            </div>
+            <p>Primer intento de <code>git push</code>: <code>ERROR: The key you are authenticating with has been marked as read only.</code> Ese mensaje puntual (no un genérico "permission denied") apunta a una causa concreta: la clave se había agregado como <strong>Deploy Key del repositorio</strong> (que nace de solo lectura salvo que se marque lo contrario) en vez de como clave de la <strong>cuenta</strong> del usuario. Se le explicaron las dos formas de resolverlo (habilitar "Allow write access" en la deploy key, o agregarla directamente en la configuración de la cuenta) — el usuario mandó una captura mostrando que estaba mirando la sección de Deploy Keys del repo (vacía), lo cual confirmó que el problema era el lugar equivocado, no una clave mal copiada. Se lo guio paso a paso a <code>github.com/settings/keys</code> (la de la cuenta, no la del repo) con la aclaración de elegir <strong>"Authentication Key"</strong> y no "Signing Key" — un segundo detalle que también hubiera hecho fallar el push aunque la clave estuviera en el lugar correcto.</p>
+          </div>
+
+          <h4>Resultado verificado</h4>
+          <div class="code-block">$ ssh -T git@github.com
+Hi gusoliva85/Smart_Building! You've successfully authenticated, but GitHub does not provide shell access.
+
+$ git push -u origin main
+To github.com:gusoliva85/Smart_Building.git
+ * [new branch]      main -> main
+branch 'main' set up to track 'origin/main'.
+
+$ git status
+On branch main
+Your branch is up to date with 'origin/main'.
+nothing to commit, working tree clean</div>
+          <p>De acá en adelante, cada tarea nueva del Roadmap suma su propio commit — el historial de cambios queda en GitHub, no solo en esta bitácora.</p>
         </div>
       </section>
 
