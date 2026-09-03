@@ -1937,6 +1937,15 @@ location.href = 'dashboard.html';</div>
             <p>Verificado con Playwright: el ícono se mantiene visible (y correcto) después de cada clic, en ambas direcciones; los atributos <code>autocomplete</code> y los nuevos placeholders quedaron confirmados en el DOM.</p>
           </div>
 
+          <div class="correccion">
+            <div class="correccion-titulo">
+              <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              Feedback: activar/desactivar recargaba todo el listado
+            </div>
+            <p><code>alternarEstado()</code> llamaba a <code>cargarListado()</code> después de cada cambio — refetch completo a la API y un repintado de <strong>toda</strong> la lista, con un parpadeo de "Cargando…" de por medio, por cambiar el estado de un solo usuario. Se reemplazó por una actualización puntual: la respuesta de <code>desactivar</code>/<code>PATCH</code> ya trae el usuario actualizado completo, así que ahora se reconstruye solo esa fila (<code>renderFila()</code>, factorizado del listado) y se reemplaza únicamente ese nodo del DOM — el resto de la lista no se toca.</p>
+            <p>Verificado con Playwright de forma exigente: se marcaron las 5 filas del listado con un atributo de control antes de desactivar un usuario — después del cambio, las 4 filas no tocadas conservaron su marcador intacto (prueba de que no se re-renderizaron) y solo la fila afectada lo perdió, porque es la única que se reconstruyó de verdad. Cero apariciones de "Cargando…" durante el cambio.</p>
+          </div>
+
           <h4>Verificación con Playwright, contra el backend real</h4>
           <ul>
             <li>Listado real: Administrador General, Propietario de Prueba, Administrador de Consorcio de Prueba.</li>

@@ -24,18 +24,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const ETIQUETAS_ROL = window.Layout.ETIQUETAS_ROL;
 
-  async function cargarListado() {
-    listaUsuarios.innerHTML = '<p style="font-size:12.5px;color:var(--ink-3);padding:10px 0;">Cargando…</p>';
-    let usuarios;
-    try {
-      usuarios = await window.Api.get('/usuarios');
-    } catch (error) {
-      listaUsuarios.innerHTML = `<p style="font-size:12.5px;color:var(--crit);padding:10px 0;">${error.message}</p>`;
-      return;
-    }
-
-    listaUsuarios.innerHTML = usuarios
-      .map((u) => `
+  // Arma el HTML de una fila a partir del usuario — la usan tanto el
+  // listado completo (carga inicial) como alternarEstado (actualización
+  // puntual de una sola fila, sin recargar todo).
+  function renderFila(u) {
+    return `
         <div class="detail-item content-glass fila-lista" data-id="${u.id}">
           <div>
             <b style="font-size:13.5px;">${u.nombre}</b>
@@ -48,25 +41,45 @@ document.addEventListener('DOMContentLoaded', async () => {
               ${u.activo ? 'Desactivar' : 'Reactivar'}
             </button>
           </div>
-        </div>`)
-      .join('');
-
-    listaUsuarios.querySelectorAll('.boton-alternar-estado').forEach((boton) => {
-      boton.addEventListener('click', () => alternarEstado(boton));
-    });
+        </div>`;
   }
 
+  function conectarBotonAlternar(boton) {
+    boton.addEventListener('click', () => alternarEstado(boton));
+  }
+
+  async function cargarListado() {
+    listaUsuarios.innerHTML = '<p style="font-size:12.5px;color:var(--ink-3);padding:10px 0;">Cargando…</p>';
+    let usuarios;
+    try {
+      usuarios = await window.Api.get('/usuarios');
+    } catch (error) {
+      listaUsuarios.innerHTML = `<p style="font-size:12.5px;color:var(--crit);padding:10px 0;">${error.message}</p>`;
+      return;
+    }
+
+    listaUsuarios.innerHTML = usuarios.map(renderFila).join('');
+    listaUsuarios.querySelectorAll('.boton-alternar-estado').forEach(conectarBotonAlternar);
+  }
+
+  // Activar/desactivar actualiza SOLO la fila afectada (con el usuario real
+  // que devuelve la API), en vez de recargar el listado entero — evita el
+  // parpadeo de "Cargando…" y el refetch completo por un cambio de un campo.
   async function alternarEstado(boton) {
     const id = boton.dataset.id;
     const estaActivo = boton.dataset.activo === 'true';
     boton.disabled = true;
     try {
-      if (estaActivo) {
-        await window.Api.post(`/usuarios/${id}/desactivar`);
-      } else {
-        await window.Api.patch(`/usuarios/${id}`, { activo: true });
-      }
-      await cargarListado();
+      const usuarioActualizado = estaActivo
+        ? await window.Api.post(`/usuarios/${id}/desactivar`)
+        : await window.Api.patch(`/usuarios/${id}`, { activo: true });
+
+      const filaActual = listaUsuarios.querySelector(`.fila-lista[data-id="${id}"]`);
+      const filaNueva = document.createElement('div');
+      filaNueva.innerHTML = renderFila(usuarioActualizado).trim();
+      const filaElemento = filaNueva.firstElementChild;
+      conectarBotonAlternar(filaElemento.querySelector('.boton-alternar-estado'));
+      filaActual.replaceWith(filaElemento);
     } catch (error) {
       boton.disabled = false;
       alert(error.message); // acción secundaria de una fila — no amerita su propio modal
