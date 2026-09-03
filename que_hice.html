@@ -332,10 +332,17 @@
       <a class="toc-link" data-goto="f12-t2"><span class="n">2</span>Toggle de tema: barrido circular<span class="estado-mini done"></span></a>
     </div>
 
+    <div class="toc-group">
+      <span class="toc-group-title" data-goto="fase-2-divider">Fase 2 — Finanzas</span>
+      <a class="toc-link" data-goto="f2-t1"><span class="n">1</span>Lógica: criterio de prorrateo<span class="estado-mini pend"></span></a>
+    </div>
+
     <div class="toc-progress">
       Fase 0 — <strong style="color:var(--accent-2)">12 / 12 completa</strong>
       <div class="bar"><i style="width:100%"></i></div>
-      Fase 1 — en curso. Las fases siguientes (Finanzas, Reclamos...) se agregan a esta bitácora a medida que se implementan — ver <code>documentacion/03_Roadmap.md</code>.
+      Fase 1 — <strong style="color:var(--accent-2)">18 / 18 completa</strong>
+      <div class="bar"><i style="width:100%"></i></div>
+      Fase 2 — en curso. Las fases siguientes (Reclamos, Activos...) se agregan a esta bitácora a medida que se implementan — ver <code>documentacion/03_Roadmap.md</code>.
     </div>
   </nav>
 
@@ -952,11 +959,11 @@ nothing to commit, working tree clean</div>
       </section>
 
       <!-- ============ SLIDE: DIVISOR FASE 1 ============ -->
-      <section class="slide slide-divider" id="fase-1-divider" data-crumb="Fase 1 — Usuarios y edificio">
+      <section class="slide slide-divider completa" id="fase-1-divider" data-crumb="Fase 1 — Usuarios y edificio">
         <div class="slide-inner">
           <div class="divider-num">01</div>
           <h2>Fase 1 — Usuarios, autenticación y estructura del edificio</h2>
-          <div class="fase-frac-grande" id="fase1-frac">3 / 14 aprobadas</div>
+          <div class="fase-frac-grande" id="fase1-frac">18 / 18 — completa</div>
           <p class="divider-desc">Corresponde al Documento General, secciones 3 y 5; Documento Técnico, secciones 6 y 7. Es la base de datos de la que depende absolutamente todo lo demás — sin usuarios y edificios, ningún otro módulo tiene sobre qué trabajar.</p>
         </div>
       </section>
@@ -2084,6 +2091,11 @@ location.href = 'dashboard.html';</div>
             <li>Verificado también en mobile (Pixel 5, taps táctiles reales): sin overflow horizontal en el listado ni en la Estructura, filas de departamento envuelven prolijo cuando hace falta.</li>
             <li>Cero errores de consola o de página en todo el flujo.</li>
           </ul>
+
+          <div class="cierre-fase">
+            <p class="titulo">Fase 1 completa — 18 / 18 tareas aprobadas</p>
+            <p>Usuarios, autenticación y estructura del edificio quedan cerrados de punta a punta: RBAC, login, CRUD de usuarios con alta/edición/activar-desactivar, y edificios con alta + listado + estructura completa (pisos, departamentos, cocheras, espacios comunes, asignación de propietario/inquilino). A partir de acá arranca la <strong>Fase 2 — Gestión financiera básica</strong>, el módulo del que depende directamente el color amarillo/rojo por deuda del Dashboard Visual.</p>
+          </div>
         </div>
       </section>
 
@@ -2174,6 +2186,60 @@ boton.addEventListener(<span class="str">'click'</span>, () => {
 });</div>
             <p>Verificado con Playwright: activar oscuro en el Dashboard y navegar a Edificios y a Usuarios mantiene el tema oscuro en las dos (antes volvía a claro); el CSS ya no tiene ninguna regla <code>view-transition</code>; cero errores. La skill (<code>componentes.md</code>) y el Roadmap (Fase 12) quedaron actualizados reflejando el revert — no se reintenta el barrido sin que el usuario lo pida de nuevo explícitamente.</p>
           </div>
+        </div>
+      </section>
+
+      <section class="slide slide-divider" id="fase-2-divider" data-crumb="Fase 2 — Finanzas">
+        <div class="slide-inner">
+          <div class="divider-num">02</div>
+          <h2>Fase 2 — Gestión financiera básica</h2>
+          <div class="fase-frac-grande" id="fase2-frac">0 / 14 aprobadas</div>
+          <p class="divider-desc">Corresponde al Documento General, sección 6; Documento Técnico, sección 8. El módulo más sensible: de acá sale directamente el dato de morosidad que colorea de amarillo/rojo un departamento en el Dashboard Visual (Fase 5).</p>
+        </div>
+      </section>
+
+      <section class="slide tarea" id="f2-t1" data-crumb="Fase 2 · Tarea 1">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 1</span>
+            <h3>Lógica: criterio de prorrateo</h3>
+            <span class="status pend"><i class="dot"></i>Implementado — pendiente de tu revisión</span>
+          </div>
+          <p class="lede">Primera tarea de la Fase 2 — se define la regla de cómo se reparte un gasto entre los departamentos de un edificio, en Python puro y sin tocar ningún modelo todavía (mismo patrón que ya se usó para la estructura vacía del edificio en la Fase 1). El propio Roadmap lo advierte: "es la pieza más delicada del módulo, porque un error afecta a todos los propietarios a la vez" — por eso se validó contra información externa real antes de escribir una sola línea, a pedido explícito del usuario.</p>
+
+          <div class="explicacion">
+            <div class="explicacion-titulo">
+              <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              Lo que decía la documentación vs. lo que dice la ley real
+            </div>
+            <p>Lo que había escrito hasta ahora (Documento General 6.1) era: "prorrateada según el criterio configurado (partes iguales, por m², u otro coeficiente)" — como si fuera un interruptor global por edificio. Investigando contra la normativa argentina real (Ley 13.512 y su continuación en el Código Civil y Comercial, arts. 2037 y siguientes) aparece algo distinto: cada unidad funcional tiene un <strong>coeficiente (%) fijo</strong>, registrado en el reglamento de propiedad horizontal del edificio — no un criterio global recalculado en cada liquidación. Ese coeficiente es el dato legalmente vinculante.</p>
+            <p>Dato real adicional, no contemplado antes: por reglamento, algunas unidades pueden estar exentas de un gasto puntual (el caso típico es planta baja sin pagar el ascensor) — requiere estar explícito en el reglamento o cambiarse por unanimidad en asamblea. Se consultó con el usuario si incluir esta excepción por rubro ya en esta tarea o dejarla para después: se decidió dejarla para una tarea aparte, sin que rompa la base de esta.</p>
+          </div>
+
+          <h4>El diseño que queda (documentado en Documento General 6.1 y Documento Técnico 8)</h4>
+          <ul>
+            <li><strong>Cada departamento tiene un <code>coeficiente</code> propio</strong> (%, suma 100% entre todas las unidades del edificio) — la fuente de verdad real, editable desde una pantalla de Configuración (Administrador General en cualquier edificio, Administrador de Consorcio en el suyo — pedido explícito del usuario, próxima tarea de frontend de este módulo).</li>
+            <li><strong>Dos atajos</strong> para completarlo rápido al dar de alta la estructura, nunca el cálculo en sí: "Partes iguales" (100 ÷ N) o "Por m²" (proporcional a la superficie cargada) — el admin ajusta cualquier unidad a mano después si el reglamento real dice otra cosa.</li>
+            <li><strong>Prorratear un gasto</strong> = repartir un monto según esos coeficientes, sin perder nunca un centavo por redondeo.</li>
+          </ul>
+
+          <h4>El detalle que importa: no perder centavos al redondear</h4>
+          <p>Repartir dinero por porcentaje tiene un error clásico: si cada parte se redondea a centavos por separado, la suma de las partes puede quedar un centavo de más o de menos respecto al total original — inaceptable en un módulo financiero. La solución: todas las unidades menos la última se redondean normal, y la última se lleva <em>el resto exacto</em> (total menos la suma de las demás), no su parte redondeada — así la suma da siempre, matemáticamente, el total exacto.</p>
+          <div class="code-block"><span class="kw">def</span> prorratear_gasto(monto_total: <span class="kw">float</span>, coeficientes: list[<span class="kw">float</span>]) -> list[<span class="kw">float</span>]:
+    validar_coeficientes(coeficientes)  <span class="cm"># tienen que sumar 100%, si no algo quedó mal cargado</span>
+    montos = [round(monto_total * c / 100, 2) <span class="kw">for</span> c <span class="kw">in</span> coeficientes[:-1]]
+    montos.append(round(monto_total - sum(montos), 2))  <span class="cm"># la última se lleva el resto EXACTO</span>
+    <span class="kw">return</span> montos</div>
+
+          <h4>Verificación: 18 tests nuevos, todos con casos reales de dinero</h4>
+          <ul>
+            <li><code>validar_coeficientes</code>: acepta sumas de 100% (incluso con redondeo mínimo, ej. 33.34+33.33+33.33), rechaza sumas incorrectas y listas vacías.</li>
+            <li><code>calcular_partes_iguales</code> / <code>calcular_por_metros_cuadrados</code>: los dos atajos, incluyendo el caso que no divide exacto (100/3) — la suma siempre da 100.0, nunca 99.99.</li>
+            <li><code>prorratear_gasto</code>: caso típico (100.000 entre 50/30/20 → 50.000/30.000/20.000), y el caso crítico — repartir $100 entre 3 partes de 33.33...% y confirmar que la suma de lo repartido da exactamente $100.00, ni un centavo de más ni de menos. También un caso realista con 7 unidades y coeficientes irregulares sobre un monto con decimales ($157.432,87).</li>
+          </ul>
+          <div class="code-block">tests/test_servicio_finanzas.py .................. [18 passed]
+<span class="cm"># suite completa del backend: 105 passed (87 + 18 nuevos)</span></div>
+          <p>Sin backend real ni frontend todavía — eso viene en las próximas tareas de esta fase (modelo <code>Gasto</code>, <code>Expensa</code>, el campo <code>coeficiente</code> en <code>Departamento</code>, y el servicio de prorrateo automático que va a llamar a esta misma lógica ya probada).</p>
         </div>
       </section>
 
