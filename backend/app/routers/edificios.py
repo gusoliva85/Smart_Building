@@ -221,6 +221,20 @@ def asignar_departamento(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"{campo} debe corresponder a un usuario con rol {rol_esperado}",
                 )
+            # Un inquilino vive en UN solo lugar a la vez — a diferencia del
+            # propietario (que sí puede tener varias unidades a su nombre),
+            # no puede quedar asignado a dos departamentos al mismo tiempo.
+            if campo == "inquilino_id":
+                ya_asignado = (
+                    db.query(Departamento)
+                    .filter(Departamento.inquilino_id == valor, Departamento.id != departamento_id)
+                    .first()
+                )
+                if ya_asignado:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Ese inquilino ya está asignado a otro departamento",
+                    )
         setattr(depto, campo, valor)
 
     depto.ocupado = bool(depto.propietario_id or depto.inquilino_id)

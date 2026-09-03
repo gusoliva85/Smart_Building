@@ -2092,6 +2092,23 @@ location.href = 'dashboard.html';</div>
             <li>Cero errores de consola o de página en todo el flujo.</li>
           </ul>
 
+          <div class="correccion">
+            <div class="correccion-titulo">
+              <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              Feedback de tu validación: un bug de lógica real + dos ajustes visuales en mobile
+            </div>
+            <p><strong>Bug real — un inquilino podía quedar asignado a dos departamentos a la vez.</strong> El combo de Propietario mostrando a todos está bien (un propietario puede tener varias unidades a su nombre), pero el de Inquilino tenía el mismo comportamiento sin distinción — y un inquilino vive en un solo lugar. Se corrigió en dos capas: el <strong>backend</strong> (la autoridad real) ahora rechaza con 400 si el inquilino elegido ya está en otro departamento (<code>PATCH /departamentos/{id}/asignacion</code>); el <strong>frontend</strong> además filtra el combo para ni siquiera mostrar esa opción, usando los datos que ya tiene cargados del edificio. El propio departamento que se está editando queda exceptuado de su propio filtro (si ya tenía ese inquilino, lo sigue mostrando seleccionado). 4 tests nuevos en el backend, confirman también que el propietario SÍ puede repetirse sin problema.</p>
+            <div class="code-block"><span class="kw">if</span> campo == <span class="str">"inquilino_id"</span>:
+    ya_asignado = db.query(Departamento).filter(
+        Departamento.inquilino_id == valor, Departamento.id != departamento_id
+    ).first()
+    <span class="kw">if</span> ya_asignado:
+        <span class="kw">raise</span> HTTPException(400, <span class="str">"Ese inquilino ya está asignado a otro departamento"</span>)</div>
+            <p><strong>Mobile: fila ocupada mal alineada.</strong> El badge "Ocupado" + botón "Asignar" ya envolvían bien a una segunda línea (heredado del fix de la Tarea 17), pero quedaban pegados a la izquierda en esa línea — visualmente raro. Se agregó <code>margin-left:auto</code> en esa combinación específica (clase <code>.fila-lista.ocupado</code>), solo dentro de un <code>@media(max-width:479px)</code> para no tocar desktop (donde ya queda bien por el <code>space-between</code> normal de la fila). Los departamentos vacíos no necesitaban el fix — el texto "Vacío" es corto y nunca llegaba a envolver.</p>
+            <p><strong>Nombres de rol demasiado largos.</strong> "Administrador General" → <strong>"Admin General"</strong>, "Administrador de Consorcio" → <strong>"Admin de Consorcio"</strong> — cambiado en <code>ETIQUETAS_ROL</code> (<code>layout.js</code>), la misma fuente centralizada de la Tarea 15, así que el efecto es automático en todos lados a la vez: badges de rol en <code>usuarios.html</code> y el pie del sidebar en las tres pantallas. Los <code>&lt;select&gt;</code> donde se ELIGE un rol (alta/edición de usuario, Administrador de Consorcio del edificio) se dejaron con el nombre completo a propósito — ahí sobra espacio y la claridad importa más que el ahorro.</p>
+            <p>Verificado con Playwright: asignar el inquilino de prueba a 1C hace que ya no aparezca como opción en el combo de 1D, pero sigue disponible (y preseleccionado) al reabrir 1C; captura de mobile confirma "Ocupado"/"Asignar" alineados a la derecha en 1A y 1B; badge "Admin General" visible en <code>usuarios.html</code> y en el sidebar. Suite completa del backend: 108/108.</p>
+          </div>
+
           <div class="cierre-fase">
             <p class="titulo">Fase 1 completa — 18 / 18 tareas aprobadas</p>
             <p>Usuarios, autenticación y estructura del edificio quedan cerrados de punta a punta: RBAC, login, CRUD de usuarios con alta/edición/activar-desactivar, y edificios con alta + listado + estructura completa (pisos, departamentos, cocheras, espacios comunes, asignación de propietario/inquilino). A partir de acá arranca la <strong>Fase 2 — Gestión financiera básica</strong>, el módulo del que depende directamente el color amarillo/rojo por deuda del Dashboard Visual.</p>

@@ -24,8 +24,8 @@ const ACCESOS_POR_ROL = {
 // — compartida por el sidebar y cualquier pantalla que necesite mostrar el
 // rol de alguien (usuarios.html hoy, proveedores/reclamos después).
 const ETIQUETAS_ROL = {
-  admin_general: 'Administrador General',
-  admin_consorcio: 'Administrador de Consorcio',
+  admin_general: 'Admin General',
+  admin_consorcio: 'Admin de Consorcio',
   encargado: 'Encargado',
   propietario: 'Propietario',
   inquilino: 'Inquilino',

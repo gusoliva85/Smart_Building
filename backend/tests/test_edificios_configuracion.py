@@ -211,6 +211,75 @@ def test_asignar_con_usuario_de_rol_incorrecto_devuelve_400(contexto):
     assert respuesta.status_code == 400
 
 
+def _crear_segundo_departamento(cliente, token, ids):
+    return cliente.post(
+        f"/api/edificios/{ids['edificio_id']}/departamentos",
+        json={"piso_id": ids["piso_id"], "identificador": "1B"},
+        headers=_headers(token),
+    ).json()["id"]
+
+
+def test_mismo_propietario_puede_tener_dos_departamentos(contexto):
+    # a diferencia del inquilino, un propietario SÍ puede tener varias
+    # unidades a su nombre — no hay ninguna exclusividad acá.
+    cliente, ids = contexto
+    token = _token(cliente, "admin@test.com")
+    otro_depto_id = _crear_segundo_departamento(cliente, token, ids)
+
+    cliente.patch(
+        f"/api/edificios/departamentos/{ids['departamento_id']}/asignacion",
+        json={"propietario_id": ids["propietario_id"]},
+        headers=_headers(token),
+    )
+    respuesta = cliente.patch(
+        f"/api/edificios/departamentos/{otro_depto_id}/asignacion",
+        json={"propietario_id": ids["propietario_id"]},
+        headers=_headers(token),
+    )
+    assert respuesta.status_code == 200
+    assert respuesta.json()["propietario_id"] == ids["propietario_id"]
+
+
+def test_mismo_inquilino_no_puede_asignarse_a_dos_departamentos(contexto):
+    # un inquilino vive en un solo lugar a la vez — a diferencia del
+    # propietario, acá SÍ hay que impedirlo.
+    cliente, ids = contexto
+    token = _token(cliente, "admin@test.com")
+    otro_depto_id = _crear_segundo_departamento(cliente, token, ids)
+
+    cliente.patch(
+        f"/api/edificios/departamentos/{ids['departamento_id']}/asignacion",
+        json={"inquilino_id": ids["inquilino_id"]},
+        headers=_headers(token),
+    )
+    respuesta = cliente.patch(
+        f"/api/edificios/departamentos/{otro_depto_id}/asignacion",
+        json={"inquilino_id": ids["inquilino_id"]},
+        headers=_headers(token),
+    )
+    assert respuesta.status_code == 400
+    assert "ya está asignado" in respuesta.json()["detail"]
+
+
+def test_reasignar_el_mismo_inquilino_al_mismo_departamento_no_falla(contexto):
+    # guardar de nuevo sin cambiar nada (o solo tocar otro campo) no tiene
+    # que chocar contra la propia asignación existente del departamento.
+    cliente, ids = contexto
+    token = _token(cliente, "admin@test.com")
+
+    cliente.patch(
+        f"/api/edificios/departamentos/{ids['departamento_id']}/asignacion",
+        json={"inquilino_id": ids["inquilino_id"]},
+        headers=_headers(token),
+    )
+    respuesta = cliente.patch(
+        f"/api/edificios/departamentos/{ids['departamento_id']}/asignacion",
+        json={"inquilino_id": ids["inquilino_id"]},
+        headers=_headers(token),
+    )
+    assert respuesta.status_code == 200
+
+
 def test_alta_y_listado_de_cochera_y_espacio_comun(contexto):
     cliente, ids = contexto
     token = _token(cliente, "admin@test.com")

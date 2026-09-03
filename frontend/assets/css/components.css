@@ -469,3 +469,12 @@ html[data-theme="dark"] .lobby{ background:linear-gradient(180deg, rgba(255,255,
    nunca llegaba a necesitar el wrap — min-width:0 + flex-shrink:1 (el
    default, al sacar flex:none) es lo que realmente lo habilita. */
 .fila-lista-acciones{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-width:0; }
+
+/* Fila de departamento OCUPADO en mobile (reportado por el usuario): el
+   badge "Ocupado" + botón "Asignar" ya envuelven bien a una línea nueva
+   (regla de arriba), pero quedaban pegados a la izquierda en esa línea.
+   margin-left:auto los empuja al borde derecho — en desktop no cambia
+   nada (ya quedan a la derecha por el space-between de .fila-lista). */
+@media(max-width:479px){
+  .fila-lista.ocupado .fila-lista-acciones{ margin-left:auto; }
+}

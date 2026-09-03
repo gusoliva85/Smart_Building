@@ -184,7 +184,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (propietario) partes.push(`Prop.: ${propietario.nombre}`);
     if (inquilino) partes.push(`Inq.: ${inquilino.nombre}`);
     return `
-      <div class="fila-lista" style="padding:8px 0; border-top:1px solid var(--line-2);">
+      <div class="fila-lista${d.ocupado ? ' ocupado' : ''}" style="padding:8px 0; border-top:1px solid var(--line-2);">
         <div>
           <b style="font-size:13px;">${d.identificador}</b>
           <div style="font-size:11px;color:var(--ink-3);">${d.m2 ? d.m2 + ' m² · ' : ''}${partes.length ? partes.join(' · ') : 'Sin asignar'}</div>
@@ -322,21 +322,31 @@ document.addEventListener('DOMContentLoaded', async () => {
   const formAsignacion = document.getElementById('form-asignacion');
   let departamentoAsignandoId = null;
 
-  function poblarSelectRol(selectId, rol, valorActual) {
+  function poblarSelectRol(selectId, rol, valorActual, idsAExcluir = []) {
     const select = document.getElementById(selectId);
-    const opciones = usuariosCache.filter((u) => u.rol === rol && u.activo);
+    const opciones = usuariosCache.filter((u) => u.rol === rol && u.activo && !idsAExcluir.includes(u.id));
     select.innerHTML = '<option value="">Sin asignar</option>' +
       opciones.map((u) => `<option value="${u.id}">${u.nombre} (${u.email})</option>`).join('');
     select.value = valorActual || '';
   }
 
   function abrirModalAsignacion(departamentoId) {
-    const depto = edificioActual.pisos.flatMap((p) => p.departamentos).find((d) => String(d.id) === String(departamentoId));
+    const todosLosDeptos = edificioActual.pisos.flatMap((p) => p.departamentos);
+    const depto = todosLosDeptos.find((d) => String(d.id) === String(departamentoId));
     if (!depto) return;
     departamentoAsignandoId = depto.id;
     document.getElementById('modal-asignacion-sub').textContent = `Departamento "${depto.identificador}"`;
     poblarSelectRol('campo-asignacion-propietario', 'propietario', depto.propietario_id);
-    poblarSelectRol('campo-asignacion-inquilino', 'inquilino', depto.inquilino_id);
+    // Un inquilino vive en un solo lugar a la vez (a diferencia del
+    // propietario, que sí puede tener varias unidades a su nombre) — el
+    // combo no ofrece un inquilino que ya está en OTRO departamento de
+    // este edificio. El backend es quien realmente hace cumplir la regla
+    // (PATCH /departamentos/{id}/asignacion); esto es solo para no ni
+    // siquiera mostrar una opción que el backend va a rechazar.
+    const inquilinosYaAsignados = todosLosDeptos
+      .filter((d) => d.id !== depto.id && d.inquilino_id)
+      .map((d) => d.inquilino_id);
+    poblarSelectRol('campo-asignacion-inquilino', 'inquilino', depto.inquilino_id, inquilinosYaAsignados);
     modalAsignacion.classList.add('open');
   }
   function cerrarModalAsignacion() { modalAsignacion.classList.remove('open'); document.getElementById('mensaje-error-asignacion').style.display = 'none'; }
