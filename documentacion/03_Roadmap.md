@@ -136,7 +136,7 @@ Corresponde al Documento General, secciones 3 (Actores del sistema) y 5 (Gestió
   Formulario con los datos mínimos del Documento General 5.1, visible solo para Administrador General.
 
 - [ ] **Frontend: pantalla de estructura del edificio (`edificios.html`, pestaña "Estructura" vía `.view-switch`).**
-  Vista en lista (no gráfica todavía — la versión gráfica coloreada es el Dashboard Visual de la Fase 5) de pisos, departamentos, cocheras y espacios comunes de un edificio, con alta de piso/departamento nuevo y asignación de propietario/inquilino.
+  Vista en lista (no gráfica todavía — la versión gráfica coloreada es el Dashboard Visual de la Fase 5) de pisos, departamentos, cocheras y espacios comunes de un edificio, con alta de piso/departamento nuevo y asignación de propietario/inquilino. *(Actualización: no existía forma de LLEGAR a un edificio existente — `edificios.html` solo tenía el formulario de alta, sin listado. Se agregó un listado de edificios (mismo patrón que `usuarios.html`) más `GET /api/edificios` y `GET /api/edificios/{id}` en el backend, no itemizados antes como tarea aparte — decisión consultada y confirmada con el usuario antes de implementar.)*
 
 - [ ] **Prueba manual de punta a punta.**
   Dar de alta un edificio de prueba ("Torre Central", igual que en el mockup) con estructura de varios pisos, confirmar que se generó automáticamente, asignar el usuario Propietario ya creado a un departamento puntual, y validar que al loguearse como ese propietario solo ve su propia unidad.

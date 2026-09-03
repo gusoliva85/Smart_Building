@@ -129,3 +129,74 @@ def test_alta_con_valores_fuera_de_rango_devuelve_422(cliente, campo, valor):
     payload[campo] = valor
     respuesta = cliente.post("/api/edificios", json=payload, headers=_headers(token))
     assert respuesta.status_code == 422
+
+
+# ------------------------- GET /api/edificios (listado) -------------------------
+
+def test_admin_general_ve_todos_los_edificios(cliente):
+    token = _token(cliente, "admin@test.com")
+    cliente.post("/api/edificios", json={"nombre": "Torre A", "direccion": "X", "cantidad_pisos": 1, "unidades_por_piso": 1}, headers=_headers(token))
+    cliente.post("/api/edificios", json={"nombre": "Torre B", "direccion": "Y", "cantidad_pisos": 1, "unidades_por_piso": 1}, headers=_headers(token))
+
+    respuesta = cliente.get("/api/edificios", headers=_headers(token))
+    assert respuesta.status_code == 200
+    nombres = [e["nombre"] for e in respuesta.json()]
+    assert nombres == ["Torre A", "Torre B"]  # ordenados por nombre
+
+
+def test_admin_consorcio_solo_ve_sus_propios_edificios(cliente):
+    token_admin = _token(cliente, "admin@test.com")
+    listado_usuarios = cliente.get("/api/usuarios", headers=_headers(token_admin)).json()
+    beto_id = next(u["id"] for u in listado_usuarios if u["email"] == "beto@test.com")
+
+    cliente.post("/api/edificios", json={"nombre": "De Beto", "direccion": "X", "cantidad_pisos": 1, "unidades_por_piso": 1, "admin_consorcio_id": beto_id}, headers=_headers(token_admin))
+    cliente.post("/api/edificios", json={"nombre": "De Otro", "direccion": "Y", "cantidad_pisos": 1, "unidades_por_piso": 1}, headers=_headers(token_admin))
+
+    token_beto = _token(cliente, "beto@test.com")
+    respuesta = cliente.get("/api/edificios", headers=_headers(token_beto))
+    assert respuesta.status_code == 200
+    nombres = [e["nombre"] for e in respuesta.json()]
+    assert nombres == ["De Beto"]
+
+
+def test_propietario_no_puede_listar_edificios(cliente):
+    token = _token(cliente, "prop@test.com")
+    respuesta = cliente.get("/api/edificios", headers=_headers(token))
+    assert respuesta.status_code == 403
+
+
+# ------------------------- GET /api/edificios/{id} (detalle) -------------------------
+
+def test_obtener_edificio_devuelve_estructura_completa(cliente):
+    token = _token(cliente, "admin@test.com")
+    creado = cliente.post(
+        "/api/edificios",
+        json={"nombre": "Torre Central", "direccion": "Av. Siempre Viva 742", "cantidad_pisos": 2, "unidades_por_piso": 2},
+        headers=_headers(token),
+    ).json()
+
+    respuesta = cliente.get(f"/api/edificios/{creado['id']}", headers=_headers(token))
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.json()
+    assert cuerpo["nombre"] == "Torre Central"
+    assert len(cuerpo["pisos"]) == 2
+    assert len(cuerpo["pisos"][0]["departamentos"]) == 2
+
+
+def test_obtener_edificio_ajeno_como_admin_consorcio_devuelve_403(cliente):
+    token_admin = _token(cliente, "admin@test.com")
+    creado = cliente.post(
+        "/api/edificios",
+        json={"nombre": "Sin admin de consorcio", "direccion": "X", "cantidad_pisos": 1, "unidades_por_piso": 1},
+        headers=_headers(token_admin),
+    ).json()
+
+    token_beto = _token(cliente, "beto@test.com")
+    respuesta = cliente.get(f"/api/edificios/{creado['id']}", headers=_headers(token_beto))
+    assert respuesta.status_code == 403
+
+
+def test_obtener_edificio_inexistente_devuelve_404(cliente):
+    token = _token(cliente, "admin@test.com")
+    respuesta = cliente.get("/api/edificios/9999", headers=_headers(token))
+    assert respuesta.status_code == 404

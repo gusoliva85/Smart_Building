@@ -324,6 +324,7 @@
       <a class="toc-link" data-goto="f1-t15"><span class="n">15</span>Frontend: gestión de usuarios<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f1-t16"><span class="n">16</span>Prueba de punta a punta: usuarios<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f1-t17"><span class="n">17</span>Frontend: edición de usuario<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f1-t18"><span class="n">18</span>Frontend: estructura del edificio<span class="estado-mini pend"></span></a>
     </div>
 
     <div class="toc-group">
@@ -2026,6 +2027,61 @@ location.href = 'dashboard.html';</div>
             <li>Cambio real de nombre y teléfono → <code>PATCH</code> real, la fila se actualiza sola (sin recargar el listado), modal se cierra.</li>
             <li>Reabrir "+ Nuevo usuario" después de haber editado: título vuelve a "Nuevo usuario", Email vuelve a estar habilitado y vacío, Contraseña vuelve a mostrarse — confirma que un modo no deja rastros en el otro.</li>
             <li>Se restauró el nombre original del usuario de prueba después de verificar, para no ensuciar las credenciales documentadas.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="slide tarea" id="f1-t18" data-crumb="Fase 1 · Tarea 18">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 18</span>
+            <h3>Frontend: estructura del edificio</h3>
+            <span class="status pend"><i class="dot"></i>Implementado — pendiente de tu revisión</span>
+          </div>
+          <p class="lede">Pestaña "Estructura" en <code>edificios.html</code>, vía <code>.view-switch</code>: vista en lista (no gráfica todavía — esa llega con el Dashboard Visual, Fase 5) de pisos, departamentos, cocheras y espacios comunes, con alta de piso/departamento y asignación de propietario/inquilino. Cierra por completo el bloque "Estructura del edificio" de la Fase 1.</p>
+
+          <div class="explicacion">
+            <div class="explicacion-titulo">
+              <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              El bloqueo que apareció antes de empezar
+            </div>
+            <p><code>edificios.html</code> solo tenía el formulario de <strong>alta</strong> — no existía ningún listado de edificios ya creados, ni un <code>GET /api/edificios</code> en el backend. Sin eso, la pestaña "Estructura" era literalmente inalcanzable: no había desde dónde hacer click para llegar a un edificio existente. Se consultó con el usuario antes de expandir el alcance (no estaba itemizado como tarea aparte en el Roadmap) y se confirmó agregarlo como parte de esta misma tarea.</p>
+          </div>
+
+          <h4>Backend: dos endpoints nuevos, reutilizando todo lo que ya existía</h4>
+          <p><code>GET /api/edificios</code> (listado) y <code>GET /api/edificios/{id}</code> (detalle) — ninguno necesitó un esquema Pydantic nuevo: <code>EdificioSalida</code> ya traía <code>pisos</code> con sus <code>departamentos</code> anidados desde la Tarea 9, así que el detalle de un edificio llega completo en una sola llamada. El control de acceso reutiliza el mismo criterio que ya regía <code>PATCH /api/edificios/{id}</code>: Administrador General ve todo; Administrador de Consorcio ve solo lo suyo.</p>
+          <div class="code-block"><span class="kw">@router.get</span>(<span class="str">""</span>, response_model=list[EdificioSalida])
+<span class="kw">def</span> listar_edificios(db, actual):
+    <span class="kw">if</span> actual.usuario.rol == <span class="str">"admin_general"</span>: <span class="kw">pass</span>
+    <span class="kw">elif</span> actual.usuario.rol == <span class="str">"admin_consorcio"</span>:
+        consulta = consulta.filter(Edificio.admin_consorcio_id == actual.usuario.id)
+    <span class="kw">else</span>: <span class="kw">raise</span> HTTPException(403, ...)</div>
+          <p>6 tests nuevos (listado según rol, detalle completo con pisos/deptos anidados, 403/404) — la suite completa pasó de 81 a <strong>87 tests</strong>, todos en verde.</p>
+
+          <h4>Frontend: tres vistas nuevas, un mismo patrón de siempre</h4>
+          <ul>
+            <li><strong>Listado</strong> (<code>#vista-listado</code>): mismo patrón <code>.fila-lista</code> que ya validó <code>usuarios.html</code> — cada fila es un link a <code>edificios.html?id=N</code> (ruteo simple por query string, sin router: esta app no tiene build ni framework).</li>
+            <li><strong>Detalle</strong> (<code>#vista-detalle</code>): <code>.view-switch</code> con dos pestañas — "Datos generales" (resumen de solo lectura: dirección, CP, CUIT, administrador de consorcio, mapa si hay coordenadas) y "Estructura" (pisos con sus departamentos, cocheras, espacios comunes).</li>
+            <li><strong>Alta de piso/departamento y asignación</strong>: tres modales de formulario — mismo patrón fijado en la Tarea 15 (centrado, fondo difuminado, no se cierra tocando afuera). El de asignación puebla los selects de Propietario/Inquilino filtrando <code>usuariosCache</code> por rol, sin pedirle nada nuevo al backend.</li>
+          </ul>
+
+          <div class="correccion">
+            <div class="correccion-titulo">
+              <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              Dos ajustes encontrados en la propia verificación
+            </div>
+            <p><strong>Bug real — "Cannot access 'edificioActual' before initialization":</strong> las variables <code>edificioActual</code>/<code>usuariosCache</code> estaban declaradas con <code>let</code> más abajo en el archivo que el código de ruteo que ya las necesitaba — el ruteo corría antes de que la ejecución llegara a esa línea, y JavaScript no permite leer una variable <code>let</code> dentro de su "temporal dead zone". Se movieron las dos declaraciones al principio de la función. Se encontró probando el flujo real con Playwright (la carga fallaba con ese error exacto en pantalla), no fue un chequeo teórico.</p>
+            <p><strong>Uso incorrecto del semáforo de 4 estados:</strong> el estado "Ocupado/Vacío" de un departamento y el resumen "N pisos · M unidades" del listado usaban <code>.pill.ok</code>/<code>.pill.warn</code> — los colores del semáforo, reservados exclusivamente para severidad real (reclamos, deuda, mantenimiento). Ocupación no es severidad. Se reemplazó por <code>.rol-badge</code> (el badge neutro ya usado para roles) y texto gris simple para "Vacío" — autodetectado releyendo la skill antes de dar la tarea por terminada, no reportado por el usuario.</p>
+          </div>
+
+          <h4>Verificación con Playwright, contra el backend real</h4>
+          <ul>
+            <li>Listado real: 5 edificios existentes, cada uno con su resumen de pisos/unidades correcto.</li>
+            <li>Entrar a "Torre Central" → pestaña Estructura → creación real de un piso nuevo y un departamento dentro de ese piso → aparecen en la lista sin recargar la página completa (<code>recargarEstructura()</code> refresca solo el panel).</li>
+            <li>Asignación real de un Propietario de Prueba a un departamento vacío → pasa a "Ocupado" con el nombre del propietario mostrado.</li>
+            <li>Flujo completo alta → éxito → "Ver estructura" → aterriza en el detalle del edificio recién creado; "‹ Edificios" desde el detalle vuelve al listado y el edificio nuevo ya aparece ahí.</li>
+            <li>Verificado también en mobile (Pixel 5, taps táctiles reales): sin overflow horizontal en el listado ni en la Estructura, filas de departamento envuelven prolijo cuando hace falta.</li>
+            <li>Cero errores de consola o de página en todo el flujo.</li>
           </ul>
         </div>
       </section>

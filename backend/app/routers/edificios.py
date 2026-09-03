@@ -76,6 +76,29 @@ def _requerir_admin_del_edificio(
     return edificio
 
 
+@router.get("", response_model=list[EdificioSalida])
+def listar_edificios(
+    db: Session = Depends(obtener_db),
+    actual: UsuarioAutenticado = Depends(obtener_usuario_actual),
+):
+    """Administrador General ve todos los edificios; Administrador de
+    Consorcio ve solo los suyos (mismo criterio que _requerir_admin_del_edificio,
+    acá aplicado a un listado en vez de a un edificio puntual)."""
+    consulta = db.query(Edificio)
+    if actual.usuario.rol == "admin_general":
+        pass
+    elif actual.usuario.rol == "admin_consorcio":
+        consulta = consulta.filter(Edificio.admin_consorcio_id == actual.usuario.id)
+    else:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tenés acceso al listado de edificios")
+    return consulta.order_by(Edificio.nombre).all()
+
+
+@router.get("/{edificio_id}", response_model=EdificioSalida)
+def obtener_edificio(edificio: Edificio = Depends(_requerir_admin_del_edificio)):
+    return edificio
+
+
 @router.post("", response_model=EdificioSalida, status_code=status.HTTP_201_CREATED)
 def crear_edificio(
     datos: EdificioEntrada,

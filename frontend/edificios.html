@@ -70,7 +70,24 @@
       <p style="margin:0; font-size:13px; color:var(--ink-2);">Esta pantalla es solo para el Administrador General.</p>
     </section>
 
+    <!-- Listado — pantalla por default. Cada fila lleva a edificios.html?id=N -->
+    <section class="shell panel-centrado" id="vista-listado" style="display:none; max-width:760px; padding:22px 24px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; flex-wrap:wrap;">
+        <div>
+          <h1 style="margin:0; font-size:18px;">Edificios</h1>
+          <p style="margin:2px 0 0; font-size:12.5px; color:var(--ink-3);">Alta de edificios y gestión de su estructura.</p>
+        </div>
+        <button type="button" class="boton-primario" id="boton-nuevo-edificio" style="width:auto; padding:10px 18px;">+ Nuevo edificio</button>
+      </div>
+
+      <div id="lista-edificios"><!-- filas generadas por JS --></div>
+    </section>
+
     <section class="shell panel-centrado" id="vista-alta" style="display:none; padding:32px 34px;">
+      <button type="button" class="chip-link" id="boton-volver-desde-alta" style="margin-bottom:16px;">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="M15 18l-6-6 6-6"/></svg>
+        Edificios
+      </button>
       <h1 style="margin:0 0 4px; font-size:20px;">Alta de edificio</h1>
       <p style="margin:0 0 20px; font-size:13px; color:var(--ink-3);">Al guardar se genera automáticamente la estructura vacía (pisos y departamentos).</p>
 
@@ -134,11 +151,131 @@
       </div>
       <h2 style="margin:0 0 6px; font-size:19px;">Edificio creado</h2>
       <p style="margin:0 0 18px; font-size:13.5px; color:var(--ink-2);" id="exito-resumen"></p>
-      <div style="display:flex; gap:10px;">
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
         <button type="button" class="boton-primario" id="boton-crear-otro" style="background:var(--glass-content-bg); color:var(--ink-2); box-shadow:inset 0 0 0 1px var(--line);">Crear otro</button>
-        <a href="dashboard.html" class="boton-primario" style="display:flex; align-items:center; justify-content:center; text-decoration:none;">Volver al inicio</a>
+        <a href="edificios.html" class="boton-primario" style="display:flex; align-items:center; justify-content:center; text-decoration:none; background:var(--glass-content-bg); color:var(--ink-2); box-shadow:inset 0 0 0 1px var(--line);">Ver listado</a>
+        <a href="#" id="boton-ver-estructura" class="boton-primario" style="display:flex; align-items:center; justify-content:center; text-decoration:none;">Ver estructura</a>
       </div>
     </section>
+
+    <!-- Detalle de un edificio existente: Datos generales / Estructura -->
+    <section class="shell panel-centrado" id="vista-detalle" style="display:none; max-width:820px; padding:0; overflow:hidden;">
+      <div style="padding:22px 24px 0;">
+        <a href="edificios.html" class="chip-link" style="margin-bottom:14px; display:inline-flex;">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="M15 18l-6-6 6-6"/></svg>
+          Edificios
+        </a>
+        <h1 id="detalle-titulo" style="margin:0; font-size:19px;">—</h1>
+        <p id="detalle-direccion" style="margin:2px 0 16px; font-size:12.5px; color:var(--ink-3);">—</p>
+        <div class="view-switch" id="detalle-view-switch" role="tablist">
+          <button class="active" data-view="general" type="button">Datos generales</button>
+          <button data-view="estructura" type="button">Estructura</button>
+        </div>
+      </div>
+
+      <div id="panel-datos-generales" style="padding:20px 24px 26px;"><!-- generado por JS --></div>
+
+      <div id="panel-estructura" style="display:none; padding:6px 24px 26px;">
+        <div style="display:flex; gap:8px; margin:14px 0; flex-wrap:wrap;">
+          <button type="button" class="chip-link" id="boton-nuevo-piso">+ Piso</button>
+          <button type="button" class="chip-link" id="boton-nuevo-departamento">+ Departamento</button>
+        </div>
+        <div id="lista-pisos"><!-- generado por JS --></div>
+
+        <h3 style="margin:22px 0 8px; font-size:13.5px;">Cocheras</h3>
+        <div id="lista-cocheras" class="detail-item content-glass"><!-- generado por JS --></div>
+
+        <h3 style="margin:18px 0 8px; font-size:13.5px;">Espacios comunes</h3>
+        <div id="lista-espacios" class="detail-item content-glass"><!-- generado por JS --></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- Modal: alta de piso -->
+<div class="modal-backdrop" id="modal-piso">
+  <div class="modal modal-formulario shell">
+    <button type="button" class="modal-close" id="modal-piso-cerrar" aria-label="Cerrar">✕</button>
+    <h3>Nuevo piso</h3>
+    <span class="modal-formulario-sub">Se agrega vacío — los departamentos se cargan aparte.</span>
+    <div class="mensaje-error" id="mensaje-error-piso" style="display:none;">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+      <span id="mensaje-error-piso-texto"></span>
+    </div>
+    <form id="form-piso" autocomplete="off">
+      <div class="campo">
+        <label for="campo-piso-numero">Número / nombre del piso</label>
+        <input type="text" id="campo-piso-numero" required placeholder="Ej.: PB, 1, 2...">
+      </div>
+      <div class="campo">
+        <label for="campo-piso-orden">Orden (apilado real, de abajo hacia arriba)</label>
+        <input type="number" id="campo-piso-orden" required placeholder="Ej.: 0 para PB, 1 para el 1°...">
+      </div>
+      <div class="modal-formulario-acciones">
+        <button type="button" class="boton-primario" id="boton-piso-cancelar" style="background:var(--glass-content-bg); color:var(--ink-2); box-shadow:inset 0 0 0 1px var(--line);">Cancelar</button>
+        <button type="submit" class="boton-primario" id="boton-piso-guardar">Crear piso</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: alta de departamento -->
+<div class="modal-backdrop" id="modal-departamento">
+  <div class="modal modal-formulario shell">
+    <button type="button" class="modal-close" id="modal-departamento-cerrar" aria-label="Cerrar">✕</button>
+    <h3>Nuevo departamento</h3>
+    <span class="modal-formulario-sub">Se crea sin propietario ni inquilino — se asigna después desde la lista.</span>
+    <div class="mensaje-error" id="mensaje-error-departamento" style="display:none;">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+      <span id="mensaje-error-departamento-texto"></span>
+    </div>
+    <form id="form-departamento" autocomplete="off">
+      <div class="campo">
+        <label for="campo-departamento-piso">Piso</label>
+        <select id="campo-departamento-piso" required></select>
+      </div>
+      <div class="form-grid-2">
+        <div class="campo">
+          <label for="campo-departamento-identificador">Identificador</label>
+          <input type="text" id="campo-departamento-identificador" required placeholder="Ej.: A, 1A...">
+        </div>
+        <div class="campo">
+          <label for="campo-departamento-m2">m² (opcional)</label>
+          <input type="number" id="campo-departamento-m2" min="0" step="0.1" placeholder="Ej.: 45.5">
+        </div>
+      </div>
+      <div class="modal-formulario-acciones">
+        <button type="button" class="boton-primario" id="boton-departamento-cancelar" style="background:var(--glass-content-bg); color:var(--ink-2); box-shadow:inset 0 0 0 1px var(--line);">Cancelar</button>
+        <button type="submit" class="boton-primario" id="boton-departamento-guardar">Crear departamento</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: asignar propietario/inquilino a un departamento existente -->
+<div class="modal-backdrop" id="modal-asignacion">
+  <div class="modal modal-formulario shell">
+    <button type="button" class="modal-close" id="modal-asignacion-cerrar" aria-label="Cerrar">✕</button>
+    <h3>Asignar departamento</h3>
+    <span class="modal-formulario-sub" id="modal-asignacion-sub">—</span>
+    <div class="mensaje-error" id="mensaje-error-asignacion" style="display:none;">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+      <span id="mensaje-error-asignacion-texto"></span>
+    </div>
+    <form id="form-asignacion" autocomplete="off">
+      <div class="campo">
+        <label for="campo-asignacion-propietario">Propietario</label>
+        <select id="campo-asignacion-propietario"><option value="">Sin asignar</option></select>
+      </div>
+      <div class="campo">
+        <label for="campo-asignacion-inquilino">Inquilino</label>
+        <select id="campo-asignacion-inquilino"><option value="">Sin asignar</option></select>
+      </div>
+      <div class="modal-formulario-acciones">
+        <button type="button" class="boton-primario" id="boton-asignacion-cancelar" style="background:var(--glass-content-bg); color:var(--ink-2); box-shadow:inset 0 0 0 1px var(--line);">Cancelar</button>
+        <button type="submit" class="boton-primario" id="boton-asignacion-guardar">Guardar asignación</button>
+      </div>
+    </form>
   </div>
 </div>
 
