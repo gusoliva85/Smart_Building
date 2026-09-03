@@ -1907,6 +1907,23 @@ location.href = 'dashboard.html';</div>
             <p>Verificado con Playwright: clic en el fondo del modal NO lo cierra; el ojo alterna <code>password</code>↔<code>text</code> y vuelve a <code>password</code> al cerrar con "Cancelar"; alta real completa cierra el modal y refresca el listado.</p>
           </div>
 
+          <div class="correccion">
+            <div class="correccion-titulo">
+              <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              Bug real encontrado en producción: el modal se veía gris, no blanco
+            </div>
+            <p>Reportado en producción (probado en Chrome, contra la URL real de Vercel — no un problema de deploy desactualizado, se verificó que el código correcto ya estaba desplegado): el modal se veía "sin los colores ni el formato de la app", gris lavado, comparado con el resto de la interfaz.</p>
+            <p>Causa: <code>.modal</code> se usa siempre junto con <code>.shell</code>, que trae <code>background:var(--glass-shell-bg)</code> — blanco al 52% de opacidad, pensado para apoyarse sobre el fondo <em>claro</em> normal de la página (como hace en el topbar o el sidebar). Pero el modal se apoya sobre su propio <code>.modal-backdrop</code>, que es <em>oscuro</em> (<code>rgba(0,0,0,.35)</code> + blur). Ese 52% blanco se mezclaba con el negro de abajo y daba el gris lavado reportado, en vez de un blanco limpio.</p>
+            <div class="code-block">.modal{
+  ...
+  <span class="cm">/* pisa el 52% de .shell con casi-opaco: el modal no vive sobre el
+     fondo claro de siempre, vive sobre un backdrop oscuro */</span>
+  background: <span class="kw">var</span>(--glass-shell-fallback); <span class="cm">/* 92%/94% opaco según tema */</span>
+}</div>
+            <p>Se corrigió en la regla compartida <code>.modal</code> (no solo en la variante de formulario), así que también corrige de paso el modal de aviso de "dirección no encontrada" (alta de edificio), que tenía el mismo problema sin que nadie lo hubiera notado todavía. Verificado con capturas antes/después en tema claro (ahora blanco limpio, igual a la tarjeta de listado de usuarios) y en tema oscuro (sigue viéndose oscuro, correcto — coincide con el resto del tema oscuro de la app).</p>
+            <p>Sobre la consulta de performance del mismo mensaje: medí "long tasks" del hilo principal durante la animación del toggle de tema en producción real y dieron cero — no encontré ahí un problema de rendimiento medible. Es probable que el gris lavado del modal, al verse "pesado"/sin terminar, se haya percibido como lentitud aunque el frame rate en sí estuviera bien.</p>
+          </div>
+
           <h4>Verificación con Playwright, contra el backend real</h4>
           <ul>
             <li>Listado real: Administrador General, Propietario de Prueba, Administrador de Consorcio de Prueba.</li>

@@ -492,6 +492,7 @@ Usado por primera vez para avisar que una dirección no se pudo geocodificar (al
 .modal{
   max-width:360px; width:100%; padding:24px 22px; text-align:center;
   transform:scale(.96); transition:transform .22s ease;
+  background:var(--glass-shell-fallback); /* ver "Lección aprendida" abajo — NO usar var(--glass-shell-bg) acá */
 }
 .modal-backdrop.open .modal{ transform:scale(1); }
 .modal-icono{
@@ -501,6 +502,8 @@ Usado por primera vez para avisar que una dirección no se pudo geocodificar (al
 ```
 
 El ícono del modal usa `--warn` (amarillo) por default — es una advertencia recuperable ("no encontramos esa dirección, revisala"), no un error crítico del sistema (`--crit` queda reservado para eso).
+
+**Lección aprendida (feedback real sobre el modal de alta de usuario):** `.modal` se usa siempre junto con `.shell`, que trae `background:var(--glass-shell-bg)` — blanco al 52% de opacidad. Ese valor está pensado para un `.shell` que se apoya sobre el fondo CLARO normal de la página (topbar, sidebar, panel de detalle). Pero un modal se apoya sobre su propio `.modal-backdrop`, que es OSCURO (`rgba(0,0,0,.35)`) — ese 52% blanco se mezcla con el negro de abajo y da un gris lavado, "sin los colores de la app", en vez de un blanco limpio. La regla `.modal{ background:var(--glass-shell-fallback); }` (arriba) pisa ese valor con la versión casi opaca (92%/94% según tema) — border, sombra y blur se siguen heredando de `.shell` sin cambios. Cualquier componente nuevo que combine vidrio translúcido con un backdrop oscuro tiene que aplicar el mismo criterio: el fondo del vidrio necesita ser casi opaco cuando lo que hay detrás no es el fondo claro de siempre.
 
 ## Modal de formulario — cuándo usar esto y no `.detail`
 

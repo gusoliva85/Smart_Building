@@ -397,6 +397,12 @@ html[data-theme="dark"] .lobby{ background:linear-gradient(180deg, rgba(255,255,
 .modal{
   max-width:360px; width:100%; padding:24px 22px; text-align:center;
   transform:scale(.96); transition:transform .22s ease;
+  /* .shell trae background:var(--glass-shell-bg), pensado al 52% de opacidad
+     para apoyarse sobre el fondo CLARO normal de la página. Acá el modal
+     se apoya sobre el backdrop OSCURO de abajo (rgba(0,0,0,.35)) — ese 52%
+     blanco se mezcla con el negro y da un gris lavado en vez de blanco
+     limpio. Se pisa con un fondo casi opaco, solo para esta combinación. */
+  background:var(--glass-shell-fallback);
 }
 .modal-backdrop.open .modal{ transform:scale(1); }
 .modal-icono{
