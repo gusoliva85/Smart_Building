@@ -106,7 +106,7 @@ Corresponde al Documento General, secciones 3 (Actores del sistema) y 5 (Gestió
 - [x] **Frontend: pantalla de login (`index.html` pasa a ser la pantalla de login real).**
   Formulario con email y contraseña sobre el cascarón ya construido en la Fase 0, mensaje de error claro ante credenciales inválidas, guardado del token en `localStorage` y redirección post-login. Sin selector de rol visible: el rol lo determina el backend.
 
-- [ ] **Frontend: pantalla de gestión de usuarios (`usuarios.html`).**
+- [x] **Frontend: pantalla de gestión de usuarios (`usuarios.html`).**
   Listado de usuarios (filtrado por edificio si corresponde al rol), con alta de usuario nuevo (nombre, email, rol, edificio/departamento si aplica) y acción de desactivar. Visible en el menú únicamente para los roles con permiso de gestionar usuarios (Administrador General/Consorcio).
 
 - [ ] **Prueba manual de punta a punta.**
