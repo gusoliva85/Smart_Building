@@ -527,8 +527,8 @@ Corresponde al Documento Técnico, sección 1.3.1 (migración Tailwind CDN → C
 - [ ] **Frontend: migración de Tailwind CDN a Tailwind CLI standalone.**
   Se instala el binario ejecutable (sin Node/npm, coherente con que el resto del stack es Python) y se genera `frontend/assets/css/output.css` compilado y optimizado a partir de `tailwind.config.js` — deja de depender del CDN en cualquier entorno, incluido uno sin conexión a internet.
 
-- [x] **Frontend: barrido circular del toggle de tema.**
-  Refinamiento documentado como pendiente desde el mockup base (skill `premium-uiux`): el barrido de la View Transitions API nace en el punto exacto del clic (`clip-path` con `circle()` calculado desde las coordenadas del botón), en vez del cross-fade por defecto.
+- [ ] **Frontend: barrido circular del toggle de tema.**
+  Refinamiento documentado como pendiente desde el mockup base (skill `premium-uiux`): el barrido de la View Transitions API nace en el punto exacto del clic (`clip-path` con `circle()` calculado desde las coordenadas del botón), en vez del cross-fade por defecto. *(Actualización: se implementó, se aprobó, y se revirtió después a pedido explícito del usuario — tuvo un bug real de z-index y se reportó como lento específicamente en Chrome en producción. `theme.js` volvió al cross-fade default sin personalizar. Ver `que_hice.html`, slide `f12-t2`, para el detalle completo. No se reintenta sin que el usuario lo pida de nuevo explícitamente.)*
 
 - [ ] **Frontend: auditoría de accesibilidad y de consistencia con la skill.**
   Repaso pantalla por pantalla contra `references/componentes.md` y `references/paleta-color.md` — ningún color/sombra/vidrio con valor suelto, contraste de texto suficiente, navegación por teclado en los componentes interactivos (`.view-switch`, `.unit-card`, `.detail-close`).
@@ -537,7 +537,7 @@ Corresponde al Documento Técnico, sección 1.3.1 (migración Tailwind CDN → C
   `manifest.json` (nombre, ícono, colores de tema/fondo tomados de los tokens) y un Service Worker mínimo de cacheo de assets estáticos, para instalar la app en el celular y tener una primera capa de uso offline — sin llegar a sincronización offline de datos, que queda fuera de alcance en esta etapa.
 
 - [ ] **Prueba manual de punta a punta.**
-  Confirmar que el sitio sigue viéndose y funcionando igual tras la migración a `output.css` (sin parpadeo de estilos sin aplicar), que el barrido circular del tema funciona en el punto de clic real, y que la app se puede "instalar" desde el navegador mobile como PWA.
+  Confirmar que el sitio sigue viéndose y funcionando igual tras la migración a `output.css` (sin parpadeo de estilos sin aplicar), que el toggle de tema conserva la preferencia elegida al navegar entre pantallas, y que la app se puede "instalar" desde el navegador mobile como PWA.
 
 ---
 
@@ -555,7 +555,7 @@ Corresponde al Documento Técnico, sección 1.3.1 (migración Tailwind CDN → C
   Prevista desde el día uno por usar SQLAlchemy (Documento Técnico, sección 2.1) — se decide en esta fase si hace falta antes de salir a producción, según la escala esperada. *(Actualización: esto ya pasó antes de lo previsto — la base de producción en Vercel corre sobre PostgreSQL/Supabase desde el despliegue inicial, porque el filesystem de Vercel es efímero y SQLite no persiste ahí. Queda para esta fase evaluar si conviene seguir en el plan free de Supabase o migrar de proveedor según la escala real.)*
 
 - [ ] **Investigar transiciones lentas/trabadas en Chrome (reportado en producción, no se reproduce en Firefox).**
-  El barrido circular del toggle de tema (y posiblemente otras animaciones con `backdrop-filter`) se ve lento en Chrome sobre la app desplegada, pero fluido en Firefox — reportado por el usuario probando en producción. Una medición preliminar de "long tasks" del hilo principal en un Chrome automatizado (Playwright) no reprodujo el síntoma, así que falta perfilar con las DevTools de un Chrome real (pestaña Performance) para aislar la causa real: candidatos son el costo de composición de múltiples capas `backdrop-filter` apiladas, o el script `cdn.tailwindcss.com` (ya señalado como no apto para producción por el propio Tailwind — ver la tarea de migración a Tailwind CLI de la Fase 12).
+  Reportado por el usuario probando en producción: animaciones con `backdrop-filter` se veían lentas en Chrome, fluidas en Firefox. El disparador puntual (el barrido circular del toggle de tema) ya se revirtió a pedido del usuario, así que el síntoma original puede haber desaparecido con él — falta confirmar si sigue habiendo lentitud en Chrome sin esa animación de por medio. Si persiste, candidatos: costo de composición de múltiples capas `backdrop-filter` apiladas, o el script `cdn.tailwindcss.com` (ya señalado como no apto para producción por el propio Tailwind — ver la tarea de migración a Tailwind CLI de la Fase 12).
 
 - [ ] **Documentación de despliegue.**
   Cómo llevar backend y frontend a un servidor real, paso a paso.

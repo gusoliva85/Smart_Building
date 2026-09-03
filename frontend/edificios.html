@@ -3,6 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Aplica el tema guardado ANTES de pintar nada — si esto fuera en
+     theme.js (al final del body) se vería un parpadeo de claro antes de
+     pasar a oscuro en cada página nueva. -->
+<script>try{if(localStorage.getItem('tema')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
 <title>SMART Building — Edificios</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -25,14 +29,14 @@
   <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
 
   <aside class="sidebar shell" id="sidebar">
-    <div class="sidebar-brand">
+    <a class="sidebar-brand" href="dashboard.html" style="text-decoration:none; color:inherit;">
       <span class="brand-mark" style="width:32px;height:32px;border-radius:10px;">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="M4 21V6l8-3 8 3v15"/><path d="M9 21v-6h6v6"/><path d="M9 10h.01M15 10h.01M9 14h.01M15 14h.01"/>
         </svg>
       </span>
       <b style="font-size:14px;">SMART Building</b>
-    </div>
+    </a>
     <nav class="sidebar-nav" id="sidebar-nav"></nav>
     <div class="sidebar-footer">
       <div class="sidebar-user">

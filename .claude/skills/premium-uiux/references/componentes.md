@@ -357,45 +357,28 @@ document.getElementById('detail-close').addEventListener('click', closeDetail);
 backdropEl.addEventListener('click', closeDetail);
 ```
 
-## Toggle de tema (View Transitions API + barrido circular)
+## Toggle de tema (View Transitions API, cross-fade simple + persistencia)
 
-Implementado en `frontend/assets/js/theme.js`. El barrido nace del punto exacto del clic: `document.startViewTransition()` congela el estado anterior, y `Element.animate()` anima un `clip-path:circle()` creciendo desde `0px` hasta un radio que cubre toda la pantalla (Pitágoras hasta la esquina más lejana), aplicado sobre el pseudo-elemento `::view-transition-new(root)`. El ícono del botón también cambia (sol en claro, luna en oscuro).
+Implementado en `frontend/assets/js/theme.js`. La animación es la que trae el navegador por default con `document.startViewTransition()` (cross-fade) — **sin personalizar**. Se probó un barrido circular más elaborado (nace del punto del clic, con `clip-path` animado vía Web Animations API — documentado en `que_hice.html`, slide `f12-t2`), pero **se revirtió a pedido explícito del usuario**: tuvo un bug real de `z-index` y, sobre todo, se reportó como lento específicamente en Chrome en producción. Queda anotado en el Roadmap (Fase 13) para retomarse si se decide investigar más adelante — no se vuelve a intentar sin que esa decisión se tome de nuevo explícitamente.
 
 ```js
-boton.addEventListener('click', (evento) => {
+boton.addEventListener('click', () => {
   const siguiente = raiz.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-  const aplicar = () => { raiz.setAttribute('data-theme', siguiente); pintarIcono(boton, siguiente); };
-
-  if (!document.startViewTransition) { aplicar(); return; }
-
-  const { clientX: x, clientY: y } = evento;
-  const radioMaximo = Math.hypot(
-    Math.max(x, window.innerWidth - x),
-    Math.max(y, window.innerHeight - y),
-  );
-
-  const transicion = document.startViewTransition(aplicar);
-  transicion.ready.then(() => {
-    raiz.animate(
-      { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radioMaximo}px at ${x}px ${y}px)`] },
-      { duration: 550, easing: 'ease-in-out', pseudoElement: '::view-transition-new(root)' },
-    );
-  });
+  const aplicar = () => {
+    raiz.setAttribute('data-theme', siguiente);
+    try { localStorage.setItem('tema', siguiente); } catch (error) { /* modo privado, etc. */ }
+  };
+  if (document.startViewTransition) { document.startViewTransition(aplicar); } else { aplicar(); }
 });
 ```
 
-```css
-/* Anula el cross-fade default del navegador — solo se ve el barrido circular.
-   El estado nuevo (::view-transition-new) va SIEMPRE arriba del anterior,
-   sin importar la dirección del cambio — condicionar el z-index por tema
-   fue un bug real (ver que_hice.html, slide f12-t2): invertía el orden
-   justo en el sentido claro→oscuro y el círculo quedaba tapado. */
-::view-transition-old(root), ::view-transition-new(root){ animation:none; mix-blend-mode:normal; }
-::view-transition-old(root){ z-index:1; }
-::view-transition-new(root){ z-index:2; }
+**Persistencia (agregada tras un bug real reportado):** el tema se guarda en `localStorage` y se reaplica en cada página — antes se reiniciaba a claro en cada pantalla nueva (bug real: cambiar a oscuro y navegar a Edificios/Usuarios volvía a claro sin querer). Para que no se vea un parpadeo de claro antes de pasar a oscuro, la reaplicación NO puede esperar a `theme.js` (que carga al final del `<body>`) — cada HTML con sidebar tiene este script inline en el `<head>`, antes que cualquier hoja de estilo:
+
+```html
+<script>try{if(localStorage.getItem('tema')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
 ```
 
-Si el navegador no soporta View Transitions, el cambio de tema sigue siendo instantáneo (sin barrido, degradación aceptable).
+Si el navegador no soporta View Transitions, el cambio de tema es instantáneo (degradación aceptable).
 
 ## Variante "piso completo" (opcional, no default)
 

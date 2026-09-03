@@ -99,13 +99,6 @@ h1, h2, h3, .display{ font-family:Outfit, sans-serif; letter-spacing:-.015em; }
   background:var(--crit); color:#fff; font-size:9px; font-weight:800; display:grid; place-items:center;
   border:2px solid var(--bg-1);
 }
-
-/* Toggle de tema — barrido circular nacido del punto de clic (assets/js/theme.js
-   anima el clip-path vía Web Animations API sobre ::view-transition-new(root)).
-   Se anula el cross-fade default del navegador para que se vea solo el barrido. */
-::view-transition-old(root), ::view-transition-new(root){ animation:none; mix-blend-mode:normal; }
-::view-transition-old(root){ z-index:1; }
-::view-transition-new(root){ z-index:2; } /* el círculo que crece va SIEMPRE arriba, sea cual sea la dirección del cambio */
 .avatar{
   width:38px; height:38px; border-radius:13px;
   background:linear-gradient(155deg,#5c6469,#33383c);

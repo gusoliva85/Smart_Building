@@ -3,6 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Aplica el tema guardado ANTES de pintar nada — si esto fuera en
+     theme.js (al final del body) se vería un parpadeo de claro antes de
+     pasar a oscuro en cada página nueva. -->
+<script>try{if(localStorage.getItem('tema')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
 <title>SMART Building — Iniciar sesión</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">

@@ -1733,6 +1733,7 @@ window.Api.guardarToken(respuesta.access_token);
 location.href = 'dashboard.html';</div>
             <p><strong>assets/js/layout.js</strong> (nuevo): lo que antes vivía suelto en <code>login.js</code> (armar accesos según el rol) se promovió a un módulo compartido que monta el sidebar completo — guarda de sesión, <code>/auth/me</code>, accesos por rol, marcado del activo, logout y el toggle mobile — en una sola llamada (<code>window.Layout.montar('pagina-actual.html')</code>) que cualquier pantalla nueva reutiliza sin volver a escribir nada de esto.</p>
             <p><strong>Verificado con Playwright, contra el backend real:</strong> login redirige a <code>dashboard.html</code>; el sidebar muestra "Edificios" solo para el Admin General (un Propietario ve el mismo sidebar, pero con "Todavía no hay pantallas para tu rol"); el menú hamburguesa en mobile (400px) abre y cierra el panel deslizante con el mismo patrón ya usado en el Dashboard Visual; el tema oscuro se ve correcto en el sidebar, el topbar y el panel mobile.</p>
+            <p><strong>Ajuste posterior, a pedido del usuario:</strong> el logo "SMART Building" del sidebar (<code>.sidebar-brand</code>) era un <code>&lt;div&gt;</code> sin acción — ahora es un <code>&lt;a href="dashboard.html"&gt;</code>, así que funciona como el "home" esperable de cualquier sidebar. Cambiado en las tres pantallas que tienen sidebar (<code>dashboard.html</code>, <code>edificios.html</code>, <code>usuarios.html</code>).</p>
           </div>
         </div>
       </section>
@@ -2090,8 +2091,8 @@ location.href = 'dashboard.html';</div>
         <div class="slide-inner">
           <div class="tarea-head">
             <span class="tarea-num">Fase 12 · Tarea 2 (adelantada)</span>
-            <h3>Frontend: barrido circular del toggle de tema</h3>
-            <span class="status done"><i class="dot"></i>Hecho</span>
+            <h3>Frontend: barrido circular del toggle de tema <em style="font-style:italic;font-weight:400;color:var(--ink-3);">(removido)</em></h3>
+            <span class="status done"><i class="dot"></i>Hecho — luego revertido a pedido del usuario</span>
           </div>
           <p class="lede">El botón de "Cambiar tema" (topbar, todas las pantallas) ahora anima un barrido circular que nace del punto exacto del clic y crece hasta cubrir toda la pantalla, en vez del cross-fade genérico del navegador. Es exactamente el refinamiento que la skill <code>premium-uiux</code> (<code>componentes.md</code>, sección "Toggle de tema") y el Roadmap (Fase 12) ya dejaban documentado como pendiente — se adelantó a pedido explícito, fuera de su orden normal en el Roadmap.</p>
 
@@ -2147,6 +2148,31 @@ transicion.ready.then(() => {
               Reportado en mobile — investigado, no reproducido todavía
             </div>
             <p>El usuario reportó, probando en su celular, que el barrido "sale del lugar equivocado" en mobile. Se investigó con Playwright emulando un Pixel 5 (viewport 393px) con un <strong>tap táctil real</strong> (no un clic simulado) sobre el botón — en las capturas a 60ms y 150ms el círculo nace correctamente desde el botón, igual que en desktop. Comparando estructura contra la primera captura enviada, coincide con un frame intermedio normal de la animación (un círculo oscuro creciendo desde la esquina superior derecha) — probablemente una captura tomada a mitad de camino, que como imagen fija se ve como "algo roto" aunque sea el comportamiento esperado. No se aplicó ningún cambio de código todavía por no poder confirmar un bug real; queda abierto para retomar si el usuario lo sigue viendo mal después de esta explicación, idealmente con una grabación de pantalla en vez de una captura fija.</p>
+          </div>
+
+          <div class="correccion">
+            <div class="correccion-titulo">
+              <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              Revertido por completo: "solo trajo problemas"
+            </div>
+            <p>El usuario pidió sacar el barrido circular entero y volver al cross-fade simple que había al principio. Tres razones acumuladas, la última fue la que decidió el revert:</p>
+            <ul>
+              <li>El bug real de z-index ya documentado arriba (corregido, pero ya había sido un problema real una vez).</li>
+              <li>Reportado como lento específicamente en Chrome en producción (no reproducido con Playwright automatizado — investigación honesta documentada, sin encontrar la causa raíz).</li>
+              <li><strong>El bug que decidió el revert, encontrado por el usuario:</strong> el tema se reiniciaba a claro en cada página nueva. Cambiar a oscuro en el Dashboard y navegar a Edificios o Usuarios volvía a mostrar todo en claro, sin que el usuario lo hubiera elegido — esto no era parte del barrido circular en sí (ya pasaba con el toggle simple también, era un problema de <em>persistencia</em> que nunca se había implementado, no de la animación) pero salió a la luz mientras se revisaba esta funcionalidad.</li>
+            </ul>
+            <p><code>theme.js</code> volvió a la versión simple: <code>document.startViewTransition(aplicar)</code> con el cross-fade default del navegador, sin <code>clip-path</code> ni manipulación de <code>::view-transition-*</code>. Se sacó también el ícono que cambiaba entre sol/luna (volvió al sol fijo de siempre) y las reglas CSS de z-index que solo servían para el barrido.</p>
+            <p><strong>De paso, se resolvió el bug real de persistencia</strong> (la razón de fondo del pedido): el tema elegido ahora se guarda en <code>localStorage</code> y se reaplica en cada página, incluyendo un script inline en el <code>&lt;head&gt;</code> de cada HTML (antes de cualquier hoja de estilo) para que no se vea un parpadeo de claro antes de pasar a oscuro.</p>
+            <div class="code-block"><span class="cm">// theme.js — versión final, simple + persistente</span>
+boton.addEventListener(<span class="str">'click'</span>, () => {
+  <span class="kw">const</span> siguiente = raiz.getAttribute(<span class="str">'data-theme'</span>) === <span class="str">'dark'</span> ? <span class="str">'light'</span> : <span class="str">'dark'</span>;
+  <span class="kw">const</span> aplicar = () => {
+    raiz.setAttribute(<span class="str">'data-theme'</span>, siguiente);
+    localStorage.setItem(<span class="str">'tema'</span>, siguiente);
+  };
+  <span class="kw">if</span> (document.startViewTransition) { document.startViewTransition(aplicar); } <span class="kw">else</span> { aplicar(); }
+});</div>
+            <p>Verificado con Playwright: activar oscuro en el Dashboard y navegar a Edificios y a Usuarios mantiene el tema oscuro en las dos (antes volvía a claro); el CSS ya no tiene ninguna regla <code>view-transition</code>; cero errores. La skill (<code>componentes.md</code>) y el Roadmap (Fase 12) quedaron actualizados reflejando el revert — no se reintenta el barrido sin que el usuario lo pida de nuevo explícitamente.</p>
           </div>
         </div>
       </section>
