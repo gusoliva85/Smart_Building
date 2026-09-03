@@ -88,6 +88,12 @@ h1, h2, h3, .display{ font-family:Outfit, sans-serif; letter-spacing:-.015em; }
 }
 .icon-btn:hover{ transform:translateY(-1px); }
 .icon-btn svg{ width:16px; height:16px; }
+
+/* Variante chica de .icon-btn — para una acción de ícono dentro de una
+   fila de listado (editar, etc.), donde el tamaño de topbar (38px) es
+   desproporcionado. Mismo look, solo más compacta. */
+.icon-btn-sm{ width:32px; height:32px; border-radius:11px; flex:none; }
+.icon-btn-sm svg{ width:15px; height:15px; }
 .icon-btn .badge{
   position:absolute; top:-3px; right:-3px; min-width:15px; height:15px; padding:0 3px; border-radius:99px;
   background:var(--crit); color:#fff; font-size:9px; font-weight:800; display:grid; place-items:center;
@@ -461,4 +467,12 @@ html[data-theme="dark"] .lobby{ background:linear-gradient(180deg, rgba(255,255,
   display:flex; align-items:center; justify-content:space-between; gap:12px;
   flex-wrap:wrap;
 }
-.fila-lista-acciones{ display:flex; align-items:center; gap:8px; flex:none; }
+/* flex-wrap acá también (no solo en .fila-lista): con un rol largo
+   ("Administrador de Consorcio") + pill + botón, el conjunto puede no
+   entrar en una sola línea en mobile — sin este wrap, el botón se corta
+   contra el overflow:hidden del .shell contenedor en vez de acomodarse.
+   flex:none (flex-shrink:0) lo dejaba crecer a su ancho de contenido
+   completo en vez de respetar el ancho disponible de la fila, así que
+   nunca llegaba a necesitar el wrap — min-width:0 + flex-shrink:1 (el
+   default, al sacar flex:none) es lo que realmente lo habilita. */
+.fila-lista-acciones{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-width:0; }

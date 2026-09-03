@@ -323,6 +323,7 @@
       <a class="toc-link" data-goto="f1-t14"><span class="n">14</span>Frontend: alta de edificio<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f1-t15"><span class="n">15</span>Frontend: gestión de usuarios<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f1-t16"><span class="n">16</span>Prueba de punta a punta: usuarios<span class="estado-mini pend"></span></a>
+      <a class="toc-link" data-goto="f1-t17"><span class="n">17</span>Frontend: edición de usuario<span class="estado-mini pend"></span></a>
     </div>
 
     <div class="toc-group">
@@ -1946,6 +1947,15 @@ location.href = 'dashboard.html';</div>
             <p>Verificado con Playwright de forma exigente: se marcaron las 5 filas del listado con un atributo de control antes de desactivar un usuario — después del cambio, las 4 filas no tocadas conservaron su marcador intacto (prueba de que no se re-renderizaron) y solo la fila afectada lo perdió, porque es la única que se reconstruyó de verdad. Cero apariciones de "Cargando…" durante el cambio.</p>
           </div>
 
+          <div class="correccion">
+            <div class="correccion-titulo">
+              <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              Bug real en mobile: el botón "Desactivar" se cortaba en filas con rol largo
+            </div>
+            <p>Reportado probando en el celular: con un rol de nombre largo ("Administrador de Consorcio"), el badge + pill + botón no entraban en una línea y el botón quedaba cortado contra el borde de la tarjeta (oculto por el <code>overflow:hidden</code> del <code>.shell</code> contenedor, no visible como scroll horizontal de la página). Causa real, en dos capas: (1) <code>.fila-lista-acciones</code> le faltaba <code>flex-wrap:wrap</code> para que sus hijos pudieran acomodarse en más de una línea; (2) tenía además <code>flex:none</code>, que le permitía crecer a su ancho de contenido completo en vez de respetar el espacio disponible de la fila — así nunca llegaba a necesitar el wrap. Se sacó <code>flex:none</code> y se agregó <code>min-width:0</code> (lo que de verdad habilita el wrap) junto con el <code>flex-wrap:wrap</code>.</p>
+            <p>Verificado con emulación de mobile real (Playwright + dispositivo Pixel 5, viewport 393px) contra el rol más largo del listado: el botón ahora se acomoda en una segunda línea, contenido dentro de la tarjeta, sin overflow. Confirmado también que el desktop (1280px) no cambió — ahí nunca hace falta el wrap porque sobra espacio horizontal; es la misma regla CSS adaptándose sola al ancho disponible, no dos versiones distintas de la pantalla.</p>
+          </div>
+
           <h4>Verificación con Playwright, contra el backend real</h4>
           <ul>
             <li>Listado real: Administrador General, Propietario de Prueba, Administrador de Consorcio de Prueba.</li>
@@ -1978,6 +1988,45 @@ location.href = 'dashboard.html';</div>
           </ul>
           <p>Las credenciales de los tres roles ya estaban documentadas en <a onclick="document.querySelector('[data-goto=&quot;credenciales&quot;]').click()" style="color:var(--accent-2);text-decoration:underline;cursor:pointer;">Credenciales de prueba</a> desde las tareas que los crearon (7, 14 y 15) — no hizo falta dar de alta usuarios nuevos para esta prueba, se reutilizaron los reales.</p>
           <p>Nota de alcance: "que cada uno ve únicamente lo que le corresponde" hoy significa, en concreto, que un rol sin pantallas propias todavía no ve nada en el sidebar y queda bloqueado si entra por URL a una pantalla ajena — el contenido propio de cada rol (unidades del Propietario, edificio del Administrador de Consorcio) llega recién con el Dashboard Visual de la Fase 5.</p>
+        </div>
+      </section>
+
+      <section class="slide tarea" id="f1-t17" data-crumb="Fase 1 · Tarea 17">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 17</span>
+            <h3>Frontend: edición de usuario</h3>
+            <span class="status pend"><i class="dot"></i>Implementado — pendiente de tu revisión</span>
+          </div>
+          <p class="lede">Tarea nueva, agregada a pedido explícito después de aprobar el listado/alta — la pantalla original solo permitía crear y desactivar, sin editar. Se agregó un ícono de lápiz en cada fila que abre el <strong>mismo modal de alta</strong>, en modo edición, con los datos del usuario ya cargados.</p>
+
+          <div class="explicacion">
+            <div class="explicacion-titulo">
+              <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              Por qué Email y Contraseña no se editan desde acá
+            </div>
+            <p>El backend expone <code>UsuarioEdicion</code> para el <code>PATCH /api/usuarios/{id}</code> — acepta <code>nombre</code>, <code>telefono</code>, <code>rol</code> y <code>activo</code>, pero deliberadamente no <code>email</code> ni <code>password</code> (esa es la responsabilidad de <code>UsuarioEntrada</code>, solo para el alta). En modo edición, el modal deja Email visible pero deshabilitado — así el administrador ve con certeza a quién está editando — y oculta el campo de Contraseña por completo, en vez de simular una edición que el backend rechazaría.</p>
+          </div>
+
+          <h4>Un solo modal, dos modos</h4>
+          <p>En vez de un modal nuevo, <code>abrirModalEdicion(id)</code> reconfigura el mismo <code>#modal-alta</code>: cambia el título ("Editar usuario"), precarga los campos desde una caché local de usuarios ya cargados, deshabilita Email, esconde Contraseña, y cambia el texto del botón a "Guardar cambios". <code>abrirModal()</code> (el "+ Nuevo usuario" de siempre) hace exactamente lo inverso al abrir. El <code>submit</code> del formulario decide POST vs PATCH según si hay un <code>usuarioEditandoId</code> activo.</p>
+          <div class="code-block"><span class="kw">if</span> (usuarioEditandoId) {
+  <span class="kw">const</span> usuarioActualizado = <span class="kw">await</span> window.Api.patch(`/usuarios/${usuarioEditandoId}`, {
+    nombre: campoNombre.value.trim(), rol: campoRol.value, telefono: campoTelefono.value.trim() || <span class="kw">null</span>,
+  });
+  reemplazarFila(usuarioActualizado); <span class="cm">// misma actualización puntual de la Tarea 16, no recarga todo</span>
+} <span class="kw">else</span> {
+  <span class="kw">await</span> window.Api.post(<span class="str">'/usuarios'</span>, { ... }); <span class="cm">// alta, como siempre</span>
+}</div>
+          <p>El ícono de editar es <code>.icon-btn.icon-btn-sm</code> — variante chica (32px) del mismo botón de ícono que ya usa el topbar (38px), nunca un componente inventado para esta pantalla puntual.</p>
+
+          <h4>Verificación con Playwright, contra el backend real</h4>
+          <ul>
+            <li>Editar "Encargado de Prueba": modal abre en modo edición, con Nombre/Email/Rol precargados correctamente, Email deshabilitado, bloque de Contraseña oculto, botón "Guardar cambios".</li>
+            <li>Cambio real de nombre y teléfono → <code>PATCH</code> real, la fila se actualiza sola (sin recargar el listado), modal se cierra.</li>
+            <li>Reabrir "+ Nuevo usuario" después de haber editado: título vuelve a "Nuevo usuario", Email vuelve a estar habilitado y vacío, Contraseña vuelve a mostrarse — confirma que un modo no deja rastros en el otro.</li>
+            <li>Se restauró el nombre original del usuario de prueba después de verificar, para no ensuciar las credenciales documentadas.</li>
+          </ul>
         </div>
       </section>
 
@@ -2035,6 +2084,14 @@ transicion.ready.then(() => {
             <li>Capturas a 60ms y 150ms del clic muestran el círculo oscuro creciendo desde el botón (claro→oscuro) y el círculo claro creciendo desde el botón (oscuro→claro) — ambas direcciones simétricas tras la corrección.</li>
             <li>Captura final confirma el tema oscuro aplicado correctamente en topbar, tarjeta de login y botones — mismos tokens de color de siempre, ningún valor pegado al tema anterior.</li>
           </ul>
+
+          <div class="correccion">
+            <div class="correccion-titulo">
+              <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              Reportado en mobile — investigado, no reproducido todavía
+            </div>
+            <p>El usuario reportó, probando en su celular, que el barrido "sale del lugar equivocado" en mobile. Se investigó con Playwright emulando un Pixel 5 (viewport 393px) con un <strong>tap táctil real</strong> (no un clic simulado) sobre el botón — en las capturas a 60ms y 150ms el círculo nace correctamente desde el botón, igual que en desktop. Comparando estructura contra la primera captura enviada, coincide con un frame intermedio normal de la animación (un círculo oscuro creciendo desde la esquina superior derecha) — probablemente una captura tomada a mitad de camino, que como imagen fija se ve como "algo roto" aunque sea el comportamiento esperado. No se aplicó ningún cambio de código todavía por no poder confirmar un bug real; queda abierto para retomar si el usuario lo sigue viendo mal después de esta explicación, idealmente con una grabación de pantalla en vez de una captura fija.</p>
+          </div>
         </div>
       </section>
 

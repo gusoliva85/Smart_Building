@@ -85,8 +85,8 @@
 <div class="modal-backdrop" id="modal-alta">
   <div class="modal modal-formulario shell">
     <button type="button" class="modal-close" id="modal-alta-cerrar" aria-label="Cerrar">✕</button>
-    <h3>Nuevo usuario</h3>
-    <span class="modal-formulario-sub">Se crea con la contraseña que definas acá — se la comunicás vos.</span>
+    <h3 id="modal-alta-titulo">Nuevo usuario</h3>
+    <span class="modal-formulario-sub" id="modal-alta-sub">Se crea con la contraseña que definas acá — se la comunicás vos.</span>
 
     <div class="mensaje-error" id="mensaje-error" style="display:none;">
       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
@@ -101,7 +101,7 @@
         <label for="campo-email">Email</label>
         <input type="email" id="campo-email" required placeholder="Ej.: tumail@mail.com" autocomplete="off">
       </div>
-      <div class="campo">
+      <div class="campo" id="bloque-password">
         <label for="campo-password">Contraseña</label>
         <div class="campo-password-wrap">
           <input type="password" id="campo-password" required placeholder="Ej.: 123456" autocomplete="new-password">

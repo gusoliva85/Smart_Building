@@ -1,4 +1,4 @@
-// usuarios.js — lógica de usuarios.html (listado, alta, activar/desactivar).
+// usuarios.js — lógica de usuarios.html (listado, alta, edición, activar/desactivar).
 document.addEventListener('DOMContentLoaded', async () => {
   const usuarioActual = await window.Layout.montar('usuarios.html');
   if (!usuarioActual) return;
@@ -15,17 +15,30 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const listaUsuarios = document.getElementById('lista-usuarios');
   const modalAlta = document.getElementById('modal-alta');
+  const modalTitulo = document.getElementById('modal-alta-titulo');
+  const modalSub = document.getElementById('modal-alta-sub');
   const formulario = document.getElementById('form-alta');
   const mensajeError = document.getElementById('mensaje-error');
   const mensajeErrorTexto = document.getElementById('mensaje-error-texto');
   const botonGuardar = document.getElementById('boton-guardar');
+  const bloquePassword = document.getElementById('bloque-password');
+  const campoNombre = document.getElementById('campo-nombre');
+  const campoEmail = document.getElementById('campo-email');
+  const campoPassword = document.getElementById('campo-password');
+  const campoRol = document.getElementById('campo-rol');
+  const campoTelefono = document.getElementById('campo-telefono');
 
   window.Formularios.habilitarEnterComoTab(formulario);
 
   const ETIQUETAS_ROL = window.Layout.ETIQUETAS_ROL;
 
+  // usuarioEditandoId: null mientras el modal está en modo alta; el id del
+  // usuario cuando está en modo edición — determina qué hace el submit.
+  let usuarioEditandoId = null;
+  let usuariosCache = {};
+
   // Arma el HTML de una fila a partir del usuario — la usan tanto el
-  // listado completo (carga inicial) como alternarEstado (actualización
+  // listado completo (carga inicial) como reemplazarFila (actualización
   // puntual de una sola fila, sin recargar todo).
   function renderFila(u) {
     return `
@@ -37,6 +50,9 @@ document.addEventListener('DOMContentLoaded', async () => {
           <div class="fila-lista-acciones">
             <span class="rol-badge">${ETIQUETAS_ROL[u.rol] || u.rol}</span>
             <span class="pill ${u.activo ? 'ok' : 'crit'}">${u.activo ? 'Activo' : 'Inactivo'}</span>
+            <button type="button" class="icon-btn icon-btn-sm boton-editar" data-id="${u.id}" aria-label="Editar usuario">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            </button>
             <button type="button" class="chip-link boton-alternar-estado" data-id="${u.id}" data-activo="${u.activo}">
               ${u.activo ? 'Desactivar' : 'Reactivar'}
             </button>
@@ -44,8 +60,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         </div>`;
   }
 
-  function conectarBotonAlternar(boton) {
-    boton.addEventListener('click', () => alternarEstado(boton));
+  function conectarFila(fila) {
+    fila.querySelector('.boton-editar').addEventListener('click', () => abrirModalEdicion(fila.dataset.id));
+    fila.querySelector('.boton-alternar-estado').addEventListener('click', (evento) => alternarEstado(evento.currentTarget));
+  }
+
+  // Reemplaza SOLO el nodo de una fila con el usuario actualizado — la usan
+  // alternarEstado y el submit en modo edición. Evita recargar/parpadear
+  // el listado entero por cambiar un solo usuario.
+  function reemplazarFila(usuario) {
+    usuariosCache[usuario.id] = usuario;
+    const filaActual = listaUsuarios.querySelector(`.fila-lista[data-id="${usuario.id}"]`);
+    if (!filaActual) return;
+    const contenedor = document.createElement('div');
+    contenedor.innerHTML = renderFila(usuario).trim();
+    const filaNueva = contenedor.firstElementChild;
+    conectarFila(filaNueva);
+    filaActual.replaceWith(filaNueva);
   }
 
   async function cargarListado() {
@@ -58,8 +89,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
+    usuariosCache = {};
+    usuarios.forEach((u) => { usuariosCache[u.id] = u; });
     listaUsuarios.innerHTML = usuarios.map(renderFila).join('');
-    listaUsuarios.querySelectorAll('.boton-alternar-estado').forEach(conectarBotonAlternar);
+    listaUsuarios.querySelectorAll('.fila-lista').forEach(conectarFila);
   }
 
   // Activar/desactivar actualiza SOLO la fila afectada (con el usuario real
@@ -73,13 +106,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       const usuarioActualizado = estaActivo
         ? await window.Api.post(`/usuarios/${id}/desactivar`)
         : await window.Api.patch(`/usuarios/${id}`, { activo: true });
-
-      const filaActual = listaUsuarios.querySelector(`.fila-lista[data-id="${id}"]`);
-      const filaNueva = document.createElement('div');
-      filaNueva.innerHTML = renderFila(usuarioActualizado).trim();
-      const filaElemento = filaNueva.firstElementChild;
-      conectarBotonAlternar(filaElemento.querySelector('.boton-alternar-estado'));
-      filaActual.replaceWith(filaElemento);
+      reemplazarFila(usuarioActualizado);
     } catch (error) {
       boton.disabled = false;
       alert(error.message); // acción secundaria de una fila — no amerita su propio modal
@@ -87,22 +114,59 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // ---------------------------------------------------------------
-  // Modal de alta — a diferencia del panel .detail que usaba antes, este
-  // NUNCA se cierra tocando el fondo: solo con la X, Cancelar, o
+  // Modal de alta/edición — a diferencia del panel .detail que usaba antes,
+  // este NUNCA se cierra tocando el fondo: solo con la X, Cancelar, o
   // completando el formulario (feedback explícito del usuario).
+  //
+  // Es el MISMO modal para crear y editar. Email y Contraseña solo se
+  // piden al crear — el backend (UsuarioEdicion) no los acepta por
+  // PATCH, así que en modo edición Email queda visible pero deshabilitado
+  // (para que quede claro a quién se está editando) y Contraseña se
+  // oculta directamente.
   // ---------------------------------------------------------------
   function abrirModal() {
+    usuarioEditandoId = null;
+    modalTitulo.textContent = 'Nuevo usuario';
+    modalSub.textContent = 'Se crea con la contraseña que definas acá — se la comunicás vos.';
+    campoEmail.disabled = false;
+    campoEmail.required = true;
+    bloquePassword.style.display = '';
+    campoPassword.required = true;
+    botonGuardar.textContent = 'Crear usuario';
+    formulario.reset();
     modalAlta.classList.add('open');
-    document.getElementById('campo-nombre').focus();
+    campoNombre.focus();
   }
+
+  function abrirModalEdicion(id) {
+    const usuario = usuariosCache[id];
+    if (!usuario) return;
+    usuarioEditandoId = id;
+    modalTitulo.textContent = 'Editar usuario';
+    modalSub.textContent = 'El email y la contraseña no se editan desde acá.';
+    campoNombre.value = usuario.nombre;
+    campoEmail.value = usuario.email;
+    campoEmail.disabled = true;
+    campoEmail.required = false;
+    bloquePassword.style.display = 'none';
+    campoPassword.required = false;
+    campoRol.value = usuario.rol;
+    campoTelefono.value = usuario.telefono || '';
+    botonGuardar.textContent = 'Guardar cambios';
+    mensajeError.style.display = 'none';
+    modalAlta.classList.add('open');
+    campoNombre.focus();
+  }
+
   function cerrarModal() {
     modalAlta.classList.remove('open');
     formulario.reset();
     mensajeError.style.display = 'none';
+    campoEmail.disabled = false;
+    usuarioEditandoId = null;
     // el toggle de contraseña no se resetea solo con formulario.reset()
-    const inputPassword = document.getElementById('campo-password');
     const botonToggle = modalAlta.querySelector('.campo-password-toggle');
-    inputPassword.type = 'password';
+    campoPassword.type = 'password';
     botonToggle.querySelector('svg').innerHTML = window.Formularios.ICONO_OJO;
     botonToggle.setAttribute('aria-label', 'Mostrar contraseña');
   }
@@ -114,24 +178,34 @@ document.addEventListener('DOMContentLoaded', async () => {
     evento.preventDefault();
     mensajeError.style.display = 'none';
     botonGuardar.disabled = true;
-    botonGuardar.textContent = 'Creando…';
 
     try {
-      await window.Api.post('/usuarios', {
-        nombre: document.getElementById('campo-nombre').value.trim(),
-        email: document.getElementById('campo-email').value.trim(),
-        password: document.getElementById('campo-password').value,
-        rol: document.getElementById('campo-rol').value,
-        telefono: document.getElementById('campo-telefono').value.trim() || null,
-      });
+      if (usuarioEditandoId) {
+        botonGuardar.textContent = 'Guardando…';
+        const usuarioActualizado = await window.Api.patch(`/usuarios/${usuarioEditandoId}`, {
+          nombre: campoNombre.value.trim(),
+          rol: campoRol.value,
+          telefono: campoTelefono.value.trim() || null,
+        });
+        reemplazarFila(usuarioActualizado);
+      } else {
+        botonGuardar.textContent = 'Creando…';
+        await window.Api.post('/usuarios', {
+          nombre: campoNombre.value.trim(),
+          email: campoEmail.value.trim(),
+          password: campoPassword.value,
+          rol: campoRol.value,
+          telefono: campoTelefono.value.trim() || null,
+        });
+        await cargarListado();
+      }
       cerrarModal();
-      await cargarListado();
     } catch (error) {
       mensajeErrorTexto.textContent = error.message;
       mensajeError.style.display = 'flex';
     } finally {
       botonGuardar.disabled = false;
-      botonGuardar.textContent = 'Crear usuario';
+      botonGuardar.textContent = usuarioEditandoId ? 'Guardar cambios' : 'Crear usuario';
     }
   });
 

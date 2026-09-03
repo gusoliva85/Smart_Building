@@ -112,6 +112,26 @@ Regla de aplicación: `.shell` para el contenedor grande (topbar, cada `.kpi`, `
 
 Íconos: siempre SVG inline con `viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7-1.8"`, nunca librería de íconos ni emoji.
 
+Variante chica para una acción de ícono DENTRO de una fila de listado (editar, etc.) — el tamaño de topbar (38px) es desproporcionado ahí:
+
+```css
+.icon-btn-sm{ width:32px; height:32px; border-radius:11px; flex:none; }
+.icon-btn-sm svg{ width:15px; height:15px; }
+```
+
+Uso: `<button class="icon-btn icon-btn-sm" aria-label="Editar">...</button>` — mismo look que `.icon-btn` (fondo, borde, hover), solo más compacto.
+
+## Fila de listado (`.fila-lista`)
+
+Para cualquier pantalla "lista de cosas + alta en modal" (usuarios hoy, después proveedores, reclamos, activos...). Mismo look que `.detail-item.content-glass`.
+
+```css
+.fila-lista{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.fila-lista-acciones{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-width:0; }
+```
+
+**Lección aprendida (bug real en mobile, feedback del usuario):** con un badge de texto largo (ej. "Administrador de Consorcio") + pill + botón, el conjunto de acciones puede no entrar en una línea en mobile. `flex-wrap:wrap` en `.fila-lista-acciones` es necesario para que sus hijos se acomoden en más de una línea — pero **no alcanza solo con eso**: si además tiene `flex:none` (o cualquier `flex-shrink:0`), el elemento crece a su ancho de contenido completo en vez de respetar el espacio disponible de la fila, y entonces nunca *necesita* wrappear — se sale de la tarjeta igual. `min-width:0` (más el `flex-shrink:1` default, al no poner `flex:none`) es lo que de verdad lo habilita a respetar el ancho disponible. Se verifica con un rol de texto largo específicamente — con roles cortos el bug no se nota.
+
 ## Grilla de KPIs (bento, no tarjetas idénticas)
 
 ```css
