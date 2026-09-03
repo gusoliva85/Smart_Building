@@ -302,6 +302,7 @@ Smart_Building_ver3/
 │   ├── 01_Documento_General.md
 │   ├── 02_Documento_Tecnico.md
 │   ├── 03_Roadmap.md
+│   ├── Prorrateo.md             # investigación legal + decisión de diseño (Fase 2)
 │   └── mockups/
 │
 ├── .gitignore
@@ -444,7 +445,7 @@ El Documento General (sección 3, nota de diseño) deja abierta la puerta a "exc
 
 Módulo más sensible: de él depende directamente el color amarillo/rojo por deuda en el Dashboard Visual.
 
-- **Criterio de prorrateo** (`services/finanzas.py`, lógica pura, sin DB): cada `Departamento` tiene un `coeficiente` (%, suma 100% por edificio) — el dato legalmente vinculante (Ley 13.512 / Código Civil y Comercial, arts. 2037 y ss.), no un criterio global de "partes iguales" o "por m²" recalculado en cada liquidación. `calcular_partes_iguales()` y `calcular_por_metros_cuadrados()` son atajos para completar el coeficiente la primera vez; `prorratear_gasto(monto_total, coeficientes)` reparte un monto respetándolos, con la última unidad recibiendo el resto exacto (nunca su parte redondeada) para que la suma dé siempre igual al total, sin perder centavos por redondeo. Excepción por rubro (ej. ascensor sin planta baja) queda fuera de alcance por ahora, registrada para una tarea aparte.
+- **Criterio de prorrateo** (`services/finanzas.py`, lógica pura, sin DB — investigación legal completa y decisión de diseño en `Prorrateo.md`): cada `Departamento` tiene un `coeficiente` (%, suma 100% por edificio) — el dato legalmente vinculante (Ley 13.512 / Código Civil y Comercial, arts. 2037 y ss.), no un criterio global de "partes iguales" o "por m²" recalculado en cada liquidación. `calcular_partes_iguales()` y `calcular_por_metros_cuadrados()` son atajos para completar el coeficiente la primera vez; `prorratear_gasto(monto_total, coeficientes)` reparte un monto respetándolos, con la última unidad recibiendo el resto exacto (nunca su parte redondeada) para que la suma dé siempre igual al total, sin perder centavos por redondeo. Excepción por rubro (ej. ascensor sin planta baja) queda fuera de alcance por ahora, registrada para una tarea aparte.
 - **Expensas:** `POST /api/edificios/{id}/expensas` genera la liquidación periódica con detalle abierto por rubro (`expensa_detalle`), aplicando `prorratear_gasto()` sobre los coeficientes de cada departamento. Notificación automática (vía módulo de comunicados) cuando está disponible.
 - **Pagos:** `POST /api/departamentos/{id}/pagos` con comprobante adjunto; estado de conciliación entre lo liquidado y lo cobrado.
 - **Deudores:** endpoint calculado `GET /api/edificios/{id}/deudores` — antigüedad de la deuda en meses, alimenta directamente `deudaSeverity()` del Dashboard Visual (sección 1.3.8): 1 mes → amarillo, más de 1 mes → rojo.

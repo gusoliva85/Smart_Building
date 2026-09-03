@@ -223,6 +223,8 @@ El módulo más sensible del sistema, ya que de él depende directamente uno de 
 
 ### 6.1 Expensas
 
+*Investigación legal completa y decisión de diseño del criterio de prorrateo: ver `Prorrateo.md`.*
+
 - Generación periódica (mensual) de la liquidación de expensas por edificio, prorrateada según el **coeficiente (%) de cada departamento** — el dato real y legalmente vinculante en Argentina (Ley 13.512 y su continuación en el Código Civil y Comercial, arts. 2037 y siguientes: cada unidad funcional tiene un porcentual fijo registrado en el reglamento de propiedad horizontal, no un criterio global recalculado). Los coeficientes de todas las unidades de un edificio suman 100%.
 - Ese coeficiente se completa por primera vez con uno de dos atajos — **partes iguales** o **por m²** — pero queda como un dato editable por unidad desde la pantalla de Configuración (Administrador General en cualquier edificio, Administrador de Consorcio en el suyo), para que coincida con el reglamento real del edificio si difiere de esos atajos.
 - Fuera de alcance por ahora (registrado para retomar más adelante): un criterio de distribución distinto para un gasto puntual dentro del mismo edificio — por ejemplo, unidades de planta baja exentas del gasto de ascensor. Es un caso real y contemplado por la ley vía el reglamento, pero se resuelve en una tarea aparte que no depende de esta base.
