@@ -1921,7 +1921,19 @@ location.href = 'dashboard.html';</div>
   background: <span class="kw">var</span>(--glass-shell-fallback); <span class="cm">/* 92%/94% opaco según tema */</span>
 }</div>
             <p>Se corrigió en la regla compartida <code>.modal</code> (no solo en la variante de formulario), así que también corrige de paso el modal de aviso de "dirección no encontrada" (alta de edificio), que tenía el mismo problema sin que nadie lo hubiera notado todavía. Verificado con capturas antes/después en tema claro (ahora blanco limpio, igual a la tarjeta de listado de usuarios) y en tema oscuro (sigue viéndose oscuro, correcto — coincide con el resto del tema oscuro de la app).</p>
-            <p>Sobre la consulta de performance del mismo mensaje: medí "long tasks" del hilo principal durante la animación del toggle de tema en producción real y dieron cero — no encontré ahí un problema de rendimiento medible. Es probable que el gris lavado del modal, al verse "pesado"/sin terminar, se haya percibido como lentitud aunque el frame rate en sí estuviera bien.</p>
+            <p>Sobre la consulta de performance del mismo mensaje: medí "long tasks" del hilo principal durante la animación del toggle de tema en producción real y dieron cero. <strong>Corrección:</strong> el usuario aclaró después que la lentitud es específica de Chrome (en Firefox las transiciones andan bien) — no tiene que ver con el gris del modal. Queda anotada en el Roadmap (Fase 13) para investigarse al cierre del proyecto, con Chrome DevTools reales en vez de un Chrome automatizado, que no reprodujo el síntoma.</p>
+          </div>
+
+          <div class="correccion">
+            <div class="correccion-titulo">
+              <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              Dos bugs reales más, encontrados en la misma revisión
+            </div>
+            <ul>
+              <li><strong>El navegador autocompletaba Email y Contraseña con la sesión del Admin logueado.</strong> Chrome reconocía el par email+password del alta como un formulario de login y lo autocompletaba con las credenciales guardadas del Administrador General — mal en cualquier caso, y peor tratándose de dar de alta a otra persona. Se agregó <code>autocomplete="off"</code> en el campo de email y <code>autocomplete="new-password"</code> en el de contraseña (el valor que le indica al navegador "esto es una credencial nueva, no autocompletar"), más <code>autocomplete="off"</code> en el <code>&lt;form&gt;</code>. De paso, los placeholders de Email y Contraseña pasaron a mostrar un ejemplo gris ("Ej.: tumail@mail.com", "Ej.: 123456"), igual que ya hacía el de Teléfono.</li>
+              <li><strong>El botón del ojo desaparecía al primer clic — bug real, no solo percepción.</strong> El código hacía <code>boton.innerHTML = ICONO_OJO_TACHADO</code> sobre el <code>&lt;button&gt;</code> mismo, pisando también el <code>&lt;svg&gt;</code> que lo envolvía. Sin ese wrapper, el parser de HTML no reconoce <code>&lt;path&gt;</code>/<code>&lt;circle&gt;</code> sueltos como SVG real — quedan invisibles. Se corrigió apuntando al <code>&lt;svg&gt;</code> de adentro (<code>boton.querySelector('svg').innerHTML = ...</code>) en vez del botón.</li>
+            </ul>
+            <p>Verificado con Playwright: el ícono se mantiene visible (y correcto) después de cada clic, en ambas direcciones; los atributos <code>autocomplete</code> y los nuevos placeholders quedaron confirmados en el DOM.</p>
           </div>
 
           <h4>Verificación con Playwright, contra el backend real</h4>

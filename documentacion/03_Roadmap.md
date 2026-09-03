@@ -549,7 +549,10 @@ Corresponde al Documento Técnico, sección 1.3.1 (migración Tailwind CDN → C
   Confirmar que la plataforma responde bien con varios edificios y usuarios simultáneos, no solo con el edificio de prueba usado durante todo el desarrollo.
 
 - [ ] **Evaluar la migración de SQLite a PostgreSQL.**
-  Prevista desde el día uno por usar SQLAlchemy (Documento Técnico, sección 2.1) — se decide en esta fase si hace falta antes de salir a producción, según la escala esperada.
+  Prevista desde el día uno por usar SQLAlchemy (Documento Técnico, sección 2.1) — se decide en esta fase si hace falta antes de salir a producción, según la escala esperada. *(Actualización: esto ya pasó antes de lo previsto — la base de producción en Vercel corre sobre PostgreSQL/Supabase desde el despliegue inicial, porque el filesystem de Vercel es efímero y SQLite no persiste ahí. Queda para esta fase evaluar si conviene seguir en el plan free de Supabase o migrar de proveedor según la escala real.)*
+
+- [ ] **Investigar transiciones lentas/trabadas en Chrome (reportado en producción, no se reproduce en Firefox).**
+  El barrido circular del toggle de tema (y posiblemente otras animaciones con `backdrop-filter`) se ve lento en Chrome sobre la app desplegada, pero fluido en Firefox — reportado por el usuario probando en producción. Una medición preliminar de "long tasks" del hilo principal en un Chrome automatizado (Playwright) no reprodujo el síntoma, así que falta perfilar con las DevTools de un Chrome real (pestaña Performance) para aislar la causa real: candidatos son el costo de composición de múltiples capas `backdrop-filter` apiladas, o el script `cdn.tailwindcss.com` (ya señalado como no apto para producción por el propio Tailwind — ver la tarea de migración a Tailwind CLI de la Fase 12).
 
 - [ ] **Documentación de despliegue.**
   Cómo llevar backend y frontend a un servidor real, paso a paso.

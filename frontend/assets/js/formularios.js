@@ -52,7 +52,12 @@ document.addEventListener('DOMContentLoaded', () => {
     boton.addEventListener('click', () => {
       const seVaAMostrar = input.type === 'password';
       input.type = seVaAMostrar ? 'text' : 'password';
-      boton.innerHTML = seVaAMostrar ? ICONO_OJO_TACHADO : ICONO_OJO;
+      // el SVG va DENTRO del botón — pisar boton.innerHTML directo con
+      // <path>/<circle> sueltos (sin el wrapper <svg>) los vuelve HTML
+      // desconocido e invisible, porque el parser de innerHTML de un
+      // <button> no está en contexto SVG. Por eso el ícono "desaparecía".
+      const svg = boton.querySelector('svg');
+      if (svg) svg.innerHTML = seVaAMostrar ? ICONO_OJO_TACHADO : ICONO_OJO;
       boton.setAttribute('aria-label', seVaAMostrar ? 'Ocultar contraseña' : 'Mostrar contraseña');
     });
   });
