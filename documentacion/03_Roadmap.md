@@ -109,10 +109,10 @@ Corresponde al Documento General, secciones 3 (Actores del sistema) y 5 (Gestió
 - [x] **Frontend: pantalla de gestión de usuarios (`usuarios.html`).**
   Listado de usuarios (filtrado por edificio si corresponde al rol), con alta de usuario nuevo (nombre, email, rol, edificio/departamento si aplica) y acción de desactivar. Visible en el menú únicamente para los roles con permiso de gestionar usuarios (Administrador General/Consorcio).
 
-- [ ] **Frontend: edición de usuario (`usuarios.html`).**
+- [x] **Frontend: edición de usuario (`usuarios.html`).**
   Agregada a pedido explícito tras aprobar la tarea anterior — no estaba en el alcance original (solo alta + desactivar). Ícono de editar en cada fila del listado, que abre el mismo modal de alta pero en modo edición, con los datos del usuario cargados. Edita nombre, rol y teléfono vía `PATCH /api/usuarios/{id}` (ya soportado por el backend desde la Tarea 7) — email y contraseña quedan fuera, porque el backend no los acepta por esa vía.
 
-- [ ] **Prueba manual de punta a punta.**
+- [x] **Prueba manual de punta a punta.**
   Ejecutar el seed, loguearse con el Administrador General, dar de alta un usuario de cada rol relevante para las pruebas iniciales (un Administrador de Consorcio y un Propietario), confirmar que cada uno ve únicamente lo que le corresponde al loguearse, y que las credenciales de todos quedaron en `que_hice.html`.
 
 ### Estructura del edificio
