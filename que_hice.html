@@ -322,6 +322,7 @@
       <a class="toc-link" data-goto="f1-t13"><span class="n">13</span>Frontend: pantalla de login<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f1-t14"><span class="n">14</span>Frontend: alta de edificio<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f1-t15"><span class="n">15</span>Frontend: gestión de usuarios<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f1-t16"><span class="n">16</span>Prueba de punta a punta: usuarios<span class="estado-mini pend"></span></a>
     </div>
 
     <div class="toc-group">
@@ -1946,6 +1947,28 @@ location.href = 'dashboard.html';</div>
           </ul>
           <p>Nota honesta: la primera corrida del chequeo automático dio un falso "no se creó" porque el script midió el resultado 700ms después del clic, antes de que terminaran las dos llamadas de red (crear + refrescar listado) — se confirmó con una espera realista que sí funciona, y la captura de ese primer intento incluso mostró el botón todavía en "Creando…", confirmando que era un problema de timing del script, no de la aplicación.</p>
           <p>Se limpió además un usuario de prueba duplicado que había quedado de una corrida de verificación anterior, para no ensuciar la tabla de credenciales.</p>
+        </div>
+      </section>
+
+      <section class="slide tarea" id="f1-t16" data-crumb="Fase 1 · Tarea 16">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 16</span>
+            <h3>Prueba manual de punta a punta: Usuarios y autenticación</h3>
+            <span class="status pend"><i class="dot"></i>Implementado — pendiente de tu revisión</span>
+          </div>
+          <p class="lede">Cierra el primer bloque de la Fase 1 ("Usuarios y autenticación"): correr el seed, loguearse como cada rol creado hasta acá, y confirmar que cada uno ve únicamente lo que le corresponde — nada de código nuevo, es la prueba integradora de las Tareas 1 a 15.</p>
+
+          <h4>Qué se probó, con Playwright contra el backend real</h4>
+          <ul>
+            <li><strong>Seed idempotente:</strong> <code>python -m app.seed</code> corrido de nuevo — respondió "Ya existe un Administrador General — no se crea de nuevo", sin duplicar nada.</li>
+            <li><strong>Administrador General</strong> (<code>admin@smartbuilding.test</code>): login OK, sidebar con los dos accesos completos ("Edificios", "Usuarios"), ambas pantallas muestran su contenido real.</li>
+            <li><strong>Administrador de Consorcio de Prueba</strong> (<code>consorcio@smartbuilding.test</code>): login OK, nombre correcto en el saludo del Dashboard. Sidebar sin ningún acceso (todavía no hay pantallas propias de este rol — llegan en fases futuras). Entrando por URL directa a <code>edificios.html</code> y <code>usuarios.html</code>, ve el aviso "Esta pantalla es solo para el Administrador General" en las dos, no el contenido.</li>
+            <li><strong>Propietario de Prueba</strong> (<code>propietario@smartbuilding.test</code>): mismo resultado que el Administrador de Consorcio — login OK, sidebar vacío, bloqueado en ambas pantallas restringidas.</li>
+            <li>Cero errores de página o de consola en los tres logins.</li>
+          </ul>
+          <p>Las credenciales de los tres roles ya estaban documentadas en <a onclick="document.querySelector('[data-goto=&quot;credenciales&quot;]').click()" style="color:var(--accent-2);text-decoration:underline;cursor:pointer;">Credenciales de prueba</a> desde las tareas que los crearon (7, 14 y 15) — no hizo falta dar de alta usuarios nuevos para esta prueba, se reutilizaron los reales.</p>
+          <p>Nota de alcance: "que cada uno ve únicamente lo que le corresponde" hoy significa, en concreto, que un rol sin pantallas propias todavía no ve nada en el sidebar y queda bloqueado si entra por URL a una pantalla ajena — el contenido propio de cada rol (unidades del Propietario, edificio del Administrador de Consorcio) llega recién con el Dashboard Visual de la Fase 5.</p>
         </div>
       </section>
 
