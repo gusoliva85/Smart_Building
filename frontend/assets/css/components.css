@@ -93,6 +93,13 @@ h1, h2, h3, .display{ font-family:Outfit, sans-serif; letter-spacing:-.015em; }
   background:var(--crit); color:#fff; font-size:9px; font-weight:800; display:grid; place-items:center;
   border:2px solid var(--bg-1);
 }
+
+/* Toggle de tema — barrido circular nacido del punto de clic (assets/js/theme.js
+   anima el clip-path vía Web Animations API sobre ::view-transition-new(root)).
+   Se anula el cross-fade default del navegador para que se vea solo el barrido. */
+::view-transition-old(root), ::view-transition-new(root){ animation:none; mix-blend-mode:normal; }
+::view-transition-old(root){ z-index:1; }
+::view-transition-new(root){ z-index:2; } /* el círculo que crece va SIEMPRE arriba, sea cual sea la dirección del cambio */
 .avatar{
   width:38px; height:38px; border-radius:13px;
   background:linear-gradient(155deg,#5c6469,#33383c);
@@ -286,6 +293,26 @@ html[data-theme="dark"] .lobby{ background:linear-gradient(180deg, rgba(255,255,
   border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-ring);
 }
 
+/* Grilla de 2 campos lado a lado — para campos "cortos" (CP+CUIT, Rol+Teléfono...).
+   Mobile-first: 1 columna por default, recién pasa a 2 a partir de 480px, para
+   que nunca deforme un input angosto en pantallas muy chicas. */
+.form-grid-2{ display:grid; grid-template-columns:1fr; gap:0 12px; }
+@media(min-width:480px){ .form-grid-2{ grid-template-columns:1fr 1fr; } }
+
+/* Campo de contraseña con botón de mostrar/ocultar (ojo). El ícono lo
+   intercambia assets/js/formularios.js — mismo archivo que ya resuelve
+   Enter-como-Tab, cero wiring adicional por pantalla: cualquier campo con
+   esta estructura queda funcionando solo. */
+.campo-password-wrap{ position:relative; }
+.campo-password-wrap input{ padding-right:42px; }
+.campo-password-toggle{
+  position:absolute; right:5px; top:50%; transform:translateY(-50%);
+  width:28px; height:28px; border-radius:8px; border:0; background:transparent;
+  color:var(--ink-3); display:grid; place-items:center; cursor:pointer; transition:color .18s;
+}
+.campo-password-toggle:hover{ color:var(--ink); }
+.campo-password-toggle svg{ width:17px; height:17px; }
+
 .boton-primario{
   width:100%; padding:11px; border-radius:var(--r-sm); border:0; cursor:pointer;
   background:linear-gradient(155deg, var(--accent), var(--accent-2)); color:#fff;
@@ -355,9 +382,14 @@ html[data-theme="dark"] .lobby{ background:linear-gradient(180deg, rgba(255,255,
 }
 @media(min-width:1024px){ .hamburger-btn{ display:none; } }
 
-/* ============ Modal de aviso ============ */
+/* ============ Modal (aviso / formulario) ============
+   Backdrop compartido, oscurece Y difumina — a diferencia del backdrop
+   transparente de .detail/.sidebar (que solo sirve para cerrar al tocar
+   afuera), acá el fondo se ve intencionalmente borroneado: el usuario
+   tiene que resolver el modal antes de seguir, nunca cierra solo. */
 .modal-backdrop{
   position:fixed; inset:0; z-index:80; background:rgba(0,0,0,.35);
+  backdrop-filter:blur(6px) saturate(1.1); -webkit-backdrop-filter:blur(6px) saturate(1.1);
   display:flex; align-items:center; justify-content:center; padding:20px;
   opacity:0; pointer-events:none; transition:opacity .22s ease;
 }
@@ -373,6 +405,22 @@ html[data-theme="dark"] .lobby{ background:linear-gradient(180deg, rgba(255,255,
 }
 .modal h3{ margin:0 0 8px; font-size:16.5px; }
 .modal p{ margin:0 0 18px; font-size:13px; color:var(--ink-3); line-height:1.5; }
+
+/* Variante "formulario": más ancha, texto a la izquierda, con botón X
+   propio — a diferencia del modal de aviso, este NUNCA se cierra tocando
+   afuera (solo con la X, Cancelar, o completando y aceptando), porque
+   perder los datos de un alta por un clic accidental es peor que un aviso. */
+.modal.modal-formulario{ max-width:560px; padding:28px 26px 26px; text-align:left; position:relative; }
+.modal-formulario h3{ margin:0 0 4px; padding-right:34px; }
+.modal-formulario .modal-formulario-sub{ display:block; margin:0 0 18px; font-size:13px; color:var(--ink-3); }
+.modal-close{
+  position:absolute; top:18px; right:18px; width:30px; height:30px; border-radius:10px; border:0;
+  background:var(--glass-content-bg); box-shadow:var(--glass-in); color:var(--ink-2); font-size:13px;
+  display:grid; place-items:center; cursor:pointer; transition:transform .18s ease-out;
+}
+.modal-close:hover{ transform:translateY(-1px); }
+.modal-formulario-acciones{ display:flex; gap:10px; margin-top:6px; }
+.modal-formulario-acciones .boton-primario{ width:auto; flex:1; }
 
 /* ============ Mapa (Leaflet) dentro del formulario ============ */
 .mapa-campo{ margin-bottom:14px; }

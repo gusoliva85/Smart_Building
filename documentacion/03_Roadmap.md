@@ -524,7 +524,7 @@ Corresponde al Documento Técnico, sección 1.3.1 (migración Tailwind CDN → C
 - [ ] **Frontend: migración de Tailwind CDN a Tailwind CLI standalone.**
   Se instala el binario ejecutable (sin Node/npm, coherente con que el resto del stack es Python) y se genera `frontend/assets/css/output.css` compilado y optimizado a partir de `tailwind.config.js` — deja de depender del CDN en cualquier entorno, incluido uno sin conexión a internet.
 
-- [ ] **Frontend: barrido circular del toggle de tema.**
+- [x] **Frontend: barrido circular del toggle de tema.**
   Refinamiento documentado como pendiente desde el mockup base (skill `premium-uiux`): el barrido de la View Transitions API nace en el punto exacto del clic (`clip-path` con `circle()` calculado desde las coordenadas del botón), en vez del cross-fade por defecto.
 
 - [ ] **Frontend: auditoría de accesibilidad y de consistencia con la skill.**

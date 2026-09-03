@@ -324,6 +324,11 @@
       <a class="toc-link" data-goto="f1-t15"><span class="n">15</span>Frontend: gestión de usuarios<span class="estado-mini pend"></span></a>
     </div>
 
+    <div class="toc-group">
+      <span class="toc-group-title" data-goto="f12-t2">Fase 12 (adelantada)</span>
+      <a class="toc-link" data-goto="f12-t2"><span class="n">2</span>Toggle de tema: barrido circular<span class="estado-mini done"></span></a>
+    </div>
+
     <div class="toc-progress">
       Fase 0 — <strong style="color:var(--accent-2)">12 / 12 completa</strong>
       <div class="bar"><i style="width:100%"></i></div>
@@ -1851,14 +1856,14 @@ location.href = 'dashboard.html';</div>
             <h3>Frontend: pantalla de gestión de usuarios</h3>
             <span class="status pend"><i class="dot"></i>Implementado — pendiente de tu revisión</span>
           </div>
-          <p class="lede">Se creó <code>usuarios.html</code>: listado, alta y activar/desactivar. Visible solo para Administrador General. Primera pantalla que combina listado + alta usando el patrón <code>.detail</code> documentado en la skill (hoja inferior en mobile, panel lateral en desktop) — el mismo componente que ya validaba el Dashboard Visual, reutilizado tal cual para un caso de uso distinto.</p>
+          <p class="lede">Se creó <code>usuarios.html</code>: listado, alta y activar/desactivar. Visible solo para Administrador General. El alta se resuelve con un <strong>modal de formulario centrado</strong> (no una página aparte) — patrón nuevo que quedó fijado en esta tarea tras tu revisión (ver corrección más abajo): distinto de <code>.detail</code>, que sigue siendo el patrón correcto para ver/editar algo ya existente.</p>
 
           <div class="explicacion">
             <div class="explicacion-titulo">
               <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
               Por qué el alta no es una página aparte
             </div>
-            <p>El Documento Técnico (sección 4.1) es explícito: las sub-vistas dentro de un mismo dominio (listado, alta, edición) no generan un archivo <code>.html</code> nuevo — se resuelven con el patrón <code>.detail</code> ya validado. Acá se aplicó por primera vez a un caso "lista + alta" (antes solo se había usado para fichas de detalle) — mismo componente, otro uso, cero código nuevo de layout.</p>
+            <p>El Documento Técnico (sección 4.1) es explícito: las sub-vistas dentro de un mismo dominio (listado, alta, edición) no generan un archivo <code>.html</code> nuevo. La primera versión resolvía esto con el patrón <code>.detail</code> (el mismo del Dashboard Visual) — tras tu revisión se reemplazó por un modal centrado para el caso puntual de "alta/creación" (ver corrección abajo), quedando <code>.detail</code> reservado para fichas de solo lectura.</p>
           </div>
 
           <h4>Reutilización real, no solo declarada</h4>
@@ -1888,6 +1893,20 @@ location.href = 'dashboard.html';</div>
             <p><code>.rol-badge</code> tenía <code>text-transform:capitalize</code> pensando en mostrar el slug crudo (<code>admin_consorcio</code>) — pero como el badge ya recibe la etiqueta bien formateada ("Administrador de Consorcio"), el CSS capitalizaba también la palabra "de" → <em>"Administrador De Consorcio"</em>. Se sacó ese <code>text-transform</code>. De paso se encontró el mismo problema en el pie del sidebar (mostraba <code>Admin_general</code> crudo en <strong>todas</strong> las pantallas, no solo acá): se centralizó <code>ETIQUETAS_ROL</code> en <code>layout.js</code> (antes solo iba a vivir en <code>usuarios.js</code>) y ahora el sidebar también muestra "Administrador General" en vez del slug interno — corregido en un solo lugar, arreglado en toda la aplicación a la vez.</p>
           </div>
 
+          <div class="correccion">
+            <div class="correccion-titulo">
+              <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              Feedback de tu revisión: el panel lateral, el ancho del formulario y la contraseña visible
+            </div>
+            <p>Tres cambios pedidos al probar el alta:</p>
+            <ul>
+              <li><strong>Panel lateral → modal centrado.</strong> El panel <code>.detail</code> (hoja/lateral) se reemplazó por un modal nuevo, documentado en la skill como "Modal de formulario": centrado, fondo oscurecido <em>y difuminado</em> (<code>backdrop-filter:blur</code>), y que a propósito <strong>nunca se cierra tocando afuera</strong> — solo con la X, "Cancelar", o completando y creando. Esto fijó una regla de reutilización nueva: <code>.detail</code> queda para ver/editar algo existente (ficha de unidad del Dashboard Visual); un alta/creación usa este modal.</li>
+              <li><strong>Formulario más ancho y responsive.</strong> El modal pasó a <code>max-width:560px</code> (antes el panel lateral era de 380px fijo). Rol y Teléfono se agruparon en <code>.form-grid-2</code>: 2 columnas desde 480px de ancho, 1 columna en pantallas más chicas — nunca deforma un campo angosto.</li>
+              <li><strong>Contraseña visible en texto plano — bug real.</strong> El input tenía <code>type="text"</code> literal (quedó así de una versión anterior "porque es modo test"). Se cambió a <code>type="password"</code> y se agregó un botón de ojo que alterna a <code>type="text"</code> y de vuelta, cambiando también el ícono (ojo ↔ ojo tachado). Quedó como componente reutilizable (<code>.campo-password-wrap</code>, auto-conectado por <code>formularios.js</code>) y se aplicó de una vez al login también, no solo acá — mismo campo, mismo comportamiento en toda la app.</li>
+            </ul>
+            <p>Verificado con Playwright: clic en el fondo del modal NO lo cierra; el ojo alterna <code>password</code>↔<code>text</code> y vuelve a <code>password</code> al cerrar con "Cancelar"; alta real completa cierra el modal y refresca el listado.</p>
+          </div>
+
           <h4>Verificación con Playwright, contra el backend real</h4>
           <ul>
             <li>Listado real: Administrador General, Propietario de Prueba, Administrador de Consorcio de Prueba.</li>
@@ -1898,6 +1917,63 @@ location.href = 'dashboard.html';</div>
           </ul>
           <p>Nota honesta: la primera corrida del chequeo automático dio un falso "no se creó" porque el script midió el resultado 700ms después del clic, antes de que terminaran las dos llamadas de red (crear + refrescar listado) — se confirmó con una espera realista que sí funciona, y la captura de ese primer intento incluso mostró el botón todavía en "Creando…", confirmando que era un problema de timing del script, no de la aplicación.</p>
           <p>Se limpió además un usuario de prueba duplicado que había quedado de una corrida de verificación anterior, para no ensuciar la tabla de credenciales.</p>
+        </div>
+      </section>
+
+      <section class="slide tarea" id="f12-t2" data-crumb="Fase 12 (adelantada) · Toggle de tema">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Fase 12 · Tarea 2 (adelantada)</span>
+            <h3>Frontend: barrido circular del toggle de tema</h3>
+            <span class="status done"><i class="dot"></i>Hecho</span>
+          </div>
+          <p class="lede">El botón de "Cambiar tema" (topbar, todas las pantallas) ahora anima un barrido circular que nace del punto exacto del clic y crece hasta cubrir toda la pantalla, en vez del cross-fade genérico del navegador. Es exactamente el refinamiento que la skill <code>premium-uiux</code> (<code>componentes.md</code>, sección "Toggle de tema") y el Roadmap (Fase 12) ya dejaban documentado como pendiente — se adelantó a pedido explícito, fuera de su orden normal en el Roadmap.</p>
+
+          <div class="explicacion">
+            <div class="explicacion-titulo">
+              <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              De dónde salió la idea y cómo se adaptó
+            </div>
+            <p>El pedido llegó con el código de referencia de <code>AnimatedThemeToggler</code>, un componente de la librería <strong>Magic UI</strong> pensado para proyectos React/Next.js (usa <code>useState</code>, <code>flushSync</code> de React y un import <code>@/registry/...</code> que no existe fuera de ese ecosistema). Este proyecto es HTML/CSS/JS vanilla sin build ni framework (Documento Técnico, sección 1.3.1), así que se tomó la <strong>técnica</strong> del componente — no el código React — y se reescribió en JavaScript plano dentro de <code>assets/js/theme.js</code>, el mismo archivo que ya manejaba el toggle antes.</p>
+          </div>
+
+          <h4>La técnica: View Transitions API + Web Animations API</h4>
+          <p>La View Transitions API (<code>document.startViewTransition</code>) congela una "foto" del estado anterior de la página. Encima de eso, se anima con <code>Element.animate()</code> un <code>clip-path: circle()</code> que crece desde <code>0px</code> hasta un radio que cubre toda la pantalla (calculado con el teorema de Pitágoras hasta la esquina más lejana del punto de clic), aplicado sobre el pseudo-elemento <code>::view-transition-new(root)</code> — el "estado nuevo" de la página. El resultado visual: el tema nuevo se revela como un círculo que se expande desde el botón, tapando el tema anterior.</p>
+          <div class="code-block"><span class="kw">const</span> { clientX: x, clientY: y } = evento;
+<span class="kw">const</span> radioMaximo = Math.hypot(
+  Math.max(x, window.innerWidth - x),
+  Math.max(y, window.innerHeight - y),
+);
+
+<span class="kw">const</span> transicion = document.startViewTransition(aplicar);
+transicion.ready.then(() => {
+  raiz.animate(
+    { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radioMaximo}px at ${x}px ${y}px)`] },
+    { duration: 550, easing: <span class="str">'ease-in-out'</span>, pseudoElement: <span class="str">'::view-transition-new(root)'</span> },
+  );
+});</div>
+          <p>En CSS (<code>components.css</code>) se anula el cross-fade por defecto que el navegador aplica solo, y se asegura que el círculo que crece (el estado nuevo) quede siempre por encima del estado anterior:</p>
+          <div class="code-block">::view-transition-old(root), ::view-transition-new(root){ animation:none; mix-blend-mode:normal; }
+::view-transition-old(root){ z-index:1; }
+::view-transition-new(root){ z-index:2; }</div>
+
+          <h4>De paso: el ícono ahora refleja el tema real</h4>
+          <p>Antes el botón mostraba siempre el mismo ícono de sol, sin importar el tema activo. Se agregó un ícono de luna (mismo estilo SVG a mano que el resto de la skill: <code>viewBox 24x24</code>, trazo, sin relleno) y <code>theme.js</code> ahora intercambia el contenido del <code>&lt;svg&gt;</code> según <code>data-theme</code> — sol en tema claro, luna en tema oscuro — tanto al cargar la página como en cada clic.</p>
+
+          <div class="correccion">
+            <div class="correccion-titulo">
+              <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              Bug encontrado al probar: el barrido solo se veía yendo de oscuro a claro
+            </div>
+            <p>La primera versión del CSS invertía el <code>z-index</code> de los dos "estados congelados" cuando el tema nuevo era oscuro (<code>html[data-theme="dark"]::view-transition-old(root){ z-index:2 }</code>, pensado copiando un patrón de otra variante de esta técnica que no aplica acá). El efecto: al pasar de claro a oscuro, el círculo que crece (el estado nuevo) quedaba <em>debajo</em> del estado anterior — invisible durante toda la animación — y recién se veía el cambio al final, de golpe, sin barrido. De oscuro a claro sí se veía bien, porque en ese caso la regla no se activaba. Se sacaron esas dos líneas condicionales: el estado nuevo va siempre arriba, sin importar la dirección. Verificado con capturas a los 60ms y 150ms del clic en ambas direcciones — ahora se ve el círculo creciendo desde el botón en los dos sentidos, por igual.</p>
+          </div>
+
+          <h4>Verificación con Playwright, contra la app real</h4>
+          <ul>
+            <li>Estado inicial: tema claro, ícono de sol. Tras el clic: <code>data-theme="dark"</code> aplicado, ícono cambiado a luna, sin errores de consola ni de página.</li>
+            <li>Capturas a 60ms y 150ms del clic muestran el círculo oscuro creciendo desde el botón (claro→oscuro) y el círculo claro creciendo desde el botón (oscuro→claro) — ambas direcciones simétricas tras la corrección.</li>
+            <li>Captura final confirma el tema oscuro aplicado correctamente en topbar, tarjeta de login y botones — mismos tokens de color de siempre, ningún valor pegado al tema anterior.</li>
+          </ul>
         </div>
       </section>
 

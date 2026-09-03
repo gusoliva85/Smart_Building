@@ -80,16 +80,14 @@
   </div>
 </div>
 
-<!-- Panel de alta (mismo patrón .detail que el Dashboard Visual: hoja
-     inferior en mobile, panel lateral fijo en desktop) -->
-<div class="backdrop" id="backdrop"></div>
-<aside class="detail shell" id="detail">
-  <div class="detail-drag"></div>
-  <div class="detail-head">
-    <div><h3>Nuevo usuario</h3><span>Se crea con la contraseña que definas acá — se la comunicás vos.</span></div>
-    <button class="detail-close" id="detail-close">✕</button>
-  </div>
-  <div class="detail-body">
+<!-- Modal de alta: centrado, fondo difuminado, no se cierra tocando afuera
+     (solo con la X, Cancelar, o completando el formulario) -->
+<div class="modal-backdrop" id="modal-alta">
+  <div class="modal modal-formulario shell">
+    <button type="button" class="modal-close" id="modal-alta-cerrar" aria-label="Cerrar">✕</button>
+    <h3>Nuevo usuario</h3>
+    <span class="modal-formulario-sub">Se crea con la contraseña que definas acá — se la comunicás vos.</span>
+
     <div class="mensaje-error" id="mensaje-error" style="display:none;">
       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
       <span id="mensaje-error-texto"></span>
@@ -105,30 +103,40 @@
       </div>
       <div class="campo">
         <label for="campo-password">Contraseña</label>
-        <input type="text" id="campo-password" required placeholder="Trivial en modo test">
+        <div class="campo-password-wrap">
+          <input type="password" id="campo-password" required placeholder="Se la comunicás vos aparte">
+          <button type="button" class="campo-password-toggle" aria-label="Mostrar contraseña">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
       </div>
-      <div class="campo">
-        <label for="campo-rol">Rol</label>
-        <select id="campo-rol" required>
-          <option value="">Elegí un rol</option>
-          <option value="admin_general">Administrador General</option>
-          <option value="admin_consorcio">Administrador de Consorcio</option>
-          <option value="encargado">Encargado</option>
-          <option value="propietario">Propietario</option>
-          <option value="inquilino">Inquilino</option>
-          <option value="proveedor">Proveedor</option>
-          <option value="auditor">Auditor</option>
-          <option value="seguridad">Personal de seguridad</option>
-        </select>
+      <div class="form-grid-2">
+        <div class="campo">
+          <label for="campo-rol">Rol</label>
+          <select id="campo-rol" required>
+            <option value="">Elegí un rol</option>
+            <option value="admin_general">Administrador General</option>
+            <option value="admin_consorcio">Administrador de Consorcio</option>
+            <option value="encargado">Encargado</option>
+            <option value="propietario">Propietario</option>
+            <option value="inquilino">Inquilino</option>
+            <option value="proveedor">Proveedor</option>
+            <option value="auditor">Auditor</option>
+            <option value="seguridad">Personal de seguridad</option>
+          </select>
+        </div>
+        <div class="campo">
+          <label for="campo-telefono">Teléfono (opcional)</label>
+          <input type="text" id="campo-telefono" placeholder="11 5555-5555">
+        </div>
       </div>
-      <div class="campo">
-        <label for="campo-telefono">Teléfono (opcional)</label>
-        <input type="text" id="campo-telefono" placeholder="11 5555-5555">
+      <div class="modal-formulario-acciones">
+        <button type="button" class="boton-primario" id="boton-cancelar" style="background:var(--glass-content-bg); color:var(--ink-2); box-shadow:inset 0 0 0 1px var(--line);">Cancelar</button>
+        <button type="submit" class="boton-primario" id="boton-guardar">Crear usuario</button>
       </div>
-      <button type="submit" class="boton-primario" id="boton-guardar">Crear usuario</button>
     </form>
   </div>
-</aside>
+</div>
 
 <script src="assets/js/config.js"></script>
 <script src="assets/js/api.js"></script>

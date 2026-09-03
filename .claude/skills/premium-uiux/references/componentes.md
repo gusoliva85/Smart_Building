@@ -337,18 +337,45 @@ document.getElementById('detail-close').addEventListener('click', closeDetail);
 backdropEl.addEventListener('click', closeDetail);
 ```
 
-## Toggle de tema (View Transitions API)
+## Toggle de tema (View Transitions API + barrido circular)
+
+Implementado en `frontend/assets/js/theme.js`. El barrido nace del punto exacto del clic: `document.startViewTransition()` congela el estado anterior, y `Element.animate()` anima un `clip-path:circle()` creciendo desde `0px` hasta un radio que cubre toda la pantalla (Pitágoras hasta la esquina más lejana), aplicado sobre el pseudo-elemento `::view-transition-new(root)`. El ícono del botón también cambia (sol en claro, luna en oscuro).
 
 ```js
-document.getElementById('theme-toggle').addEventListener('click', (e) => {
-  const root = document.documentElement;
-  const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-  const apply = () => root.setAttribute('data-theme', next);
-  if(document.startViewTransition){ document.startViewTransition(apply); } else { apply(); }
+boton.addEventListener('click', (evento) => {
+  const siguiente = raiz.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  const aplicar = () => { raiz.setAttribute('data-theme', siguiente); pintarIcono(boton, siguiente); };
+
+  if (!document.startViewTransition) { aplicar(); return; }
+
+  const { clientX: x, clientY: y } = evento;
+  const radioMaximo = Math.hypot(
+    Math.max(x, window.innerWidth - x),
+    Math.max(y, window.innerHeight - y),
+  );
+
+  const transicion = document.startViewTransition(aplicar);
+  transicion.ready.then(() => {
+    raiz.animate(
+      { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radioMaximo}px at ${x}px ${y}px)`] },
+      { duration: 550, easing: 'ease-in-out', pseudoElement: '::view-transition-new(root)' },
+    );
+  });
 });
 ```
 
-Pendiente documentado (no viene resuelto en el mockup, es tarea de Roadmap): el barrido circular que nace del punto exacto del clic, vía `clip-path` animado con `circle()` calculado desde `e.clientX/e.clientY`.
+```css
+/* Anula el cross-fade default del navegador — solo se ve el barrido circular.
+   El estado nuevo (::view-transition-new) va SIEMPRE arriba del anterior,
+   sin importar la dirección del cambio — condicionar el z-index por tema
+   fue un bug real (ver que_hice.html, slide f12-t2): invertía el orden
+   justo en el sentido claro→oscuro y el círculo quedaba tapado. */
+::view-transition-old(root), ::view-transition-new(root){ animation:none; mix-blend-mode:normal; }
+::view-transition-old(root){ z-index:1; }
+::view-transition-new(root){ z-index:2; }
+```
+
+Si el navegador no soporta View Transitions, el cambio de tema sigue siendo instantáneo (sin barrido, degradación aceptable).
 
 ## Variante "piso completo" (opcional, no default)
 
@@ -452,11 +479,12 @@ Mismo patrón de panel deslizante que ya usa `.detail` (sección "Panel de detal
 
 ## Modal de aviso (primer modal del proyecto)
 
-Usado por primera vez para avisar que una dirección no se pudo geocodificar (alta de edificio) — reutilizable para cualquier aviso bloqueante futuro. Vidrio `.shell` centrado sobre un backdrop que sí oscurece (a diferencia del backdrop del sidebar/detail, acá es intencional: el usuario tiene que leer el aviso antes de seguir).
+Usado por primera vez para avisar que una dirección no se pudo geocodificar (alta de edificio) — reutilizable para cualquier aviso bloqueante futuro. Vidrio `.shell` centrado sobre un backdrop que sí oscurece y difumina (a diferencia del backdrop del sidebar/detail, acá es intencional: el usuario tiene que leer el aviso antes de seguir).
 
 ```css
 .modal-backdrop{
   position:fixed; inset:0; z-index:80; background:rgba(0,0,0,.35);
+  backdrop-filter:blur(6px) saturate(1.1); -webkit-backdrop-filter:blur(6px) saturate(1.1);
   display:flex; align-items:center; justify-content:center; padding:20px;
   opacity:0; pointer-events:none; transition:opacity .22s ease;
 }
@@ -473,3 +501,85 @@ Usado por primera vez para avisar que una dirección no se pudo geocodificar (al
 ```
 
 El ícono del modal usa `--warn` (amarillo) por default — es una advertencia recuperable ("no encontramos esa dirección, revisala"), no un error crítico del sistema (`--crit` queda reservado para eso).
+
+## Modal de formulario — cuándo usar esto y no `.detail`
+
+Decisión de reutilización que quedó fijada en la Fase 1 (alta de usuarios), a pedido explícito: un formulario de **alta/creación** (crear usuario, crear edificio desde una lista, etc.) usa este modal centrado — nunca el panel `.detail`. `.detail` sigue siendo el patrón correcto para **ver/editar el detalle de algo ya existente** (ficha de una unidad en el Dashboard Visual). La diferencia de fondo: perder los datos de un alta por un clic afuera es un problema real (se pierde trabajo tipeado); cerrar una ficha de solo lectura tocando afuera no pierde nada — por eso el modal de formulario **nunca se cierra tocando el backdrop**, solo con la X, "Cancelar", o completando y aceptando.
+
+```html
+<div class="modal-backdrop" id="modal-alta">
+  <div class="modal modal-formulario shell">
+    <button type="button" class="modal-close" id="modal-alta-cerrar" aria-label="Cerrar">✕</button>
+    <h3>Nuevo usuario</h3>
+    <span class="modal-formulario-sub">Se crea con la contraseña que definas acá — se la comunicás vos.</span>
+    <form id="form-alta">
+      <!-- .campo de siempre; .form-grid-2 para pares de campos cortos -->
+      <div class="modal-formulario-acciones">
+        <button type="button" class="boton-primario" id="boton-cancelar" style="background:var(--glass-content-bg); color:var(--ink-2); box-shadow:inset 0 0 0 1px var(--line);">Cancelar</button>
+        <button type="submit" class="boton-primario" id="boton-guardar">Crear usuario</button>
+      </div>
+    </form>
+  </div>
+</div>
+```
+
+```css
+.modal.modal-formulario{ max-width:560px; padding:28px 26px 26px; text-align:left; position:relative; }
+.modal-formulario h3{ margin:0 0 4px; padding-right:34px; }
+.modal-formulario .modal-formulario-sub{ display:block; margin:0 0 18px; font-size:13px; color:var(--ink-3); }
+.modal-close{
+  position:absolute; top:18px; right:18px; width:30px; height:30px; border-radius:10px; border:0;
+  background:var(--glass-content-bg); box-shadow:var(--glass-in); color:var(--ink-2); font-size:13px;
+  display:grid; place-items:center; cursor:pointer; transition:transform .18s ease-out;
+}
+.modal-close:hover{ transform:translateY(-1px); }
+.modal-formulario-acciones{ display:flex; gap:10px; margin-top:6px; }
+.modal-formulario-acciones .boton-primario{ width:auto; flex:1; }
+```
+
+```js
+function abrirModal(){ modalAlta.classList.add('open'); primerCampo.focus(); }
+function cerrarModal(){ modalAlta.classList.remove('open'); formulario.reset(); }
+botonNuevo.addEventListener('click', abrirModal);
+botonCerrarX.addEventListener('click', cerrarModal);
+botonCancelar.addEventListener('click', cerrarModal);
+// A propósito: SIN listener de click en el backdrop — este modal no se
+// cierra tocando afuera, a diferencia de .detail/.sidebar.
+```
+
+Para dos campos "cortos" lado a lado dentro del formulario (Rol + Teléfono, CP + CUIT...), envolverlos en `.form-grid-2` — 1 columna en mobile, 2 columnas recién desde 480px, para que nunca deforme un input angosto en pantallas chicas:
+
+```css
+.form-grid-2{ display:grid; grid-template-columns:1fr; gap:0 12px; }
+@media(min-width:480px){ .form-grid-2{ grid-template-columns:1fr 1fr; } }
+```
+
+## Campo de contraseña con mostrar/ocultar
+
+Cualquier `<input type="password">` de la app usa esta estructura — nunca `type="text"` a secas (ni siquiera "porque es modo test", que fue el error real que corrigió este patrón). Se auto-conecta solo: `assets/js/formularios.js` engancha el ícono y el toggle a cualquier `.campo-password-toggle` que encuentre en la página, sin que la pantalla llame nada.
+
+```html
+<div class="campo">
+  <label for="campo-password">Contraseña</label>
+  <div class="campo-password-wrap">
+    <input type="password" id="campo-password" required>
+    <button type="button" class="campo-password-toggle" aria-label="Mostrar contraseña">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
+    </button>
+  </div>
+</div>
+```
+
+```css
+.campo-password-wrap{ position:relative; }
+.campo-password-wrap input{ padding-right:42px; }
+.campo-password-toggle{
+  position:absolute; right:5px; top:50%; transform:translateY(-50%);
+  width:28px; height:28px; border-radius:8px; border:0; background:transparent;
+  color:var(--ink-3); display:grid; place-items:center; cursor:pointer; transition:color .18s;
+}
+.campo-password-toggle:hover{ color:var(--ink); }
+.campo-password-toggle svg{ width:17px; height:17px; }
+```
+
+El ícono cambia entre ojo (contraseña oculta, invita a mostrarla) y ojo tachado (contraseña visible, invita a ocultarla) — ambos definidos como constantes `ICONO_OJO`/`ICONO_OJO_TACHADO` en `formularios.js`, expuestas también en `window.Formularios.ICONO_OJO` para quien necesite el mismo SVG fuera de ese archivo.

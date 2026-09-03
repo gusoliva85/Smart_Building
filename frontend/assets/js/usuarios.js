@@ -14,8 +14,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   vistaUsuarios.style.display = 'block';
 
   const listaUsuarios = document.getElementById('lista-usuarios');
-  const backdrop = document.getElementById('backdrop');
-  const detail = document.getElementById('detail');
+  const modalAlta = document.getElementById('modal-alta');
   const formulario = document.getElementById('form-alta');
   const mensajeError = document.getElementById('mensaje-error');
   const mensajeErrorTexto = document.getElementById('mensaje-error-texto');
@@ -75,22 +74,28 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // ---------------------------------------------------------------
-  // Panel de alta (.detail)
+  // Modal de alta — a diferencia del panel .detail que usaba antes, este
+  // NUNCA se cierra tocando el fondo: solo con la X, Cancelar, o
+  // completando el formulario (feedback explícito del usuario).
   // ---------------------------------------------------------------
-  function abrirDetail() {
-    detail.classList.add('open');
-    backdrop.classList.add('open');
+  function abrirModal() {
+    modalAlta.classList.add('open');
     document.getElementById('campo-nombre').focus();
   }
-  function cerrarDetail() {
-    detail.classList.remove('open');
-    backdrop.classList.remove('open');
+  function cerrarModal() {
+    modalAlta.classList.remove('open');
     formulario.reset();
     mensajeError.style.display = 'none';
+    // el toggle de contraseña no se resetea solo con formulario.reset()
+    const inputPassword = document.getElementById('campo-password');
+    const botonToggle = modalAlta.querySelector('.campo-password-toggle');
+    inputPassword.type = 'password';
+    botonToggle.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${window.Formularios.ICONO_OJO}</svg>`;
+    botonToggle.setAttribute('aria-label', 'Mostrar contraseña');
   }
-  document.getElementById('boton-nuevo-usuario').addEventListener('click', abrirDetail);
-  document.getElementById('detail-close').addEventListener('click', cerrarDetail);
-  backdrop.addEventListener('click', cerrarDetail);
+  document.getElementById('boton-nuevo-usuario').addEventListener('click', abrirModal);
+  document.getElementById('modal-alta-cerrar').addEventListener('click', cerrarModal);
+  document.getElementById('boton-cancelar').addEventListener('click', cerrarModal);
 
   formulario.addEventListener('submit', async (evento) => {
     evento.preventDefault();
@@ -106,7 +111,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         rol: document.getElementById('campo-rol').value,
         telefono: document.getElementById('campo-telefono').value.trim() || null,
       });
-      cerrarDetail();
+      cerrarModal();
       await cargarListado();
     } catch (error) {
       mensajeErrorTexto.textContent = error.message;

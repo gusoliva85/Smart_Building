@@ -70,7 +70,7 @@ No hay dos maquetados distintos: es el mismo HTML/CSS con dos `@media (min-width
 
 ## Dark mode: nunca valores sueltos, siempre tokens
 
-Arranca **siempre en tema claro**. El botón de tema (topbar) anima un barrido con la **View Transitions API** (`document.startViewTransition()`); si el navegador no la soporta, el cambio es instantáneo. El barrido circular que nace del punto exacto del clic (`clip-path` con `circle()` calculado desde las coordenadas del botón) es un refinamiento documentado como pendiente — el mockup base usa el barrido *default* del navegador (cross-fade).
+Arranca **siempre en tema claro**. El botón de tema (topbar) anima un barrido circular que nace del punto exacto del clic — **View Transitions API** (`document.startViewTransition()`) + `clip-path:circle()` animado con Web Animations API sobre `::view-transition-new(root)` — ver `references/componentes.md`, sección "Toggle de tema"; si el navegador no la soporta, el cambio es instantáneo, sin barrido.
 
 Regla no negociable: **ningún color, sombra o superficie de vidrio se escribe como valor fijo suelto en una regla.** Todo pasa por variables CSS en `:root` (claro) redefinidas en `html[data-theme="dark"]` (oscuro) — incluyendo los grupos que se pasan por alto: sombra y vidrio (`--sh-sm/md/lg`, `--glass-in`, `--glass-sheen`) y los literales de mezcla (`--mix-tint`, `--mix-ink`, `--shadow-rgb`). Si una regla nueva necesita "un blanco" o "un negro tenue", nunca escribe `#fff` o `rgba(0,0,0,.1)` directo.
 
