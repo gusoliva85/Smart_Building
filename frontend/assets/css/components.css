@@ -97,7 +97,13 @@ span.aurora-text{
      display:block de esa regla genérica y partía "SMART Building" en dos
      líneas. */
   display:inline;
-  background-image:linear-gradient(90deg, var(--accent), var(--accent-2), var(--accent), var(--accent-2));
+  /* EXPERIMENTO a pedido del usuario ("solo para ver cómo queda"): paleta
+     original del componente de referencia (Magic UI AuroraText), NO la de
+     marca (--accent/--accent-2 arriba). Incluye rosa/violeta, prohibidos
+     sin excepción por la skill — queda así solo hasta que el usuario vea
+     el resultado y decida si se queda (actualizando la skill primero) o
+     se vuelve a los tokens de marca. */
+  background-image:linear-gradient(90deg, #FF0080, #7928CA, #0070F3, #38bdf8, #FF0080);
   background-size:300% 100%;
   background-clip:text; -webkit-background-clip:text; color:transparent;
   animation:aurora-desplazamiento 6s ease-in-out infinite;
@@ -169,6 +175,33 @@ span.aurora-text{
 .pill.warn{ background:color-mix(in srgb, var(--warn) 16%, var(--mix-tint)); color:color-mix(in srgb, var(--warn) 78%, var(--mix-ink)); }
 .pill.pend{ background:color-mix(in srgb, var(--pend) 16%, var(--mix-tint)); color:color-mix(in srgb, var(--pend) 78%, var(--mix-ink)); }
 .pill.ok{ background:color-mix(in srgb, var(--ok) 15%, var(--mix-tint)); color:color-mix(in srgb, var(--ok) 78%, var(--mix-ink)); }
+
+/* Botón de estado activo/inactivo (usuarios.html) — fusiona lo que antes
+   eran DOS elementos (un .pill de solo lectura + el botón de acción) en
+   uno solo, a pedido explícito para aliviar el mobile: el mismo botón
+   muestra el estado Y lo alterna al click. El ripple (adaptado de
+   RippleButton) nace del punto del clic con el color al que el botón
+   está transicionando, acompañado por la propia transición de fondo. */
+.boton-estado-usuario{
+  position:relative; overflow:hidden; border:0; cursor:pointer;
+  display:inline-flex; align-items:center; justify-content:center;
+  padding:8px 16px; border-radius:99px; font-size:12.5px; font-weight:700; color:#fff;
+  transition:background-color .32s ease, transform .18s ease-out;
+}
+.boton-estado-usuario:hover:not(:disabled){ transform:translateY(-1px); }
+.boton-estado-usuario:disabled{ cursor:default; opacity:.55; }
+.boton-estado-usuario.activo{ background:var(--ok); }
+.boton-estado-usuario.inactivo{ background:var(--crit); }
+.boton-estado-texto{ position:relative; z-index:1; }
+.boton-estado-usuario .ripple{
+  position:absolute; border-radius:50%; transform:scale(0); opacity:.5;
+  animation:ripple-expandir .55s ease-out forwards; pointer-events:none;
+}
+@keyframes ripple-expandir{ to{ transform:scale(1); opacity:0; } }
+@media(prefers-reduced-motion:reduce){
+  .boton-estado-usuario{ transition:none; }
+  .boton-estado-usuario .ripple{ display:none; }
+}
 
 @media(min-width:640px){ .kpi-grid{ grid-template-columns:repeat(4,1fr); } .kpi--hero{ grid-column:span 2; } }
 @media(min-width:1024px){ .kpi-grid{ grid-template-columns:repeat(6,1fr); } .kpi--hero{ grid-column:span 3; } }

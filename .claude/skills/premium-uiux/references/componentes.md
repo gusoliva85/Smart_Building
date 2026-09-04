@@ -618,7 +618,9 @@ El ícono cambia entre ojo (contraseña oculta, invita a mostrarla) y ojo tachad
 
 ## Texto de marca animado (`aurora-text`)
 
-Degradé animado para una palabra puntual dentro de un título — hoy la segunda palabra de "SMART Building" en las 4 pantallas donde aparece. Adaptado de un componente de referencia que por default usa una paleta arcoíris (rosa/violeta) — **reconstruido con únicamente `--accent`/`--accent-2`**, el acento de marca ya licenciado en la skill para esto. Nunca se usa para más de una palabra a la vez ni compite con el semáforo — es decoración de marca, no estado.
+Degradé animado para una palabra puntual dentro de un título — hoy la segunda palabra de "SMART Building" en las 4 pantallas donde aparece. Adaptado de un componente de referencia que por default usa una paleta arcoíris (rosa/violeta) — la versión correcta para el proyecto la **reconstruye con únicamente `--accent`/`--accent-2`**, el acento de marca ya licenciado en la skill para esto. Nunca se usa para más de una palabra a la vez ni compite con el semáforo — es decoración de marca, no estado.
+
+> **Estado en el código HOY (pendiente de decisión del usuario):** a pedido explícito, el CSS real en `components.css` tiene puesta la paleta ORIGINAL del componente de referencia (rosa/violeta/azules) "para ver cómo queda" — no la versión de abajo. Viola la regla de "nunca morado/rosa" de esta misma skill a propósito, como experimento visual. Antes de dar por buena esta sección hay que confirmar con el usuario si se queda así (y entonces esta skill se actualiza para reflejarlo como excepción deliberada) o si vuelve a `--accent`/`--accent-2`.
 
 ```html
 <b>SMART <span class="aurora-text">Building</span></b>
@@ -658,3 +660,48 @@ listaAlgo.innerHTML = `<p style="font-size:12.5px;color:var(--ink-3);padding:10p
 ```
 
 No fija tamaño ni color — los hereda del contenedor donde se lo inserte (un `<p>` chico para un listado, directo dentro de un `<h1>` para un título de detalle). Cada 6 ticks (~2,7s) cambia de frase con una transición de desvanecido; los ticks intermedios solo actualizan los puntos, sin transición — un parpadeo constante de "cargando" se sentiría mal si TODO se desvaneciera cada 450ms.
+
+## Botón de estado con ripple (`boton-estado-usuario`)
+
+Fusiona en un solo elemento lo que antes eran DOS (un `.pill` de solo lectura + un botón de acción aparte) — a pedido explícito para aliviar el mobile, donde cuatro elementos sueltos en una fila (badge + pill + ícono + botón) no entraban bien. El mismo botón **muestra** el estado actual (color + texto) Y lo **alterna** al hacer click. Primer uso: activo/inactivo en `usuarios.html` — reutilizable para cualquier estado binario futuro con la misma necesidad (verde/rojo, texto que cambia, acción = toggle).
+
+```html
+<button type="button" class="boton-estado-usuario activo boton-alternar-estado" data-id="5" data-activo="true">
+  <span class="boton-estado-texto">Activo</span>
+</button>
+```
+
+```css
+.boton-estado-usuario{
+  position:relative; overflow:hidden; border:0; cursor:pointer;
+  display:inline-flex; align-items:center; justify-content:center;
+  padding:8px 16px; border-radius:99px; font-size:12.5px; font-weight:700; color:#fff;
+  transition:background-color .32s ease, transform .18s ease-out;
+}
+.boton-estado-usuario.activo{ background:var(--ok); }
+.boton-estado-usuario.inactivo{ background:var(--crit); }
+.boton-estado-texto{ position:relative; z-index:1; } /* por encima del ripple */
+.boton-estado-usuario .ripple{
+  position:absolute; border-radius:50%; transform:scale(0); opacity:.5;
+  animation:ripple-expandir .55s ease-out forwards; pointer-events:none;
+}
+@keyframes ripple-expandir{ to{ transform:scale(1); opacity:0; } }
+```
+
+El ripple (adaptado de `RippleButton`) nace del punto exacto del clic, coloreado con el estado AL QUE el botón está transicionando — no un color fijo — así el ripple y la transición de `background-color` "aterrizan" juntos en el mismo color nuevo:
+
+```js
+function dispararRipple(boton, evento, color) {
+  const rect = boton.getBoundingClientRect();
+  const tamano = Math.max(rect.width, rect.height) * 2; // cubre el botón desde cualquier esquina
+  const ripple = document.createElement('span');
+  ripple.className = 'ripple';
+  ripple.style.cssText = `width:${tamano}px;height:${tamano}px;left:${evento.clientX - rect.left - tamano/2}px;top:${evento.clientY - rect.top - tamano/2}px;background:${color};`;
+  boton.appendChild(ripple);
+  ripple.addEventListener('animationend', () => ripple.remove());
+}
+```
+
+**El texto va en un `<span>` interno, nunca directo en `boton.textContent`** — si no, cada cambio de estado borraría el/los `<span class="ripple">` que estén animando en ese momento (`textContent` reemplaza TODOS los hijos, ripples incluidos). Cambio optimista: el ripple + el color nuevo aparecen al clic, sin esperar la respuesta del servidor — si la llamada falla, se revierte el color/texto (ver la lección de seguridad abajo, la razón de fondo por la que esto importa).
+
+**Lección de seguridad real, encontrada probando este mismo botón — no algo teórico:** el primer intento de esta funcionalidad no tenía ningún resguardo contra que un usuario se desactivara A SÍ MISMO. Al probar el botón sobre la fila del propio Administrador General logueado, la cuenta quedó realmente desactivada — y como el login rechaza usuarios inactivos, y hace falta ser `admin_general` para reactivar a alguien, **la cuenta quedó bloqueada sin ninguna forma de volver a entrar** (se reparó a mano, directo en la base de datos, para poder seguir probando). Corregido en dos capas: el **backend** rechaza con 400 tanto `POST /usuarios/{id}/desactivar` como `PATCH /usuarios/{id}` con `activo:false` cuando `usuario_id` es el mismo que el usuario autenticado; el **frontend** además deshabilita el botón en la propia fila del usuario logueado, con un `title` explicando por qué, para no dejar ni intentarlo. Cualquier acción de "desactivar/eliminar/degradar" sobre uno mismo necesita este mismo resguardo doble — nunca confiar solo en el frontend para una regla de este tipo.

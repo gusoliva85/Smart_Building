@@ -151,3 +151,47 @@ def test_editar_usuario_inexistente_devuelve_404(cliente):
     token = _token(cliente, "admin@test.com")
     respuesta = cliente.patch("/api/usuarios/9999", json={"nombre": "X"}, headers=_headers(token))
     assert respuesta.status_code == 404
+
+
+def test_no_se_puede_autodesactivar_via_endpoint_dedicado(cliente):
+    # bug real encontrado probando el botón de estado en usuarios.html: sin
+    # este guard, un admin_general puede desactivarse a sí mismo y queda
+    # afuera del sistema sin vuelta (los usuarios inactivos no pueden
+    # loguearse, y hace falta ser admin_general para reactivar a alguien).
+    token = _token(cliente, "admin@test.com")
+    listado = cliente.get("/api/usuarios", headers=_headers(token)).json()
+    id_admin = next(u["id"] for u in listado if u["email"] == "admin@test.com")
+
+    respuesta = cliente.post(f"/api/usuarios/{id_admin}/desactivar", headers=_headers(token))
+    assert respuesta.status_code == 400
+    assert "propia cuenta" in respuesta.json()["detail"]
+
+    # y sigue activo — el intento no tuvo ningún efecto
+    sigue_activo = cliente.get("/api/usuarios", headers=_headers(token)).json()
+    assert next(u for u in sigue_activo if u["id"] == id_admin)["activo"] is True
+
+
+def test_no_se_puede_autodesactivar_via_patch_generico(cliente):
+    # el mismo guard tiene que valer también por el PATCH genérico, que
+    # acepta "activo" en el body — no solo por el endpoint /desactivar
+    token = _token(cliente, "admin@test.com")
+    listado = cliente.get("/api/usuarios", headers=_headers(token)).json()
+    id_admin = next(u["id"] for u in listado if u["email"] == "admin@test.com")
+
+    respuesta = cliente.patch(f"/api/usuarios/{id_admin}", json={"activo": False}, headers=_headers(token))
+    assert respuesta.status_code == 400
+    assert "propia cuenta" in respuesta.json()["detail"]
+
+
+def test_admin_general_si_puede_desactivar_a_otro_admin_general(cliente):
+    # el guard es específicamente "a uno mismo", no "a cualquier admin_general"
+    token = _token(cliente, "admin@test.com")
+    otro_admin = cliente.post(
+        "/api/usuarios",
+        json={"nombre": "Otro Admin", "email": "otroadmin@test.com", "password": "clave", "rol": "admin_general"},
+        headers=_headers(token),
+    ).json()
+
+    respuesta = cliente.post(f"/api/usuarios/{otro_admin['id']}/desactivar", headers=_headers(token))
+    assert respuesta.status_code == 200
+    assert respuesta.json()["activo"] is False

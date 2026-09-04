@@ -41,6 +41,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   // listado completo (carga inicial) como reemplazarFila (actualización
   // puntual de una sola fila, sin recargar todo).
   function renderFila(u) {
+    // Nadie puede desactivar su propia cuenta (el backend también lo
+    // rechaza — esto es solo para no dejar ni intentarlo: un Admin
+    // General que se desactiva a sí mismo queda afuera del sistema sin
+    // vuelta, porque hace falta estar logueado como admin_general para
+    // reactivar a alguien).
+    const esUnoMismo = u.id === usuarioActual.id;
     return `
         <div class="detail-item content-glass fila-lista" data-id="${u.id}">
           <div>
@@ -50,14 +56,14 @@ document.addEventListener('DOMContentLoaded', async () => {
           <div class="fila-lista-acciones">
             <div class="fila-lista-estado">
               <span class="rol-badge">${ETIQUETAS_ROL[u.rol] || u.rol}</span>
-              <span class="pill ${u.activo ? 'ok' : 'crit'}">${u.activo ? 'Activo' : 'Inactivo'}</span>
             </div>
             <div class="fila-lista-botones">
               <button type="button" class="icon-btn icon-btn-sm boton-editar" data-id="${u.id}" aria-label="Editar usuario">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
               </button>
-              <button type="button" class="chip-link boton-alternar-estado" data-id="${u.id}" data-activo="${u.activo}">
-                ${u.activo ? 'Desactivar' : 'Reactivar'}
+              <button type="button" class="boton-estado-usuario ${u.activo ? 'activo' : 'inactivo'} boton-alternar-estado"
+                data-id="${u.id}" data-activo="${u.activo}" ${esUnoMismo ? 'disabled title="No podés desactivar tu propia cuenta"' : ''}>
+                <span class="boton-estado-texto">${u.activo ? 'Activo' : 'Inactivo'}</span>
               </button>
             </div>
           </div>
@@ -66,7 +72,33 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function conectarFila(fila) {
     fila.querySelector('.boton-editar').addEventListener('click', () => abrirModalEdicion(fila.dataset.id));
-    fila.querySelector('.boton-alternar-estado').addEventListener('click', (evento) => alternarEstado(evento.currentTarget));
+    fila.querySelector('.boton-alternar-estado').addEventListener('click', (evento) => alternarEstado(evento.currentTarget, evento));
+  }
+
+  // Ripple del color al que el botón está transicionando (adaptado de
+  // RippleButton) — nace del punto exacto del clic, del tamaño necesario
+  // para cubrir el botón entero desde cualquier esquina.
+  function dispararRipple(boton, evento, color) {
+    const rect = boton.getBoundingClientRect();
+    const tamano = Math.max(rect.width, rect.height) * 2;
+    const x = evento.clientX - rect.left - tamano / 2;
+    const y = evento.clientY - rect.top - tamano / 2;
+    const ripple = document.createElement('span');
+    ripple.className = 'ripple';
+    ripple.style.width = `${tamano}px`;
+    ripple.style.height = `${tamano}px`;
+    ripple.style.left = `${x}px`;
+    ripple.style.top = `${y}px`;
+    ripple.style.background = color;
+    boton.appendChild(ripple);
+    ripple.addEventListener('animationend', () => ripple.remove());
+  }
+
+  function pintarBotonEstado(boton, activo) {
+    boton.dataset.activo = String(activo);
+    boton.classList.toggle('activo', activo);
+    boton.classList.toggle('inactivo', !activo);
+    boton.querySelector('.boton-estado-texto').textContent = activo ? 'Activo' : 'Inactivo';
   }
 
   // Reemplaza SOLO el nodo de una fila con el usuario actualizado — la usan
@@ -99,21 +131,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     listaUsuarios.querySelectorAll('.fila-lista').forEach(conectarFila);
   }
 
-  // Activar/desactivar actualiza SOLO la fila afectada (con el usuario real
-  // que devuelve la API), en vez de recargar el listado entero — evita el
-  // parpadeo de "Cargando…" y el refetch completo por un cambio de un campo.
-  async function alternarEstado(boton) {
+  // El botón muestra el estado actual Y lo alterna al click (fusiona lo
+  // que antes eran dos elementos separados — un .pill de solo lectura +
+  // un botón de acción — pedido explícito para aliviar el mobile). Cambio
+  // optimista: el ripple y el color nuevo aparecen al instante del clic,
+  // no recién cuando responde la API — si la llamada falla, se revierte.
+  async function alternarEstado(boton, evento) {
     const id = boton.dataset.id;
-    const estaActivo = boton.dataset.activo === 'true';
+    const estabaActivo = boton.dataset.activo === 'true';
+    const nuevoActivo = !estabaActivo;
+
+    dispararRipple(boton, evento, nuevoActivo ? 'var(--ok)' : 'var(--crit)');
+    pintarBotonEstado(boton, nuevoActivo);
     boton.disabled = true;
+
     try {
-      const usuarioActualizado = estaActivo
+      const usuarioActualizado = estabaActivo
         ? await window.Api.post(`/usuarios/${id}/desactivar`)
         : await window.Api.patch(`/usuarios/${id}`, { activo: true });
-      reemplazarFila(usuarioActualizado);
+      usuariosCache[id] = usuarioActualizado; // mantiene la cache consistente para el modal de edición
     } catch (error) {
-      boton.disabled = false;
+      pintarBotonEstado(boton, estabaActivo); // revertir — la API no confirmó el cambio
       alert(error.message); // acción secundaria de una fila — no amerita su propio modal
+    } finally {
+      boton.disabled = false;
     }
   }
 

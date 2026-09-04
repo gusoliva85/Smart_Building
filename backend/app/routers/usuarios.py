@@ -66,18 +66,35 @@ def listar_usuarios(
     return db.query(Usuario).order_by(Usuario.id).all()
 
 
+def _prohibir_autodesactivacion(usuario_id: int, actual: UsuarioAutenticado) -> None:
+    """Nadie puede desactivar su propia cuenta — ni por acá ni por el PATCH
+    genérico de abajo (que también acepta `activo`). Sin esto, un
+    Administrador General puede dejarse afuera del sistema sin vuelta:
+    los usuarios inactivos no pueden loguearse, y hace falta estar
+    logueado como admin_general para reactivar a alguien."""
+    if usuario_id == actual.usuario.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No podés desactivar tu propia cuenta",
+        )
+
+
 @router.patch("/{usuario_id}", response_model=UsuarioSalida)
 def editar_usuario(
     usuario_id: int,
     datos: UsuarioEdicion,
     db: Session = Depends(obtener_db),
-    _: UsuarioAutenticado = Depends(_requerir_admin_general),
+    actual: UsuarioAutenticado = Depends(_requerir_admin_general),
 ):
     usuario = db.get(Usuario, usuario_id)
     if not usuario:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
 
-    for campo, valor in datos.model_dump(exclude_unset=True).items():
+    cambios = datos.model_dump(exclude_unset=True)
+    if cambios.get("activo") is False:
+        _prohibir_autodesactivacion(usuario_id, actual)
+
+    for campo, valor in cambios.items():
         setattr(usuario, campo, valor)
 
     db.commit()
@@ -89,11 +106,12 @@ def editar_usuario(
 def desactivar_usuario(
     usuario_id: int,
     db: Session = Depends(obtener_db),
-    _: UsuarioAutenticado = Depends(_requerir_admin_general),
+    actual: UsuarioAutenticado = Depends(_requerir_admin_general),
 ):
     usuario = db.get(Usuario, usuario_id)
     if not usuario:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
+    _prohibir_autodesactivacion(usuario_id, actual)
 
     usuario.activo = False  # baja lógica — nunca se borra la fila
     db.commit()

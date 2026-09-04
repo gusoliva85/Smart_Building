@@ -332,6 +332,7 @@
       <a class="toc-link" data-goto="f12-t2"><span class="n">2</span>Toggle de tema: barrido circular<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f12-t3"><span class="n">3</span>Indicador deslizante del switch<span class="estado-mini pend"></span></a>
       <a class="toc-link" data-goto="f12-t4"><span class="n">4</span>Aurora text + carga rotativa<span class="estado-mini pend"></span></a>
+      <a class="toc-link" data-goto="f12-t5"><span class="n">5</span>Botón de estado con ripple<span class="estado-mini pend"></span></a>
     </div>
 
     <div class="toc-group">
@@ -2301,6 +2302,61 @@ boton.addEventListener(<span class="str">'click'</span>, () => {
           <ul>
             <li>"SMART Building" en una sola línea en las 4 pantallas donde aparece (login + 3 con sidebar), con <code>display:inline</code> confirmado por código, no solo por captura.</li>
             <li>Secuencia real de 8 ticks capturada: <code>Cargando.. → Cargando... → Cargando.. → Cargando... → Por favor aguarde. → Por favor aguarde.. → Por favor aguarde... → Por favor aguarde.</code> — puntos ciclando y frase rotando tal como se pidió.</li>
+            <li>Cero errores de consola en todo el flujo.</li>
+          </ul>
+
+          <div class="correccion">
+            <div class="correccion-titulo">
+              <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              Actualización: experimento con la paleta original, a pedido explícito
+            </div>
+            <p>El usuario pidió ver el efecto con la paleta ORIGINAL del componente de referencia (rosa/violeta/azules), no con <code>--accent</code>/<code>--accent-2</code> — "solo para ver cómo queda". Se cambió el <code>background-image</code> de <code>.aurora-text</code> a esos colores literales, dejando comentado en el código y en la skill que es un experimento temporal que viola a propósito la regla de "nunca morado" — pendiente de que el usuario decida si se queda así (y ahí se actualiza la skill como excepción deliberada) o vuelve a los tokens de marca.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="slide tarea" id="f12-t5" data-crumb="Fase 12 (adelantada) · Botón de estado con ripple">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Fase 12 · Tarea (adelantada)</span>
+            <h3>Frontend: botón de estado con ripple (Usuarios)</h3>
+            <span class="status pend"><i class="dot"></i>Implementado — pendiente de tu revisión</span>
+          </div>
+          <p class="lede">A pedido explícito, para resolver de raíz el problema de mobile con demasiados elementos por fila: el <code>.pill</code> de solo lectura "Activo"/"Inactivo" desaparece y se fusiona con el botón de acción — un solo botón que <strong>muestra</strong> el estado (verde "Activo" / rojo "Inactivo") Y lo <strong>alterna</strong> al hacer click, con un ripple del color de destino acompañando la transición.</p>
+
+          <h4>El ripple, adaptado de RippleButton</h4>
+          <p>Nace del punto exacto del clic, coloreado con el estado AL QUE el botón está transicionando (no un color fijo) — así el ripple y la transición de fondo del botón "aterrizan" juntos en el mismo color nuevo, en vez de competir. Cambio optimista: el ripple y el color nuevo aparecen al clic, sin esperar la respuesta del servidor.</p>
+          <div class="code-block">dispararRipple(boton, evento, nuevoActivo ? <span class="str">'var(--ok)'</span> : <span class="str">'var(--crit)'</span>);
+pintarBotonEstado(boton, nuevoActivo); <span class="cm">// optimista</span>
+<span class="kw">try</span> {
+  <span class="kw">const</span> usuarioActualizado = <span class="kw">await</span> ... <span class="cm">// llamada real a la API</span>
+} <span class="kw">catch</span> (error) {
+  pintarBotonEstado(boton, estabaActivo); <span class="cm">// revertir — la API no confirmó el cambio</span>
+}</div>
+          <p>El texto del botón vive en un <code>&lt;span&gt;</code> interno, nunca directo en <code>boton.textContent</code> — si no, cada cambio de estado borraría el ripple que estuviera animando en ese momento (<code>textContent</code> reemplaza TODOS los hijos).</p>
+
+          <div class="correccion">
+            <div class="correccion-titulo">
+              <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              Bug de seguridad real, no teórico — encontrado probando este mismo botón
+            </div>
+            <p>La primera versión no tenía ningún resguardo contra que un usuario se desactivara <strong>a sí mismo</strong>. Probando el botón sobre la fila del propio Administrador General logueado (durante la verificación de esta misma tarea), la cuenta quedó realmente desactivada — y como el login rechaza usuarios inactivos, y hace falta ser <code>admin_general</code> para reactivar a alguien, <strong>la cuenta quedó bloqueada sin ninguna forma de volver a entrar</strong>. Se reparó a mano, directo en la base de datos (<code>UPDATE usuarios SET activo=1...</code>), para poder seguir probando.</p>
+            <p>Corregido en dos capas, backend como autoridad real:</p>
+            <div class="code-block"><span class="kw">def</span> _prohibir_autodesactivacion(usuario_id, actual):
+    <span class="kw">if</span> usuario_id == actual.usuario.id:
+        <span class="kw">raise</span> HTTPException(400, <span class="str">"No podés desactivar tu propia cuenta"</span>)
+
+<span class="cm"># aplicado en los DOS caminos que pueden desactivar: el endpoint dedicado</span>
+<span class="cm"># Y el PATCH genérico (que también acepta {"activo": false} en el body)</span></div>
+            <p>El <strong>frontend</strong> además deshabilita el botón directamente en la fila del usuario logueado, con un <code>title="No podés desactivar tu propia cuenta"</code> — para no dejar ni intentarlo, no solo para mostrar el error después. 4 tests nuevos en el backend (rechazo por los dos caminos, y confirmación de que SÍ se puede desactivar a OTRO admin_general — el guard es "a uno mismo", no "a cualquier admin"). Suite completa: <strong>111/111</strong>.</p>
+          </div>
+
+          <h4>Verificación con Playwright, contra la app real</h4>
+          <ul>
+            <li>El <code>.pill</code> ya no existe en ninguna fila — confirmado con un conteo en 0.</li>
+            <li>Botón de la propia cuenta logueada: deshabilitado, con el <code>title</code> correcto.</li>
+            <li>Toggle real sobre otro usuario: verde <code>rgb(46, 128, 103)</code> → rojo <code>rgb(177, 60, 71)</code>, texto "Activo" → "Inactivo", ripple presente a mitad de la animación y sin quedar colgado después (0 elementos <code>.ripple</code> residuales).</li>
+            <li>Mobile (Pixel 5): las 5 filas de prueba entran ahora en UNA sola línea cada una — badge + ícono de editar + botón de estado, sin overflow horizontal. Resuelve el pedido original de raíz, no con otro parche de wrap.</li>
             <li>Cero errores de consola en todo el flujo.</li>
           </ul>
         </div>
