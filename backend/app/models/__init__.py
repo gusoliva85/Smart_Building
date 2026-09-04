@@ -15,3 +15,4 @@ y automáticamente queda disponible para `main.py` y `seed.py` sin tocarlos.
 from app.models.usuario import Usuario  # noqa: F401
 from app.models.usuario_edificio import UsuarioEdificio  # noqa: F401
 from app.models.edificio import Cochera, Departamento, Edificio, EspacioComun, Piso  # noqa: F401
+from app.models.gasto import Gasto  # noqa: F401
