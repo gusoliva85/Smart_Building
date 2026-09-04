@@ -334,6 +334,7 @@
       <a class="toc-link" data-goto="f12-t3"><span class="n">3</span>Indicador deslizante del switch<span class="estado-mini pend"></span></a>
       <a class="toc-link" data-goto="f12-t4"><span class="n">4</span>Aurora text + carga rotativa<span class="estado-mini pend"></span></a>
       <a class="toc-link" data-goto="f12-t5"><span class="n">5</span>Botón de estado con ripple<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f12-t6"><span class="n">6</span>Favicon (ícono de la pestaña)<span class="estado-mini done"></span></a>
     </div>
 
     <div class="toc-group">
@@ -2414,6 +2415,25 @@ pintarBotonEstado(boton, nuevoActivo); <span class="cm">// optimista</span>
             <p>El truco: en vez de empujar el contenedor entero a la derecha, se lo hace crecer para ocupar todo el ancho disponible de su línea (<code>flex:1</code>) y se reparten sus dos hijos con <code>space-between</code> — el rol queda anclado al principio de esa línea, los botones al final, sin importar si comparten línea con el nombre (desktop) o si el rol quedó solo en su propia línea (mobile angosto). <code>:has()</code> es lo que permite que la regla sepa "esto es una fila de usuario" mirando su contenido, sin agregar una clase nueva al HTML.</p>
             <p>Verificado en 7 anchos (360 a 1280px): el rol queda a 13px del borde izquierdo en mobile (donde cae en su propia línea) y pegado al nombre en desktop (donde comparte línea) — nunca pegado a los botones. Los botones se mantienen a 13px del borde derecho en los 7 anchos, sin cambios respecto a la verificación anterior. <code>edificios.html</code> confirmado sin cambios (capturado en 393/480/1280px) — esta regla no lo alcanza porque no tiene <code>.fila-lista-botones</code>.</p>
           </div>
+        </div>
+      </section>
+
+      <section class="slide tarea" id="f12-t6" data-crumb="Fase 12 (adelantada) · Favicon">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Fase 12 · Tarea (adelantada)</span>
+            <h3>Frontend: ícono de la pestaña del navegador (favicon)</h3>
+            <span class="status done"><i class="dot"></i>Hecho</span>
+          </div>
+          <p class="lede">A pedido explícito: la pestaña del navegador mostraba el ícono genérico por defecto. Se agrega el mismo logo que ya usa la app — el <code>.brand-mark</code> del sidebar/topbar — como favicon real, en vez de inventar un ícono nuevo.</p>
+
+          <h4>El mismo SVG del logo, no una imagen aparte</h4>
+          <p><code>assets/img/favicon.svg</code> reconstruye exactamente <code>.brand-mark</code> (<code>components.css</code>): el cuadrado redondeado con el degradé de marca <code>linear-gradient(155deg, --accent, --accent-2)</code> — convertido a un <code>linearGradient</code> con el mismo ángulo — más el mismo ícono de edificio (techo + puerta + ventanas) centrado adentro, trazo blanco. Es un archivo nuevo porque un favicon no puede leer variables CSS ni depender del tema de la página que lo referencia — los colores del gradiente quedan escritos una sola vez, tomados directo de <code>tokens.css</code> (tema claro).</p>
+          <div class="code-block">&lt;link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg"&gt;</div>
+          <p>Agregado en el <code>&lt;head&gt;</code> de las 4 páginas (<code>index.html</code>, <code>dashboard.html</code>, <code>edificios.html</code>, <code>usuarios.html</code>) — SVG en vez de <code>.ico</code>: todos los navegadores modernos lo soportan directo, y escala nítido en cualquier tamaño de pestaña sin generar múltiples resoluciones.</p>
+
+          <h4>Verificación</h4>
+          <p>Servido con <code>content-type: image/svg+xml</code> (200) desde las 4 páginas; render capturado por separado confirma el mismo cuadrado con degradé acero/grafito e ícono de edificio que se ve en el sidebar — sin morado ni colores nuevos, mismos tokens de marca de siempre.</p>
         </div>
       </section>
 

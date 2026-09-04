@@ -112,6 +112,8 @@ Regla de aplicación: `.shell` para el contenedor grande (topbar, cada `.kpi`, `
 
 Íconos: siempre SVG inline con `viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7-1.8"`, nunca librería de íconos ni emoji.
 
+**Favicon:** toda página nueva incluye `<link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg">` en el `<head>` — es el `.brand-mark` de arriba reconstruido como SVG standalone (mismo degradé `155deg` acero/grafito, mismo ícono de edificio en trazo blanco), porque un favicon no puede leer las variables CSS de la página que lo referencia. No se genera un ícono nuevo por pantalla: siempre el mismo archivo, el mismo logo.
+
 Variante chica para una acción de ícono DENTRO de una fila de listado (editar, etc.) — el tamaño de topbar (38px) es desproporcionado ahí:
 
 ```css
