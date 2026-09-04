@@ -135,11 +135,11 @@ Corresponde al Documento General, secciones 3 (Actores del sistema) y 5 (Gestió
 - [x] **Frontend: pantalla de alta de edificio (`edificios.html`).**
   Formulario con los datos mínimos del Documento General 5.1, visible solo para Administrador General.
 
-- [ ] **Frontend: pantalla de estructura del edificio (`edificios.html`, pestaña "Estructura" vía `.view-switch`).**
+- [x] **Frontend: pantalla de estructura del edificio (`edificios.html`, pestaña "Estructura" vía `.view-switch`).**
   Vista en lista (no gráfica todavía — la versión gráfica coloreada es el Dashboard Visual de la Fase 5) de pisos, departamentos, cocheras y espacios comunes de un edificio, con alta de piso/departamento nuevo y asignación de propietario/inquilino. *(Actualización: no existía forma de LLEGAR a un edificio existente — `edificios.html` solo tenía el formulario de alta, sin listado. Se agregó un listado de edificios (mismo patrón que `usuarios.html`) más `GET /api/edificios` y `GET /api/edificios/{id}` en el backend, no itemizados antes como tarea aparte — decisión consultada y confirmada con el usuario antes de implementar.)*
 
-- [ ] **Prueba manual de punta a punta.**
-  Dar de alta un edificio de prueba ("Torre Central", igual que en el mockup) con estructura de varios pisos, confirmar que se generó automáticamente, asignar el usuario Propietario ya creado a un departamento puntual, y validar que al loguearse como ese propietario solo ve su propia unidad.
+- [x] **Prueba manual de punta a punta.**
+  Dar de alta un edificio de prueba ("Torre Central", igual que en el mockup) con estructura de varios pisos, confirmar que se generó automáticamente, asignar el usuario Propietario ya creado a un departamento puntual, y validar que al loguearse como ese propietario solo ve su propia unidad. *(El Dashboard Visual que muestra la unidad propia recién llega en la Fase 5 — hoy "solo ve lo que le corresponde" se verificó como sidebar vacío + bloqueo de pantallas ajenas, mismo criterio que la Tarea 16.)*
 
 ---
 
@@ -536,7 +536,7 @@ Corresponde al Documento Técnico, sección 1.3.1 (migración Tailwind CDN → C
 - [ ] **Frontend: texto de marca animado ("Building") e indicador de carga con dos frases rotando.**
   Adelantadas a pedido explícito del usuario. `.aurora-text` (`components.css`): degradé animado sobre la segunda palabra de "SMART Building". `assets/js/cargando.js`: reemplaza el "Cargando…" estático de `usuarios.html`/`edificios.html` por dos frases rotando ("Cargando" / "Por favor aguarde") con puntos suspensivos animados, reutilizable en cualquier pantalla nueva con carga de datos. Documentado en `que_hice.html`, slide `f12-t4`. *(Actualización: la paleta de `.aurora-text` está temporalmente puesta en los colores originales del componente de referencia — incluye rosa/violeta, prohibidos por la skill — a pedido explícito del usuario, "para ver cómo queda". Pendiente de que confirme si se queda así o vuelve a `--accent`/`--accent-2`.)*
 
-- [ ] **Frontend: botón de estado con ripple (`usuarios.html`).**
+- [x] **Frontend: botón de estado con ripple (`usuarios.html`).**
   Adelantada a pedido explícito del usuario, resolviendo de paso el problema de mobile con demasiados elementos en una fila: se saca el `.pill` de solo lectura "Activo"/"Inactivo" y se fusiona con el botón de acción — un solo botón que muestra el estado (verde "Activo" / rojo "Inactivo") y lo alterna al click, con un ripple del color de destino (adaptado de `RippleButton`) sincronizado con la transición de fondo. **Bug de seguridad real encontrado y corregido en el proceso:** nada impedía que un `admin_general` se desactivara a sí mismo, lo que lo dejaba bloqueado del sistema sin ninguna forma de volver a entrar (los usuarios inactivos no pueden loguearse). Corregido con un guard en el backend (`POST /desactivar` y `PATCH` con `activo:false` rechazan con 400 si es la propia cuenta) y deshabilitando el botón en el frontend para la fila del usuario logueado. Documentado en `que_hice.html`, slide `f12-t5`.
 
 - [ ] **Frontend: auditoría de accesibilidad y de consistencia con la skill.**

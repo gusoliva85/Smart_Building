@@ -324,7 +324,8 @@
       <a class="toc-link" data-goto="f1-t15"><span class="n">15</span>Frontend: gestión de usuarios<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f1-t16"><span class="n">16</span>Prueba de punta a punta: usuarios<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f1-t17"><span class="n">17</span>Frontend: edición de usuario<span class="estado-mini done"></span></a>
-      <a class="toc-link" data-goto="f1-t18"><span class="n">18</span>Frontend: estructura del edificio<span class="estado-mini pend"></span></a>
+      <a class="toc-link" data-goto="f1-t18"><span class="n">18</span>Frontend: estructura del edificio<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f1-t19"><span class="n">19</span>Prueba de punta a punta: cierre Fase 1<span class="estado-mini done"></span></a>
     </div>
 
     <div class="toc-group">
@@ -332,7 +333,7 @@
       <a class="toc-link" data-goto="f12-t2"><span class="n">2</span>Toggle de tema: barrido circular<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f12-t3"><span class="n">3</span>Indicador deslizante del switch<span class="estado-mini pend"></span></a>
       <a class="toc-link" data-goto="f12-t4"><span class="n">4</span>Aurora text + carga rotativa<span class="estado-mini pend"></span></a>
-      <a class="toc-link" data-goto="f12-t5"><span class="n">5</span>Botón de estado con ripple<span class="estado-mini pend"></span></a>
+      <a class="toc-link" data-goto="f12-t5"><span class="n">5</span>Botón de estado con ripple<span class="estado-mini done"></span></a>
     </div>
 
     <div class="toc-group">
@@ -966,7 +967,7 @@ nothing to commit, working tree clean</div>
         <div class="slide-inner">
           <div class="divider-num">01</div>
           <h2>Fase 1 — Usuarios, autenticación y estructura del edificio</h2>
-          <div class="fase-frac-grande" id="fase1-frac">18 / 18 — completa</div>
+          <div class="fase-frac-grande" id="fase1-frac">19 / 19 — completa</div>
           <p class="divider-desc">Corresponde al Documento General, secciones 3 y 5; Documento Técnico, secciones 6 y 7. Es la base de datos de la que depende absolutamente todo lo demás — sin usuarios y edificios, ningún otro módulo tiene sobre qué trabajar.</p>
         </div>
       </section>
@@ -2047,7 +2048,7 @@ location.href = 'dashboard.html';</div>
           <div class="tarea-head">
             <span class="tarea-num">Tarea 18</span>
             <h3>Frontend: estructura del edificio</h3>
-            <span class="status pend"><i class="dot"></i>Implementado — pendiente de tu revisión</span>
+            <span class="status done"><i class="dot"></i>Hecho — aprobado</span>
           </div>
           <p class="lede">Pestaña "Estructura" en <code>edificios.html</code>, vía <code>.view-switch</code>: vista en lista (no gráfica todavía — esa llega con el Dashboard Visual, Fase 5) de pisos, departamentos, cocheras y espacios comunes, con alta de piso/departamento y asignación de propietario/inquilino. Cierra por completo el bloque "Estructura del edificio" de la Fase 1.</p>
 
@@ -2121,9 +2122,40 @@ location.href = 'dashboard.html';</div>
             <p>Se agrupó en dos bloques atómicos que envuelven COMO UNIDAD, sin importar el largo del texto: <code>.fila-lista-estado</code> (badge + pill) y <code>.fila-lista-botones</code> (ícono + botón), con <code>margin-left:auto</code> en el segundo grupo solo en mobile — mismo criterio que ya se usó para "Ocupado"/"Asignar" en la estructura del edificio. Ahora las 5 filas de prueba (roles de distinto largo: "Admin General", "Propietario", "Admin de Consorcio", "Encargado", "Inquilino") envuelven todas en el mismo punto — línea 1 = badge+pill, línea 2 = ícono+botón a la derecha (o las dos en una sola línea si el rol es corto, como "Inquilino") — verificado con captura completa del listado en mobile, sin overflow horizontal, y sin cambios en desktop.</p>
           </div>
 
+        </div>
+      </section>
+
+      <section class="slide tarea" id="f1-t19" data-crumb="Fase 1 · Tarea 19">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 19</span>
+            <h3>Prueba manual de punta a punta: cierre de la Fase 1</h3>
+            <span class="status done"><i class="dot"></i>Hecho</span>
+          </div>
+          <p class="lede">Cierra toda la Fase 1: dar de alta un edificio de varios pisos, confirmar que la estructura se generó sola, asignar el Propietario de prueba a un departamento puntual, y validar que al loguearse como ese propietario ve exactamente lo que le corresponde a su rol hoy — nada de código nuevo, es la prueba integradora final de las Tareas 1 a 18.</p>
+
+          <h4>Qué se probó, con Playwright contra el backend real</h4>
+          <ul>
+            <li><strong>Edificio de prueba ("Torre Cierre Fase 1"):</strong> alta con 3 pisos × 4 departamentos — la estructura vacía se generó sola, sin cargar nada a mano (Tarea 8/11).</li>
+            <li><strong>Asignación real:</strong> "Propietario de Prueba" asignado al departamento 1A desde la pestaña Estructura → pasa a "Ocupado" mostrando <code>Prop.: Propietario de Prueba</code>, el resto de los departamentos del edificio quedan "Sin asignar / Vacío" sin verse afectados.</li>
+            <li><strong>Login como Propietario de Prueba:</strong> entra sin error, saludo del Dashboard con su nombre correcto.</li>
+          </ul>
+          <div class="code-block">GET /edificios.html?id=7 → pestaña Estructura
+Piso 1 · 4 unidad(es)
+  1A → Prop.: Propietario de Prueba · Ocupado
+  1B, 1C, 1D → Sin asignar · Vacío</div>
+
+          <div class="explicacion">
+            <div class="explicacion-titulo">
+              <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              Nota de alcance: "solo ve su propia unidad" todavía no existe como pantalla
+            </div>
+            <p>Igual que ya se dejó documentado en la Tarea 16: el Dashboard Visual que muestra la unidad propia de un Propietario recién se construye en la <strong>Fase 5</strong>. Hoy, "ver únicamente lo que le corresponde" significa en concreto que el Propietario entra, no ve ningún acceso en el sidebar ("Todavía no hay pantallas para tu rol") y queda bloqueado si intenta entrar por URL directa a <code>edificios.html</code> ("Esta pantalla es solo para el Administrador General") — se confirmó ese comportamiento, sin errores de consola en ningún paso del flujo.</p>
+          </div>
+
           <div class="cierre-fase">
-            <p class="titulo">Fase 1 completa — 18 / 18 tareas aprobadas</p>
-            <p>Usuarios, autenticación y estructura del edificio quedan cerrados de punta a punta: RBAC, login, CRUD de usuarios con alta/edición/activar-desactivar, y edificios con alta + listado + estructura completa (pisos, departamentos, cocheras, espacios comunes, asignación de propietario/inquilino). A partir de acá arranca la <strong>Fase 2 — Gestión financiera básica</strong>, el módulo del que depende directamente el color amarillo/rojo por deuda del Dashboard Visual.</p>
+            <p class="titulo">Fase 1 completa — 19 / 19 tareas aprobadas</p>
+            <p>Usuarios, autenticación y estructura del edificio quedan cerrados de punta a punta: RBAC, login, CRUD de usuarios con alta/edición/activar-desactivar, y edificios con alta + listado + estructura completa (pisos, departamentos, cocheras, espacios comunes, asignación de propietario/inquilino, con la exclusividad de inquilino corregida). A partir de acá arranca la <strong>Fase 2 — Gestión financiera básica</strong>, el módulo del que depende directamente el color amarillo/rojo por deuda del Dashboard Visual.</p>
           </div>
         </div>
       </section>
@@ -2320,7 +2352,7 @@ boton.addEventListener(<span class="str">'click'</span>, () => {
           <div class="tarea-head">
             <span class="tarea-num">Fase 12 · Tarea (adelantada)</span>
             <h3>Frontend: botón de estado con ripple (Usuarios)</h3>
-            <span class="status pend"><i class="dot"></i>Implementado — pendiente de tu revisión</span>
+            <span class="status done"><i class="dot"></i>Hecho — aprobado</span>
           </div>
           <p class="lede">A pedido explícito, para resolver de raíz el problema de mobile con demasiados elementos por fila: el <code>.pill</code> de solo lectura "Activo"/"Inactivo" desaparece y se fusiona con el botón de acción — un solo botón que <strong>muestra</strong> el estado (verde "Activo" / rojo "Inactivo") Y lo <strong>alterna</strong> al hacer click, con un ripple del color de destino acompañando la transición.</p>
 
