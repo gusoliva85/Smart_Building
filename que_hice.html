@@ -2359,6 +2359,15 @@ pintarBotonEstado(boton, nuevoActivo); <span class="cm">// optimista</span>
             <li>Mobile (Pixel 5): las 5 filas de prueba entran ahora en UNA sola línea cada una — badge + ícono de editar + botón de estado, sin overflow horizontal. Resuelve el pedido original de raíz, no con otro parche de wrap.</li>
             <li>Cero errores de consola en todo el flujo.</li>
           </ul>
+
+          <div class="correccion">
+            <div class="correccion-titulo">
+              <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              Dos correcciones más: el ripple no se veía, y los botones no quedaban a la derecha
+            </div>
+            <p><strong>El ripple era invisible en la práctica.</strong> La primera versión hacía crecer el círculo Y desvanecerlo a la vez (misma duración, <code>opacity:.5→0</code> mientras <code>scale:0→1</code>) — para cuando llegaba a cubrir el botón ya casi no se veía, y encima el color del ripple es EXACTO al color final del botón (que también está transicionando al mismo tiempo), así que los dos efectos se confundían entre sí. Se separaron: el ripple ahora se mantiene bien opaco (<code>.95</code>) durante todo el crecimiento y recién se desvanece al final, cuando ya cubrió el botón entero; la transición de fondo del botón se hizo más lenta (700ms) que el ripple (550ms), para que el ripple "llegue primero" pintando el botón y el fondo de base lo alcance después, no al mismo tiempo. Verificado con capturas en primer plano a 60/180/330/980ms — ahora se ve clarísimo un círculo del color nuevo expandiéndose desde el punto del clic.</p>
+            <p><strong>Editar y el botón de estado no quedaban a la derecha en ciertos anchos.</strong> El fix de alineado de la Tarea 17 (<code>margin-left:auto</code> en <code>.fila-lista-botones</code>) solo cubría cuando esa sub-fila envolvía SOLA — pero a anchos intermedios (~480-600px, ni angosto del todo ni desktop) la fila ENTERA (<code>.fila-lista</code>) envuelve porque el nombre largo no entra junto a las acciones, y <code>.fila-lista-acciones</code> cae sola a su propia línea. Con un solo elemento en esa línea, el <code>space-between</code> de <code>.fila-lista</code> no tiene nada para distribuir y lo deja pegado a la izquierda — el mismo bug de fondo que ya se había corregido una vez, reapareciendo un nivel más arriba. Se agregó <code>margin-left:auto</code> también a <code>.fila-lista-acciones</code> (la clase base, no solo la variante). Verificado en 7 anchos de pantalla distintos (360 a 1280px): antes el margen derecho saltaba entre 13px y 256px según el ancho; ahora da <strong>13px exacto en los 7</strong>, sin overflow en ninguno. Como esta clase también la usa <code>edificios.html</code> (departamentos), se revisó ahí también — sin regresiones, capturado en 393/480/1280px.</p>
+          </div>
         </div>
       </section>
 

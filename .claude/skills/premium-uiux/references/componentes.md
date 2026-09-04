@@ -127,10 +127,12 @@ Para cualquier pantalla "lista de cosas + alta en modal" (usuarios hoy, después
 
 ```css
 .fila-lista{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
-.fila-lista-acciones{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-width:0; }
+.fila-lista-acciones{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-width:0; margin-left:auto; }
 ```
 
 **Lección aprendida (bug real en mobile, feedback del usuario):** con un badge de texto largo (ej. "Administrador de Consorcio") + pill + botón, el conjunto de acciones puede no entrar en una línea en mobile. `flex-wrap:wrap` en `.fila-lista-acciones` es necesario para que sus hijos se acomoden en más de una línea — pero **no alcanza solo con eso**: si además tiene `flex:none` (o cualquier `flex-shrink:0`), el elemento crece a su ancho de contenido completo en vez de respetar el espacio disponible de la fila, y entonces nunca *necesita* wrappear — se sale de la tarjeta igual. `min-width:0` (más el `flex-shrink:1` default, al no poner `flex:none`) es lo que de verdad lo habilita a respetar el ancho disponible. Se verifica con un rol de texto largo específicamente — con roles cortos el bug no se nota.
+
+**Segunda vuelta del mismo bug, un nivel más arriba (verificado en 7 anchos: 360 a 1280px):** a anchos intermedios (~480-600px) puede pasar que `.fila-lista` ENTERA envuelva — un nombre largo se queda sin lugar junto a las acciones — y `.fila-lista-acciones` cae sola a su propia línea. Con un solo elemento en esa línea, el `justify-content:space-between` de `.fila-lista` no tiene nada para distribuir entre dos y lo deja pegado a la izquierda. Por eso `margin-left:auto` va también en `.fila-lista-acciones` (no solo en las variantes internas como `.fila-lista-botones` de usuarios.html o `.fila-lista.ocupado .fila-lista-acciones` de edificios.html) — sin `@media`, a propósito: en desktop no tiene nada que empujar (el contenedor ya mide justo su contenido) así que no cambia nada ahí, pero cubre cualquier ancho donde SÍ envuelva, no solo el que se haya probado a mano.
 
 ## Grilla de KPIs (bento, no tarjetas idénticas)
 
@@ -676,17 +678,27 @@ Fusiona en un solo elemento lo que antes eran DOS (un `.pill` de solo lectura + 
   position:relative; overflow:hidden; border:0; cursor:pointer;
   display:inline-flex; align-items:center; justify-content:center;
   padding:8px 16px; border-radius:99px; font-size:12.5px; font-weight:700; color:#fff;
-  transition:background-color .32s ease, transform .18s ease-out;
+  /* MÁS LENTA que el ripple (700ms vs 550ms) a propósito — ver la
+     lección de abajo, sin esto el ripple no se llega a ver */
+  transition:background-color .7s ease, transform .18s ease-out;
 }
 .boton-estado-usuario.activo{ background:var(--ok); }
 .boton-estado-usuario.inactivo{ background:var(--crit); }
 .boton-estado-texto{ position:relative; z-index:1; } /* por encima del ripple */
 .boton-estado-usuario .ripple{
-  position:absolute; border-radius:50%; transform:scale(0); opacity:.5;
+  position:absolute; border-radius:50%; transform:scale(0); opacity:.95;
   animation:ripple-expandir .55s ease-out forwards; pointer-events:none;
 }
-@keyframes ripple-expandir{ to{ transform:scale(1); opacity:0; } }
+/* Se mantiene opaco DURANTE el crecimiento, se desvanece recién al
+   final (no las dos cosas a la vez) — ver la lección de abajo. */
+@keyframes ripple-expandir{
+  0%{ transform:scale(0); opacity:.95; }
+  70%{ transform:scale(1); opacity:.95; }
+  100%{ transform:scale(1); opacity:0; }
+}
 ```
+
+**Lección aprendida — el ripple existía pero era invisible en la práctica (reportado por el usuario: "no hace el efecto"):** la primera versión hacía crecer el círculo Y desvanecerlo a la vez, con la misma curva de tiempo (`opacity:.5→0` mientras `scale:0→1`) — para cuando el círculo llegaba a cubrir el botón, ya casi no tenía opacidad. Encima, el color del ripple es el mismo color EXACTO al que el fondo del botón también está transicionando al mismo tiempo — dos efectos idénticos en color, compitiendo por el mismo resultado final, se anulan visualmente entre sí. La corrección tiene dos partes: (1) el ripple se mantiene bien opaco durante todo el crecimiento y se desvanece solo en el último tramo, cuando ya cubrió el botón entero — así se ve claramente como una ola de color, no un parpadeo; (2) la transición de `background-color` del botón se hizo más LENTA que la del ripple, para que el ripple "pinte" el botón primero y el fondo de base lo alcance después, en vez de llegar los dos juntos y neutralizarse. Se verificó con capturas en primer plano (recorte ajustado al botón) en varios puntos de la animación — no alcanza con confirmar que el elemento `.ripple` existe en el DOM, hay que ver que se note.
 
 El ripple (adaptado de `RippleButton`) nace del punto exacto del clic, coloreado con el estado AL QUE el botón está transicionando — no un color fijo — así el ripple y la transición de `background-color` "aterrizan" juntos en el mismo color nuevo:
 

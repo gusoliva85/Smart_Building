@@ -186,7 +186,12 @@ span.aurora-text{
   position:relative; overflow:hidden; border:0; cursor:pointer;
   display:inline-flex; align-items:center; justify-content:center;
   padding:8px 16px; border-radius:99px; font-size:12.5px; font-weight:700; color:#fff;
-  transition:background-color .32s ease, transform .18s ease-out;
+  /* más lenta que el ripple (700ms) a propósito: el ripple tiene que
+     "llegar primero" pintando el botón del color nuevo, y recién
+     entonces el fondo de base termina de alcanzarlo — si van a la
+     misma velocidad, ambos efectos del mismo color se pisan y el
+     ripple no se llega a ver (bug real reportado por el usuario). */
+  transition:background-color .7s ease, transform .18s ease-out;
 }
 .boton-estado-usuario:hover:not(:disabled){ transform:translateY(-1px); }
 .boton-estado-usuario:disabled{ cursor:default; opacity:.55; }
@@ -194,10 +199,19 @@ span.aurora-text{
 .boton-estado-usuario.inactivo{ background:var(--crit); }
 .boton-estado-texto{ position:relative; z-index:1; }
 .boton-estado-usuario .ripple{
-  position:absolute; border-radius:50%; transform:scale(0); opacity:.5;
+  position:absolute; border-radius:50%; transform:scale(0); opacity:.95;
   animation:ripple-expandir .55s ease-out forwards; pointer-events:none;
 }
-@keyframes ripple-expandir{ to{ transform:scale(1); opacity:0; } }
+/* Se mantiene bien visible (opacidad casi completa) DURANTE todo el
+   crecimiento — recién se desvanece al final, ya cubriendo el botón
+   entero. La versión anterior crecía Y se desvanecía a la vez, así que
+   para cuando llegaba a cubrir el botón ya casi no se veía — el bug
+   real que reportó el usuario ("no hace el efecto"). */
+@keyframes ripple-expandir{
+  0%{ transform:scale(0); opacity:.95; }
+  70%{ transform:scale(1); opacity:.95; }
+  100%{ transform:scale(1); opacity:0; }
+}
 @media(prefers-reduced-motion:reduce){
   .boton-estado-usuario{ transition:none; }
   .boton-estado-usuario .ripple{ display:none; }
@@ -558,16 +572,27 @@ html[data-theme="dark"] .lobby{ background:linear-gradient(180deg, rgba(255,255,
    completo en vez de respetar el ancho disponible de la fila, así que
    nunca llegaba a necesitar el wrap — min-width:0 + flex-shrink:1 (el
    default, al sacar flex:none) es lo que realmente lo habilita. */
-.fila-lista-acciones{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-width:0; }
+/* margin-left:auto acá también: en anchos intermedios (ni angosto del
+   todo ni ancho de escritorio) puede pasar que .fila-lista ENTERA
+   envuelva — el nombre largo se queda sin espacio junto a las acciones
+   — y .fila-lista-acciones cae sola a su propia línea. Con un solo
+   elemento en esa línea, el space-between de .fila-lista no tiene nada
+   para distribuir y lo deja pegado a la izquierda — mismo bug que ya
+   se corrigió una vez a nivel de .fila-lista-botones, acá aparece un
+   nivel más arriba. Sin efecto en desktop (ahí ya lo empuja bien el
+   space-between de siempre, con o sin este margin). */
+.fila-lista-acciones{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-width:0; margin-left:auto; }
 
-/* Fila de departamento OCUPADO en mobile (reportado por el usuario): el
-   badge "Ocupado" + botón "Asignar" ya envuelven bien a una línea nueva
-   (regla de arriba), pero quedaban pegados a la izquierda en esa línea.
-   margin-left:auto los empuja al borde derecho — en desktop no cambia
-   nada (ya quedan a la derecha por el space-between de .fila-lista). */
-@media(max-width:479px){
-  .fila-lista.ocupado .fila-lista-acciones{ margin-left:auto; }
-}
+/* Fila de departamento OCUPADO (reportado por el usuario): el badge
+   "Ocupado" + botón "Asignar" ya envuelven bien a una línea nueva
+   (regla de arriba) cuando no entran junto al resto — margin-left:auto
+   los empuja al borde derecho de esa línea. SIN media query a propósito
+   (la primera versión solo lo aplicaba debajo de 479px, y un ancho de
+   mobile real distinto rompía el alineado igual): en desktop no cambia
+   nada, porque ahí no sobra espacio dentro de .fila-lista-acciones para
+   que el margin tenga algo que empujar — el contenedor ya mide justo lo
+   que ocupa su contenido. */
+.fila-lista.ocupado .fila-lista-acciones{ margin-left:auto; }
 
 /* Fila de USUARIO: mismo problema, otra causa. Con 4 elementos sueltos
    (badge + pill + ícono + botón) el punto de corte en mobile dependía
@@ -578,7 +603,4 @@ html[data-theme="dark"] .lobby{ background:linear-gradient(180deg, rgba(255,255,
    (badge+pill) y acciones (ícono+botón) — que envuelven COMO UNIDAD,
    siempre en el mismo punto, sin importar cuánto mida el texto del rol. */
 .fila-lista-estado{ display:flex; align-items:center; gap:8px; }
-.fila-lista-botones{ display:flex; align-items:center; gap:8px; }
-@media(max-width:479px){
-  .fila-lista-botones{ margin-left:auto; }
-}
+.fila-lista-botones{ display:flex; align-items:center; gap:8px; margin-left:auto; }
