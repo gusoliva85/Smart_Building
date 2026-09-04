@@ -530,6 +530,9 @@ Corresponde al Documento Técnico, sección 1.3.1 (migración Tailwind CDN → C
 - [ ] **Frontend: barrido circular del toggle de tema.**
   Refinamiento documentado como pendiente desde el mockup base (skill `premium-uiux`): el barrido de la View Transitions API nace en el punto exacto del clic (`clip-path` con `circle()` calculado desde las coordenadas del botón), en vez del cross-fade por defecto. *(Actualización: se implementó, se aprobó, y se revirtió después a pedido explícito del usuario — tuvo un bug real de z-index y se reportó como lento específicamente en Chrome en producción. `theme.js` volvió al cross-fade default sin personalizar. Ver `que_hice.html`, slide `f12-t2`, para el detalle completo. No se reintenta sin que el usuario lo pida de nuevo explícitamente.)*
 
+- [ ] **Frontend: indicador deslizante del `.view-switch`.**
+  Adelantada a pedido explícito del usuario (fuera de orden, como el toggle de tema): el selector segmentado (hoy "Datos generales"/"Estructura" en `edificios.html`, la base para cualquier `.view-switch` futuro) pasa de pintar el fondo del botón activo de golpe a un indicador que se desliza entre opciones — `assets/js/view-switch.js`, se engancha solo a cualquier `.view-switch` de la página. Documentado en `que_hice.html`, slide `f12-t3`.
+
 - [ ] **Frontend: auditoría de accesibilidad y de consistencia con la skill.**
   Repaso pantalla por pantalla contra `references/componentes.md` y `references/paleta-color.md` — ningún color/sombra/vidrio con valor suelto, contraste de texto suficiente, navegación por teclado en los componentes interactivos (`.view-switch`, `.unit-card`, `.detail-close`).
 

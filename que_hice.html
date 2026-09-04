@@ -330,6 +330,7 @@
     <div class="toc-group">
       <span class="toc-group-title" data-goto="f12-t2">Fase 12 (adelantada)</span>
       <a class="toc-link" data-goto="f12-t2"><span class="n">2</span>Toggle de tema: barrido circular<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f12-t3"><span class="n">3</span>Indicador deslizante del switch<span class="estado-mini pend"></span></a>
     </div>
 
     <div class="toc-group">
@@ -2109,6 +2110,15 @@ location.href = 'dashboard.html';</div>
             <p>Verificado con Playwright: asignar el inquilino de prueba a 1C hace que ya no aparezca como opción en el combo de 1D, pero sigue disponible (y preseleccionado) al reabrir 1C; captura de mobile confirma "Ocupado"/"Asignar" alineados a la derecha en 1A y 1B; badge "Admin General" visible en <code>usuarios.html</code> y en el sidebar. Suite completa del backend: 108/108.</p>
           </div>
 
+          <div class="correccion">
+            <div class="correccion-titulo">
+              <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              El acortar el rol no alcanzaba — usuarios.html seguía envolviendo distinto en cada fila
+            </div>
+            <p>Acortar "Administrador General"/"Administrador de Consorcio" ayudó pero no resolvió el fondo del problema: con 4 elementos sueltos (badge + pill + ícono de editar + botón "Desactivar"), el punto exacto donde el mobile decide cortar la línea depende del ancho combinado hasta ese momento — con un rol más largo el ícono quedaba junto al badge/pill arriba, con uno corto quedaba junto al botón abajo. Cuatro filas, dos layouts distintos, ninguno predecible.</p>
+            <p>Se agrupó en dos bloques atómicos que envuelven COMO UNIDAD, sin importar el largo del texto: <code>.fila-lista-estado</code> (badge + pill) y <code>.fila-lista-botones</code> (ícono + botón), con <code>margin-left:auto</code> en el segundo grupo solo en mobile — mismo criterio que ya se usó para "Ocupado"/"Asignar" en la estructura del edificio. Ahora las 5 filas de prueba (roles de distinto largo: "Admin General", "Propietario", "Admin de Consorcio", "Encargado", "Inquilino") envuelven todas en el mismo punto — línea 1 = badge+pill, línea 2 = ícono+botón a la derecha (o las dos en una sola línea si el rol es corto, como "Inquilino") — verificado con captura completa del listado en mobile, sin overflow horizontal, y sin cambios en desktop.</p>
+          </div>
+
           <div class="cierre-fase">
             <p class="titulo">Fase 1 completa — 18 / 18 tareas aprobadas</p>
             <p>Usuarios, autenticación y estructura del edificio quedan cerrados de punta a punta: RBAC, login, CRUD de usuarios con alta/edición/activar-desactivar, y edificios con alta + listado + estructura completa (pisos, departamentos, cocheras, espacios comunes, asignación de propietario/inquilino). A partir de acá arranca la <strong>Fase 2 — Gestión financiera básica</strong>, el módulo del que depende directamente el color amarillo/rojo por deuda del Dashboard Visual.</p>
@@ -2203,6 +2213,51 @@ boton.addEventListener(<span class="str">'click'</span>, () => {
 });</div>
             <p>Verificado con Playwright: activar oscuro en el Dashboard y navegar a Edificios y a Usuarios mantiene el tema oscuro en las dos (antes volvía a claro); el CSS ya no tiene ninguna regla <code>view-transition</code>; cero errores. La skill (<code>componentes.md</code>) y el Roadmap (Fase 12) quedaron actualizados reflejando el revert — no se reintenta el barrido sin que el usuario lo pida de nuevo explícitamente.</p>
           </div>
+        </div>
+      </section>
+
+      <section class="slide tarea" id="f12-t3" data-crumb="Fase 12 (adelantada) · Indicador del switch">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Fase 12 · Tarea (adelantada)</span>
+            <h3>Frontend: indicador deslizante del <code>.view-switch</code></h3>
+            <span class="status pend"><i class="dot"></i>Implementado — pendiente de tu revisión</span>
+          </div>
+          <p class="lede">A pedido explícito del usuario, y pensado como base para <strong>todo</strong> selector segmentado del proyecto de acá en más (hoy solo existe uno, "Datos generales"/"Estructura" en <code>edificios.html</code>; mañana el selector General/Incidentes/Deudores/Mantenimiento del Dashboard Visual lo va a heredar gratis). El fondo del botón activo dejó de aparecer de golpe — ahora un indicador se desliza de una opción a otra.</p>
+
+          <div class="explicacion">
+            <div class="explicacion-titulo">
+              <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              La referencia era un switch on/off — acá no aplica tal cual
+            </div>
+            <p>El pedido llegó con el código de un componente <code>&lt;Switch&gt;</code> de React (un toggle booleano tipo iOS, con un círculo que se desliza entre dos posiciones fijas) — el propio usuario aclaró "es a modo de ejemplo, lo vas a tener que adaptar". Nuestro <code>.view-switch</code> no es un booleano: es un selector de N opciones con texto adentro. Se tomó la <strong>técnica</strong> (un elemento que se desliza y se redimensiona con una transición suave) y se adaptó: en vez de moverse entre dos posiciones fijas, el indicador calcula la posición y el ancho reales del botón activo (<code>getBoundingClientRect()</code>) y se anima hacia ahí — funciona igual con 2 opciones o con 6, de cualquier largo de texto.</p>
+          </div>
+
+          <h4>Un script, se engancha solo a cualquier <code>.view-switch</code></h4>
+          <p><code>assets/js/view-switch.js</code> (nuevo) crea el <code>&lt;span class="view-switch-indicador"&gt;</code> por código — no hace falta tocar el HTML de ninguna pantalla. Convive con la lógica de negocio propia de cada pantalla (marcar <code>.active</code>, mostrar/ocultar el panel correspondiente) sin pisarla: son dos listeners de click independientes sobre los mismos botones, uno mueve el indicador, el otro cambia lo que se ve.</p>
+          <div class="code-block"><span class="kw">function</span> moverIndicadorA(boton, instantaneo) {
+  <span class="kw">const</span> rectContenedor = contenedor.getBoundingClientRect();
+  <span class="kw">if</span> (rectContenedor.width === 0) <span class="kw">return</span>; <span class="cm">// el switch está oculto (display:none) todavía</span>
+  <span class="kw">const</span> rectBoton = boton.getBoundingClientRect();
+  indicador.style.width = `${rectBoton.width}px`;
+  indicador.style.transform = `translateX(${rectBoton.left - rectContenedor.left}px)`;
+}</div>
+
+          <div class="correccion">
+            <div class="correccion-titulo">
+              <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              Encontrado antes de terminar: el indicador se rompía si el switch cargaba oculto
+            </div>
+            <p>El único <code>.view-switch</code> real de la app hoy vive dentro de <code>#vista-detalle</code> de <code>edificios.html</code>, que arranca con <code>display:none</code> hasta que termina de cargar los datos del edificio. Calcular la posición una sola vez al inicio (<code>DOMContentLoaded</code>) daba <code>0x0</code> — el contenedor todavía no tenía tamaño real — y el indicador quedaba mal posicionado para siempre, sin recuperarse nunca. Se reemplazó el cálculo único por un <code>ResizeObserver</code> sobre el propio <code>.view-switch</code>: se reposiciona solo (sin animar) cada vez que su tamaño cambia — cubre gratis tanto el caso de "estaba oculto y apareció" como un resize de ventana o una rotación de mobile. Se encontró revisando el propio código antes de probarlo, no fue reportado por el usuario.</p>
+          </div>
+
+          <h4>Verificación con Playwright, contra la app real</h4>
+          <ul>
+            <li>Posición y ancho del indicador coinciden EXACTO con los del botón activo, medido con <code>getBoundingClientRect()</code> — antes de tocar nada ("Datos generales" activo) y después de clickear "Estructura".</li>
+            <li>La lógica de negocio existente sigue intacta: clickear "Estructura" sigue mostrando el panel correcto (<code>#panel-estructura</code> visible) — el nuevo script no interfiere con el que ya había.</li>
+            <li>Cero errores de consola en todo el flujo.</li>
+          </ul>
+          <p>Documentado en la skill <code>premium-uiux</code> (<code>componentes.md</code>, "Selector de vista segmentado") como el patrón base para cualquier <code>.view-switch</code> futuro — nadie tiene que reinventar esto cuando llegue el Dashboard Visual en la Fase 5.</p>
         </div>
       </section>
 

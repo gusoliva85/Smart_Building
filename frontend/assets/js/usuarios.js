@@ -48,14 +48,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             <div style="font-size:11.5px;color:var(--ink-3);">${u.email}</div>
           </div>
           <div class="fila-lista-acciones">
-            <span class="rol-badge">${ETIQUETAS_ROL[u.rol] || u.rol}</span>
-            <span class="pill ${u.activo ? 'ok' : 'crit'}">${u.activo ? 'Activo' : 'Inactivo'}</span>
-            <button type="button" class="icon-btn icon-btn-sm boton-editar" data-id="${u.id}" aria-label="Editar usuario">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-            </button>
-            <button type="button" class="chip-link boton-alternar-estado" data-id="${u.id}" data-activo="${u.activo}">
-              ${u.activo ? 'Desactivar' : 'Reactivar'}
-            </button>
+            <div class="fila-lista-estado">
+              <span class="rol-badge">${ETIQUETAS_ROL[u.rol] || u.rol}</span>
+              <span class="pill ${u.activo ? 'ok' : 'crit'}">${u.activo ? 'Activo' : 'Inactivo'}</span>
+            </div>
+            <div class="fila-lista-botones">
+              <button type="button" class="icon-btn icon-btn-sm boton-editar" data-id="${u.id}" aria-label="Editar usuario">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+              </button>
+              <button type="button" class="chip-link boton-alternar-estado" data-id="${u.id}" data-activo="${u.activo}">
+                ${u.activo ? 'Desactivar' : 'Reactivar'}
+              </button>
+            </div>
           </div>
         </div>`;
   }

@@ -178,6 +178,8 @@ Uso: `<span class="pill crit">3 críticos</span>`. Es el único componente con l
 
 ## Selector de vista segmentado (`view-switch`)
 
+Base para **todo** selector de este tipo en el proyecto (a pedido explícito del usuario) — el fondo/sombra del botón activo ya no lo pinta cada botón por separado: un único **indicador que se desliza** entre opciones lo hace, con `assets/js/view-switch.js` (se engancha solo a cualquier `.view-switch` que haya en la página vía `DOMContentLoaded` — ninguna pantalla nueva llama nada a mano). Misma técnica que animaría un switch on/off (un "thumb" moviéndose entre dos posiciones), adaptada a N opciones con texto: el indicador se mueve Y cambia de ancho para calzar exacto con el botón activo, calculado desde `getBoundingClientRect()` — funciona igual con 2 o 6 opciones, de cualquier largo de texto.
+
 ```html
 <div class="view-switch" role="tablist" id="view-switch">
   <button class="active" data-view="general">General</button>
@@ -188,12 +190,30 @@ Uso: `<span class="pill crit">3 críticos</span>`. Es el único componente con l
 ```
 
 ```css
-.view-switch{ display:flex; gap:4px; padding:4px; background:rgba(var(--shadow-rgb),.06); border-radius:99px; width:max-content; max-width:100%; overflow-x:auto; box-shadow:inset 0 1px 3px rgba(0,0,0,.08); }
-.view-switch button{ border:0; background:transparent; padding:8px 13px; border-radius:99px; font-size:12px; font-weight:600; color:var(--ink-3); cursor:pointer; white-space:nowrap; transition:color .18s; }
-.view-switch button.active{ background:var(--glass-content-bg); color:var(--accent-2); box-shadow:var(--glass-in), var(--sh-sm); }
+.view-switch{
+  position:relative; display:flex; gap:4px; padding:4px;
+  background:rgba(var(--shadow-rgb),.06); border-radius:99px;
+  width:max-content; max-width:100%; overflow-x:auto; box-shadow:inset 0 1px 3px rgba(0,0,0,.08);
+}
+.view-switch-indicador{
+  position:absolute; top:4px; left:0; height:calc(100% - 8px);
+  background:var(--glass-content-bg); border-radius:99px; box-shadow:var(--glass-in), var(--sh-sm);
+  transition:transform .32s cubic-bezier(.32,.72,0,1), width .32s cubic-bezier(.32,.72,0,1);
+  pointer-events:none;
+}
+.view-switch button{
+  position:relative; z-index:1; border:0; background:transparent; padding:8px 13px; border-radius:99px;
+  font-size:12px; font-weight:600; color:var(--ink-3); cursor:pointer; white-space:nowrap; transition:color .18s;
+}
+.view-switch button.active{ color:var(--accent-2); } /* el fondo/sombra ahora los da el indicador, no el botón */
 ```
 
 ```js
+// view-switch.js crea el <span class="view-switch-indicador"> solo — no
+// va en el HTML. La lógica de negocio de cada pantalla (marcar .active,
+// re-renderizar la vista) sigue siendo responsabilidad de esa pantalla,
+// con su propio listener de click en los mismos botones — los dos
+// conviven sin pisarse, uno mueve el indicador, el otro cambia el dato.
 document.querySelectorAll('#view-switch button').forEach(btn => btn.addEventListener('click', () => {
   document.querySelectorAll('#view-switch button').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
@@ -201,6 +221,8 @@ document.querySelectorAll('#view-switch button').forEach(btn => btn.addEventList
   renderFloors(); // se re-renderiza TODO, nunca queda estado de vista anterior pegado
 }));
 ```
+
+**Ojo con inicializar el indicador mientras el switch está oculto** (`display:none`, ej. un panel que todavía no terminó de cargar sus datos): `getBoundingClientRect()` da todo en `0` ahí, y el indicador quedaría mal posicionado para siempre. `view-switch.js` resuelve esto con un `ResizeObserver` sobre el propio `.view-switch` en vez de calcular la posición una sola vez al cargar — se reposiciona solo (sin animar) apenas el switch pasa a tener tamaño real, y de paso cubre gratis el resize de ventana y la rotación del celular.
 
 ## Arquitectura del Dashboard Visual del edificio
 
