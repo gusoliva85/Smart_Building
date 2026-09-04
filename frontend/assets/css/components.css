@@ -604,3 +604,14 @@ html[data-theme="dark"] .lobby{ background:linear-gradient(180deg, rgba(255,255,
    siempre en el mismo punto, sin importar cuánto mida el texto del rol. */
 .fila-lista-estado{ display:flex; align-items:center; gap:8px; }
 .fila-lista-botones{ display:flex; align-items:center; gap:8px; margin-left:auto; }
+/* SOLO para la fila de usuario (distinguida por tener .fila-lista-botones
+   adentro — edificios.html no la tiene, ahí .fila-lista-acciones sigue
+   con su margin-left:auto de siempre, que empuja rol+botón JUNTOS y así
+   se pidió explícitamente): acá el rol tiene que quedar SIEMPRE a la
+   izquierda, nunca arrastrado con los botones. flex:1 + space-between
+   hace que el rol se ancle al principio de la línea que le toque y los
+   botones al final — el margin-left:auto heredado de la regla de arriba
+   se anula porque acá la separación ya la resuelve el space-between. */
+.fila-lista-acciones:has(.fila-lista-botones){
+  flex:1 1 auto; justify-content:space-between; margin-left:0;
+}
