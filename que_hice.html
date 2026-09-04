@@ -331,6 +331,7 @@
       <span class="toc-group-title" data-goto="f12-t2">Fase 12 (adelantada)</span>
       <a class="toc-link" data-goto="f12-t2"><span class="n">2</span>Toggle de tema: barrido circular<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f12-t3"><span class="n">3</span>Indicador deslizante del switch<span class="estado-mini pend"></span></a>
+      <a class="toc-link" data-goto="f12-t4"><span class="n">4</span>Aurora text + carga rotativa<span class="estado-mini pend"></span></a>
     </div>
 
     <div class="toc-group">
@@ -2258,6 +2259,50 @@ boton.addEventListener(<span class="str">'click'</span>, () => {
             <li>Cero errores de consola en todo el flujo.</li>
           </ul>
           <p>Documentado en la skill <code>premium-uiux</code> (<code>componentes.md</code>, "Selector de vista segmentado") como el patrón base para cualquier <code>.view-switch</code> futuro — nadie tiene que reinventar esto cuando llegue el Dashboard Visual en la Fase 5.</p>
+        </div>
+      </section>
+
+      <section class="slide tarea" id="f12-t4" data-crumb="Fase 12 (adelantada) · Aurora text + carga rotativa">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Fase 12 · Tarea (adelantada)</span>
+            <h3>Frontend: texto de marca animado + indicador de carga con dos frases</h3>
+            <span class="status pend"><i class="dot"></i>Implementado — pendiente de tu revisión</span>
+          </div>
+          <p class="lede">Dos efectos más, a pedido explícito del usuario, ambos adaptados de componentes de referencia (no copiados tal cual) para respetar la skill: degradé animado en la palabra "Building" de la marca, e indicador de carga con dos frases rotando en vez del "Cargando…" estático que usaban <code>usuarios.html</code> y <code>edificios.html</code>.</p>
+
+          <h4>"Aurora text" — degradé animado, sin salirse de la paleta de marca</h4>
+          <p>El componente de referencia (<code>AuroraText</code> de Magic UI) usa por default una paleta arcoíris con rosa y violeta — <strong>prohibidos sin excepción</strong> por la skill ("ningún morado/lila/violeta, ni solo ni en degradé"). Se tomó la técnica (<code>background-clip:text</code> + una animación de <code>background-position</code>) y se reconstruyó el degradé con <strong>únicamente <code>--accent</code>/<code>--accent-2</code></strong> — el acento de marca ya licenciado en la skill para esto exacto ("gradiente de <code>.brand-mark</code>"). Aplicado solo a "Building" (la segunda palabra), manteniendo el tamaño de fuente que ya tenía en cada pantalla — nunca lo fija el propio efecto, lo hereda de su contenedor.</p>
+          <div class="code-block">.aurora-text{
+  background-image:linear-gradient(90deg, var(--accent), var(--accent-2), var(--accent), var(--accent-2));
+  background-size:300% 100%;
+  background-clip:text; color:transparent;
+  animation:aurora-desplazamiento 6s ease-in-out infinite;
+}</div>
+          <p>Como las dos variables ya están redefinidas por tema en <code>tokens.css</code>, el degradé se adapta solo a modo oscuro — no hizo falta ninguna regla aparte.</p>
+
+          <div class="correccion">
+            <div class="correccion-titulo">
+              <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              Bug real encontrado al probar: "SMART Building" se partía en dos líneas
+            </div>
+            <p>La primera versión no fijaba <code>display</code> en <code>.aurora-text</code> — y una regla genérica ya existente, <code>.brand-text span{ display:block; ... }</code> (pensada para el subtítulo "Plataforma de gestión de edificios"), alcanzaba también a este span nuevo por estar anidado ahí adentro. Resultado: "SMART" y "Building" quedaban en líneas separadas. El primer intento de arreglo (<code>.aurora-text{ display:inline; }</code>) tampoco alcanzó: por especificidad CSS, <code>.brand-text span</code> (clase + tipo) le sigue ganando a <code>.aurora-text</code> (una sola clase) sin importar qué diga adentro. Se corrigió subiendo la especificidad al mismo nivel (<code>span.aurora-text</code>), que además viene después en el archivo — ahí sí gana. Encontrado probando con Playwright (medí el <code>display</code> computado real, no alcanzaba con mirar la captura), no reportado por el usuario.</p>
+          </div>
+
+          <h4>Indicador de carga: dos frases rotando, con puntos animados</h4>
+          <p>Adaptado de <code>WordRotate</code> (Magic UI, que usa <code>framer-motion</code> — no disponible acá, proyecto sin build ni framework): <code>assets/js/cargando.js</code> nuevo, con un solo intervalo global que anima <strong>todas</strong> las instancias de <code>.cargando-rotativo</code> que haya en la página en cada momento — se re-descubren en cada tick, así funciona también con instancias insertadas después vía <code>innerHTML</code> (como pasa acá, el listado se reemplaza entero), sin necesitar un timer por instancia que haya que limpiar a mano.</p>
+          <ul>
+            <li>Los puntos ciclan 1→2→3 cada 450ms, sin transición (parpadeo simple de "cargando en progreso").</li>
+            <li>Cada 6 ticks (2,7s) cambia de frase — "Cargando" ⇄ "Por favor aguarde" — con una transición de desvanecido (se oculta, cambia el texto invisible, reaparece), usando doble <code>requestAnimationFrame</code> para garantizar que el navegador haya pintado el estado invisible antes de animar de vuelta.</li>
+          </ul>
+          <p>Reemplaza el "Cargando…" estático en 3 lugares: el listado de <code>usuarios.html</code>, el listado de <code>edificios.html</code>, y el título del detalle de un edificio mientras carga. El helper (<code>window.Cargando.html()</code>) devuelve solo el <code>&lt;span&gt;</code> — cada pantalla decide el contenedor y el tamaño/color, el componente nunca los fija.</p>
+
+          <h4>Verificación con Playwright, contra la app real</h4>
+          <ul>
+            <li>"SMART Building" en una sola línea en las 4 pantallas donde aparece (login + 3 con sidebar), con <code>display:inline</code> confirmado por código, no solo por captura.</li>
+            <li>Secuencia real de 8 ticks capturada: <code>Cargando.. → Cargando... → Cargando.. → Cargando... → Por favor aguarde. → Por favor aguarde.. → Por favor aguarde... → Por favor aguarde.</code> — puntos ciclando y frase rotando tal como se pidió.</li>
+            <li>Cero errores de consola en todo el flujo.</li>
+          </ul>
         </div>
       </section>
 

@@ -80,6 +80,44 @@ h1, h2, h3, .display{ font-family:Outfit, sans-serif; letter-spacing:-.015em; }
 .brand-mark svg{ width:19px; height:19px; stroke:#fff; position:relative; }
 .brand-text b{ display:block; font-family:Outfit; font-size:16.5px; font-weight:700; }
 .brand-text span{ display:block; font-size:10.5px; color:var(--ink-3); letter-spacing:.04em; }
+
+/* "Aurora text" — degradé animado, adaptado del componente de referencia
+   del usuario para la segunda palabra de la marca ("Building"). Reutiliza
+   SOLO --accent/--accent-2 (el acento de marca ya licenciado para esto en
+   la skill) en vez de la paleta arcoíris del original — nunca morado, y
+   nunca un color nuevo compitiendo con el acento contenido del proyecto.
+   El tamaño de fuente lo sigue definiendo el elemento contenedor (b, h1...),
+   este solo pinta el texto — nunca fija su propio font-size. */
+span.aurora-text{
+  /* "span." explícito a propósito, no solo ".aurora-text": con un solo
+     selector de clase pierde por especificidad contra ".brand-text span"
+     (clase + tipo = más específico) sin importar qué diga display acá —
+     agregar el tipo iguala la especificidad, y como esta regla viene
+     después en el archivo, ahí sí gana. Sin esto, el span heredaba
+     display:block de esa regla genérica y partía "SMART Building" en dos
+     líneas. */
+  display:inline;
+  background-image:linear-gradient(90deg, var(--accent), var(--accent-2), var(--accent), var(--accent-2));
+  background-size:300% 100%;
+  background-clip:text; -webkit-background-clip:text; color:transparent;
+  animation:aurora-desplazamiento 6s ease-in-out infinite;
+}
+@keyframes aurora-desplazamiento{
+  0%{ background-position:0% 50%; }
+  50%{ background-position:100% 50%; }
+  100%{ background-position:0% 50%; }
+}
+@media(prefers-reduced-motion:reduce){
+  .aurora-text{ animation:none; background-position:0% 50%; }
+}
+
+/* Indicador de carga con dos frases rotando (assets/js/cargando.js) —
+   nunca fija tamaño/color, los hereda de donde se lo inserte. */
+.cargando-texto{ display:inline-block; transition:opacity .22s ease, transform .22s ease; }
+.cargando-texto.cambiando{ opacity:0; transform:translateY(-4px); }
+@media(prefers-reduced-motion:reduce){
+  .cargando-texto{ transition:none; }
+}
 .topbar-actions{ display:flex; align-items:center; gap:8px; flex:none; }
 .icon-btn{
   position:relative; width:38px; height:38px; border-radius:13px;

@@ -533,6 +533,9 @@ Corresponde al Documento Técnico, sección 1.3.1 (migración Tailwind CDN → C
 - [ ] **Frontend: indicador deslizante del `.view-switch`.**
   Adelantada a pedido explícito del usuario (fuera de orden, como el toggle de tema): el selector segmentado (hoy "Datos generales"/"Estructura" en `edificios.html`, la base para cualquier `.view-switch` futuro) pasa de pintar el fondo del botón activo de golpe a un indicador que se desliza entre opciones — `assets/js/view-switch.js`, se engancha solo a cualquier `.view-switch` de la página. Documentado en `que_hice.html`, slide `f12-t3`.
 
+- [ ] **Frontend: texto de marca animado ("Building") e indicador de carga con dos frases rotando.**
+  Adelantadas a pedido explícito del usuario. `.aurora-text` (`components.css`): degradé animado sobre la segunda palabra de "SMART Building", con `--accent`/`--accent-2` únicamente (nunca la paleta arcoíris del componente de referencia — prohibida por la skill). `assets/js/cargando.js`: reemplaza el "Cargando…" estático de `usuarios.html`/`edificios.html` por dos frases rotando ("Cargando" / "Por favor aguarde") con puntos suspensivos animados, reutilizable en cualquier pantalla nueva con carga de datos. Documentado en `que_hice.html`, slide `f12-t4`.
+
 - [ ] **Frontend: auditoría de accesibilidad y de consistencia con la skill.**
   Repaso pantalla por pantalla contra `references/componentes.md` y `references/paleta-color.md` — ningún color/sombra/vidrio con valor suelto, contraste de texto suficiente, navegación por teclado en los componentes interactivos (`.view-switch`, `.unit-card`, `.detail-close`).
 

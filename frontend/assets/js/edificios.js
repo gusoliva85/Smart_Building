@@ -54,7 +54,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ---------------------------------------------------------------
   async function cargarListadoEdificios() {
     const lista = document.getElementById('lista-edificios');
-    lista.innerHTML = '<p style="font-size:12.5px;color:var(--ink-3);padding:10px 0;">Cargando…</p>';
+    lista.innerHTML = `<p style="font-size:12.5px;color:var(--ink-3);padding:10px 0;">${window.Cargando.html()}</p>`;
     let edificios;
     try {
       edificios = await window.Api.get('/edificios');
@@ -90,7 +90,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Detalle: Datos generales / Estructura
   // ---------------------------------------------------------------
   async function iniciarDetalle(id) {
-    document.getElementById('detalle-titulo').textContent = 'Cargando…';
+    document.getElementById('detalle-titulo').innerHTML = window.Cargando.html();
     document.getElementById('boton-ver-estructura').href = `edificios.html?id=${id}`;
 
     try {

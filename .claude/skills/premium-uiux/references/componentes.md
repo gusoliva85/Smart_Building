@@ -615,3 +615,46 @@ El ícono cambia entre ojo (contraseña oculta, invita a mostrarla) y ojo tachad
 **Lección aprendida — nunca pisar el `innerHTML` de un elemento HTML con `<path>`/`<circle>` sueltos:** la primera versión hacía `boton.innerHTML = ICONO_OJO` (el botón, no el `<svg>` de adentro). El ícono desaparecía en el primer clic: un `<button>` es HTML, no SVG, y su parser de `innerHTML` no reconoce `<path>`/`<circle>` como elementos SVG reales fuera de un tag `<svg>` — quedan como elementos desconocidos, invisibles. Corregido apuntando al `<svg>` interno: `boton.querySelector('svg').innerHTML = ICONO_OJO`. (Sí funciona, en cambio, pisar el innerHTML con un string que incluye el `<svg>...</svg>` completo — el parser HTML sí reconoce ese tag y cambia a contexto SVG. Preferir siempre apuntar al `<svg>` existente, es más simple y no repite los atributos del tag.)
 
 **Dos formularios de alta se completaban solos con la sesión del admin logueado:** el navegador autocompletaba Email y Contraseña del "Nuevo usuario" con las credenciales guardadas del Administrador General que inició sesión — Chrome detecta el par email+password como un formulario de login. Se corrigió con `autocomplete="off"` en el campo de email y `autocomplete="new-password"` en el de contraseña (el valor semánticamente correcto para "creando una credencial nueva", que Chrome sí respeta) más `autocomplete="off"` en el propio `<form>`. Cualquier formulario de alta que junte un campo de tipo email + uno de tipo password para una persona DISTINTA a quien está logueado necesita este mismo tratamiento.
+
+## Texto de marca animado (`aurora-text`)
+
+Degradé animado para una palabra puntual dentro de un título — hoy la segunda palabra de "SMART Building" en las 4 pantallas donde aparece. Adaptado de un componente de referencia que por default usa una paleta arcoíris (rosa/violeta) — **reconstruido con únicamente `--accent`/`--accent-2`**, el acento de marca ya licenciado en la skill para esto. Nunca se usa para más de una palabra a la vez ni compite con el semáforo — es decoración de marca, no estado.
+
+```html
+<b>SMART <span class="aurora-text">Building</span></b>
+```
+
+```css
+span.aurora-text{
+  /* "span." explícito: sin el tipo en el selector, pierde por especificidad
+     contra cualquier regla tipo ".contenedor span{ display:block }" que ya
+     exista para OTRO span hermano (ej. un subtítulo) — un caso real que
+     partió "SMART Building" en dos líneas la primera vez. */
+  display:inline;
+  background-image:linear-gradient(90deg, var(--accent), var(--accent-2), var(--accent), var(--accent-2));
+  background-size:300% 100%;
+  background-clip:text; -webkit-background-clip:text; color:transparent;
+  animation:aurora-desplazamiento 6s ease-in-out infinite;
+}
+@keyframes aurora-desplazamiento{
+  0%{ background-position:0% 50%; } 50%{ background-position:100% 50%; } 100%{ background-position:0% 50%; }
+}
+@media(prefers-reduced-motion:reduce){ .aurora-text{ animation:none; } }
+```
+
+Nunca fija su propio `font-size` — lo hereda siempre del elemento contenedor (`<b>`, `<h1>`...), así el mismo efecto sirve para un título de 14px o de 20px sin tocar la clase.
+
+## Indicador de carga con frases rotando (`assets/js/cargando.js`)
+
+Reemplaza cualquier "Cargando…" estático — dos frases alternando ("Cargando" / "Por favor aguarde") con puntos suspensivos animados (`.` → `..` → `...`). Se engancha solo: un único intervalo global (no un timer por instancia) recorre `document.querySelectorAll('.cargando-rotativo')` en cada tick, así funciona también con instancias insertadas después vía `innerHTML` — el caso normal acá, donde un listado se reemplaza entero al recargar.
+
+```html
+<!-- window.Cargando.html() devuelve exactamente esto -->
+<span class="cargando-rotativo"><span class="cargando-texto"></span></span>
+```
+
+```js
+listaAlgo.innerHTML = `<p style="font-size:12.5px;color:var(--ink-3);padding:10px 0;">${window.Cargando.html()}</p>`;
+```
+
+No fija tamaño ni color — los hereda del contenedor donde se lo inserte (un `<p>` chico para un listado, directo dentro de un `<h1>` para un título de detalle). Cada 6 ticks (~2,7s) cambia de frase con una transición de desvanecido; los ticks intermedios solo actualizan los puntos, sin transición — un parpadeo constante de "cargando" se sentiría mal si TODO se desvaneciera cada 450ms.

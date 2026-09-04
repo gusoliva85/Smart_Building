@@ -84,7 +84,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   async function cargarListado() {
-    listaUsuarios.innerHTML = '<p style="font-size:12.5px;color:var(--ink-3);padding:10px 0;">Cargando…</p>';
+    listaUsuarios.innerHTML = `<p style="font-size:12.5px;color:var(--ink-3);padding:10px 0;">${window.Cargando.html()}</p>`;
     let usuarios;
     try {
       usuarios = await window.Api.get('/usuarios');
