@@ -335,13 +335,13 @@
       <a class="toc-link" data-goto="f12-t4"><span class="n">4</span>Aurora text + carga rotativa<span class="estado-mini pend"></span></a>
       <a class="toc-link" data-goto="f12-t5"><span class="n">5</span>Botón de estado con ripple<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f12-t6"><span class="n">6</span>Favicon (ícono de la pestaña)<span class="estado-mini done"></span></a>
-      <a class="toc-link" data-goto="f12-t7"><span class="n">7</span>Rendimiento: N+1 de edificios<span class="estado-mini pend"></span></a>
+      <a class="toc-link" data-goto="f12-t7"><span class="n">7</span>Rendimiento: N+1 de edificios<span class="estado-mini done"></span></a>
     </div>
 
     <div class="toc-group">
       <span class="toc-group-title" data-goto="fase-2-divider">Fase 2 — Finanzas</span>
       <a class="toc-link" data-goto="f2-t1"><span class="n">1</span>Lógica: criterio de prorrateo<span class="estado-mini done"></span></a>
-      <a class="toc-link" data-goto="f2-t2"><span class="n">2</span>Backend: modelo Gasto<span class="estado-mini pend"></span></a>
+      <a class="toc-link" data-goto="f2-t2"><span class="n">2</span>Backend: modelo Gasto<span class="estado-mini done"></span></a>
     </div>
 
     <div class="toc-progress">
@@ -2444,7 +2444,7 @@ pintarBotonEstado(boton, nuevoActivo); <span class="cm">// optimista</span>
           <div class="tarea-head">
             <span class="tarea-num">Fase 12 · Tarea (adelantada)</span>
             <h3>Backend: optimización N+1 de <code>GET /api/edificios</code></h3>
-            <span class="status pend"><i class="dot"></i>Implementado — pendiente de tu revisión</span>
+            <span class="status done"><i class="dot"></i>Hecho — aprobado</span>
           </div>
           <p class="lede">A pedido explícito del usuario, que reportó lentitud navegando la app en mobile y desktop con solo datos de prueba — "cuando tengamos más datos va a ser imposible navegar". Se midió antes de tocar una sola línea de código, en vez de asumir la causa.</p>
 
@@ -2478,9 +2478,9 @@ pintarBotonEstado(boton, nuevoActivo); <span class="cm">// optimista</span>
           <div class="correccion">
             <div class="correccion-titulo">
               <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
-              Un sospechoso más, todavía sin confirmar: región de Vercel vs. Supabase
+              Confirmado: la región sí importaba
             </div>
-            <p>Hasta el endpoint más simple (<code>/api/usuarios</code>, 2 consultas) tarda ~593ms en producción contra 2.5ms en local — un costo fijo grande que el N+1 por sí solo no explica del todo. La connection string de Supabase apunta a <code>sa-east-1</code> (São Paulo); si el backend en Vercel está desplegado en la región por defecto (EE.UU.), cada consulta paga una vuelta de red intercontinental completa. Se agregó <code>backend/vercel.json</code> fijando <code>"regions": ["gru1"]</code> (São Paulo) para probar si esto mejora — pendiente de confirmar después del próximo deploy, porque el plan de Vercel de la cuenta podría no permitir elegir región.</p>
+            <p>Hasta el endpoint más simple (<code>/api/usuarios</code>, 2 consultas) tardaba ~593ms en producción contra 2.5ms en local — un costo fijo grande que el N+1 por sí solo no explicaba del todo. La connection string de Supabase apunta a <code>sa-east-1</code> (São Paulo); el backend en Vercel estaba en la región por defecto (EE.UU.), pagando una vuelta de red intercontinental en cada consulta. <code>backend/vercel.json</code> fijando <code>"regions": ["gru1"]</code> (São Paulo) resultó permitido por el plan de la cuenta — verificado después del deploy: <code>GET /api/edificios</code> pasó de <strong>~1.520ms a ~150ms</strong> en producción (medido 3 veces seguidas, consistente), una mejora adicional de 10x sobre la del N+1 solo.</p>
           </div>
 
           <h4>Verificación: 3 tests nuevos que cuentan consultas SQL, no tiempos</h4>
@@ -2496,7 +2496,7 @@ test_detalle_no_crece_con_la_cantidad_de_pisos                       PASSED</div
         <div class="slide-inner">
           <div class="divider-num">02</div>
           <h2>Fase 2 — Gestión financiera básica</h2>
-          <div class="fase-frac-grande" id="fase2-frac">1 / 14 aprobadas</div>
+          <div class="fase-frac-grande" id="fase2-frac">2 / 14 aprobadas</div>
           <p class="divider-desc">Corresponde al Documento General, sección 6; Documento Técnico, sección 8. El módulo más sensible: de acá sale directamente el dato de morosidad que colorea de amarillo/rojo un departamento en el Dashboard Visual (Fase 5).</p>
         </div>
       </section>
@@ -2551,7 +2551,7 @@ test_detalle_no_crece_con_la_cantidad_de_pisos                       PASSED</div
           <div class="tarea-head">
             <span class="tarea-num">Tarea 2</span>
             <h3>Backend: modelo <code>Gasto</code></h3>
-            <span class="status pend"><i class="dot"></i>Implementado — pendiente de tu revisión</span>
+            <span class="status done"><i class="dot"></i>Hecho — aprobado</span>
           </div>
           <p class="lede">Primer modelo real de la Fase 2: la materia prima que <code>services/finanzas.py</code> (Tarea 1, ya aprobada) va a repartir entre departamentos. Solo el modelo — sin endpoint ni pantalla todavía, mismo orden lógica → backend → frontend de siempre.</p>
 
