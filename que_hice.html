@@ -342,6 +342,7 @@
       <span class="toc-group-title" data-goto="fase-2-divider">Fase 2 — Finanzas</span>
       <a class="toc-link" data-goto="f2-t1"><span class="n">1</span>Lógica: criterio de prorrateo<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f2-t2"><span class="n">2</span>Backend: modelo Gasto<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f2-t3"><span class="n">3</span>Backend: Expensa y ExpensaDetalle<span class="estado-mini pend"></span></a>
     </div>
 
     <div class="toc-progress">
@@ -2588,6 +2589,58 @@ test_detalle_no_crece_con_la_cantidad_de_pisos                       PASSED</div
           <div class="code-block">tests/test_modelo_gasto.py ..... [5 passed]
 <span class="cm"># suite completa del backend: 116 passed (111 + 5 nuevos)</span></div>
           <p>Verificado también contra la base real de desarrollo: al guardar el modelo, <code>uvicorn --reload</code> reinicia solo y <code>Base.metadata.create_all()</code> crea la tabla <code>gastos</code> sin tocar nada a mano — confirmado con <code>PRAGMA table_info(gastos)</code>, las 9 columnas con los tipos esperados.</p>
+        </div>
+      </section>
+
+      <section class="slide tarea" id="f2-t3" data-crumb="Fase 2 · Tarea 3">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 3</span>
+            <h3>Backend: modelos <code>Expensa</code> y <code>ExpensaDetalle</code></h3>
+            <span class="status pend"><i class="dot"></i>Implementado — pendiente de tu revisión</span>
+          </div>
+          <p class="lede">La liquidación de un edificio para un período (mes/año), con su total, y la apertura por rubro dentro de esa expensa — la "transparencia de gasto" que pide explícitamente el Documento General 6.1 (nunca mostrar solo un monto total). Solo el modelo todavía, sin el servicio que los genera (llega en una tarea posterior de esta misma fase).</p>
+
+          <div class="code-block"><span class="kw">class</span> Expensa(Base):
+    __tablename__ = <span class="str">"expensas"</span>
+    __table_args__ = (
+        UniqueConstraint(<span class="str">"edificio_id"</span>, <span class="str">"anio"</span>, <span class="str">"mes"</span>, name=<span class="str">"uq_expensas_edificio_periodo"</span>),
+        CheckConstraint(<span class="str">"mes BETWEEN 1 AND 12"</span>, ...),
+        CheckConstraint(<span class="str">"total > 0"</span>, ...),
+    )
+    id = Column(Integer, primary_key=<span class="kw">True</span>)
+    edificio_id = Column(Integer, ForeignKey(<span class="str">"edificios.id"</span>), nullable=<span class="kw">False</span>)
+    anio = Column(Integer, nullable=<span class="kw">False</span>)
+    mes = Column(Integer, nullable=<span class="kw">False</span>)
+    total = Column(Numeric(12, 2), nullable=<span class="kw">False</span>)
+    detalles = relationship(<span class="str">"ExpensaDetalle"</span>, back_populates=<span class="str">"expensa"</span>)
+
+<span class="kw">class</span> ExpensaDetalle(Base):
+    __tablename__ = <span class="str">"expensa_detalle"</span>
+    expensa_id = Column(Integer, ForeignKey(<span class="str">"expensas.id"</span>), nullable=<span class="kw">False</span>)
+    rubro = Column(String, nullable=<span class="kw">False</span>)
+    monto = Column(Numeric(12, 2), nullable=<span class="kw">False</span>)</div>
+
+          <div class="explicacion">
+            <div class="explicacion-titulo">
+              <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              Por qué período es <code>anio</code> + <code>mes</code>, y no una sola fecha
+            </div>
+            <p>Una expensa liquida un mes calendario completo, no un día puntual — usar una sola columna <code>Date</code> (ej. "el 1° de agosto") sería un dato inventado sin significado real, y compararlo mal podría confundir "1 de agosto" con "cualquier día de agosto". Separar <code>anio</code>/<code>mes</code> como enteros es explícito y hace trivial el <code>UniqueConstraint</code> que evita liquidar el mismo período dos veces por error.</p>
+            <p>Todavía sin la distribución por departamento (cuánto le toca pagar a cada unidad según su coeficiente) — el propio Roadmap la deja para la tarea de "servicio de prorrateo automático" / "generación de expensa mensual", más adelante en esta misma fase. Agregar ese campo ahora hubiera sido resolver un problema que todavía no le tocaba el turno (mismo criterio ya aplicado con <code>proveedor_id</code>/<code>activo_id</code> en <code>Gasto</code>).</p>
+          </div>
+
+          <h4>Verificación: 5 tests nuevos (124 en total)</h4>
+          <ul>
+            <li>Expensa con 2 <code>ExpensaDetalle</code> (Limpieza + Seguridad) cuya suma da exactamente el <code>total</code> — y quedan ordenados alfabéticamente por rubro (<code>order_by</code> de la relación).</li>
+            <li>Liquidar el mismo edificio y período dos veces: rechazado por el <code>UniqueConstraint</code>.</li>
+            <li>Mismo edificio, dos períodos distintos: no choca, quedan las dos.</li>
+            <li><code>mes</code> fuera de 1-12 (13 y 0): rechazado por el <code>CHECK</code> en ambos casos.</li>
+            <li><code>total</code> de la expensa o <code>monto</code> de un detalle en 0/negativo: rechazados.</li>
+          </ul>
+          <div class="code-block">tests/test_modelo_expensa.py ..... [5 passed]
+<span class="cm"># suite completa del backend: 124 passed (119 + 5 nuevos)</span></div>
+          <p>Verificado también contra la base real de desarrollo: <code>PRAGMA table_info</code> confirma las tablas <code>expensas</code> y <code>expensa_detalle</code> creadas solas, con los tipos esperados.</p>
         </div>
       </section>
 
