@@ -153,7 +153,7 @@ Corresponde al Documento General, sección 6; Documento Técnico, sección 8. De
 - [ ] **Backend: modelo `Gasto`.**
   Rubro, monto, fecha, descripción, proveedor asociado (opcional, se conecta de verdad recién en la Fase 7), activo asociado (opcional, se conecta en la Fase 4).
 
-- [ ] **Backend: modelos `Expensa` y `ExpensaDetalle`.**
+- [x] **Backend: modelos `Expensa` y `ExpensaDetalle`.**
   `Expensa`: liquidación de un edificio para un período, con total. `ExpensaDetalle`: apertura por rubro dentro de esa expensa — la transparencia de gasto que pide explícitamente el Documento General 6.1.
 
 - [ ] **Backend: modelo `Pago`.**
