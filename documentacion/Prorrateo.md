@@ -80,8 +80,21 @@ Verificado con 18 tests (`backend/tests/test_servicio_finanzas.py`), incluyendo 
 ## 5. Lo que falta (próximas tareas de la Fase 2)
 
 - Pantalla de Configuración donde Administrador General/de Consorcio vean y editen los coeficientes por unidad — hoy el `coeficiente` solo se puede cargar directo en la base o vía script, no hay UI todavía.
-- Endpoint de generación de expensa mensual que llame a `calcular_prorrateo_periodo()` y genere `Expensa`/`ExpensaDetalle` reales (próxima tarea del Roadmap).
 - (Más adelante, fuera de esta fase) excepción de prorrateo por rubro.
+
+## 6. Cómo se persiste el monto por departamento (Tarea 8: generación de expensa mensual)
+
+Antes de implementar el endpoint `POST /api/edificios/{id}/expensas`, apareció una pregunta de diseño real: `calcular_prorrateo_periodo()` (Tarea 7) devuelve cuánto le toca a cada departamento, pero **nada lo guardaba todavía** — ni `Expensa` ni `ExpensaDetalle` (que es por rubro, no por unidad) tienen dónde poner ese número.
+
+**La pregunta:** ¿se guarda ese monto como una foto fija al generar la expensa, o se recalcula en el momento cada vez que hace falta mostrarlo (ej. el "estado de cuenta por unidad" del Documento General 6.2)?
+
+**Investigado:** la práctica estándar de facturación (Stripe, Zuora, y la literatura de billing en general) es unánime: una liquidación ya generada **es inmutable** — se guarda una foto fija de cada monto al momento de emitirla, nunca se recalcula después con datos que cambiaron. Aplicar reglas/coeficientes actuales a un período pasado da resultados incorrectos; si algo estuvo mal, se corrige con un ajuste nuevo (nota de crédito/reliquidación), nunca reescribiendo la expensa original. Es exactamente el mismo motivo por el que este proyecto ya decidió (sección 3) que el coeficiente "no se recalcula solo en cada liquidación" — acá es la misma lógica aplicada un nivel más abajo, al monto ya liquidado de cada unidad.
+
+**Decisión:** se agrega el modelo `ExpensaDepartamento` (`expensa_id`, `departamento_id`, `monto`, `UniqueConstraint` para que cada departamento tenga como máximo una fila por expensa) — la foto fija de lo que le tocó pagar a esa unidad en ese período exacto, calculada una sola vez al generar la expensa. Si el coeficiente de un departamento cambia después, las expensas viejas quedan tal cual se emitieron; solo las nuevas usan el coeficiente nuevo. Es también la pieza que la futura tarea de "cálculo de deudores" va a necesitar (comparar esto contra la suma de `Pago` de ese departamento+expensa).
+
+Sources:
+- [Usage-Based Billing for AI Companies — Stripe](https://stripe.com/resources/more/ai-companies-and-usage-based-billing)
+- [Taxable Item Snapshot — Zuora Knowledge Center](https://knowledgecenter.zuora.com/Zuora_Central/Billing_and_Payments/J_Billing_Operations/L_Taxes/Taxable_Item_Snapshot)
 
 ### Cerrado en esta actualización
 
@@ -95,4 +108,4 @@ Verificado con 18 tests (`backend/tests/test_servicio_finanzas.py`), incluyendo 
 
 ---
 
-*Última actualización: agregado `Departamento.coeficiente` y `calcular_prorrateo_periodo()`, verificado de punta a punta contra la base real — 2026-09-04. Este documento se actualiza antes que el código cada vez que el criterio de prorrateo cambie.*
+*Última actualización: decisión de persistir `ExpensaDepartamento` como foto fija (no recalculable) — 2026-09-04. Este documento se actualiza antes que el código cada vez que el criterio de prorrateo cambie.*

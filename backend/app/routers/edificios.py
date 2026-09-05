@@ -66,7 +66,7 @@ def _obtener_edificio_o_404(edificio_id: int, db: Session) -> Edificio:
 def _verificar_admin_del_edificio(edificio: Edificio, actual: UsuarioAutenticado) -> None:
     """Admin General (siempre) o el Admin de Consorcio asignado a ESTE
     edificio puntual — nadie más gestiona su configuración o estructura.
-    Separado de `_requerir_admin_del_edificio` para poder reutilizar la
+    Separado de `requerir_admin_del_edificio` para poder reutilizar la
     misma regla de acceso sobre un edificio que ya se cargó con eager
     loading (ver `obtener_edificio`), en vez de volver a consultarlo."""
     es_admin_general = actual.usuario.rol == "admin_general"
@@ -75,7 +75,7 @@ def _verificar_admin_del_edificio(edificio: Edificio, actual: UsuarioAutenticado
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No administrás este edificio")
 
 
-def _requerir_admin_del_edificio(
+def requerir_admin_del_edificio(
     edificio_id: int,
     db: Session = Depends(obtener_db),
     actual: UsuarioAutenticado = Depends(obtener_usuario_actual),
@@ -91,7 +91,7 @@ def listar_edificios(
     actual: UsuarioAutenticado = Depends(obtener_usuario_actual),
 ):
     """Administrador General ve todos los edificios; Administrador de
-    Consorcio ve solo los suyos (mismo criterio que _requerir_admin_del_edificio,
+    Consorcio ve solo los suyos (mismo criterio que requerir_admin_del_edificio,
     acá aplicado a un listado en vez de a un edificio puntual).
 
     Antes traía cada edificio con TODOS sus pisos y departamentos anidados
@@ -194,7 +194,7 @@ def crear_edificio(
 @router.patch("/{edificio_id}", response_model=EdificioSalida)
 def configurar_edificio(
     datos: EdificioConfiguracion,
-    edificio: Edificio = Depends(_requerir_admin_del_edificio),
+    edificio: Edificio = Depends(requerir_admin_del_edificio),
     db: Session = Depends(obtener_db),
 ):
     cambios = datos.model_dump(exclude_unset=True)
@@ -212,14 +212,14 @@ def configurar_edificio(
 # ------------------------------ Pisos ------------------------------
 
 @router.get("/{edificio_id}/pisos", response_model=list[PisoSalida])
-def listar_pisos(edificio: Edificio = Depends(_requerir_admin_del_edificio)):
+def listar_pisos(edificio: Edificio = Depends(requerir_admin_del_edificio)):
     return edificio.pisos
 
 
 @router.post("/{edificio_id}/pisos", response_model=PisoSalida, status_code=status.HTTP_201_CREATED)
 def crear_piso(
     datos: PisoEntrada,
-    edificio: Edificio = Depends(_requerir_admin_del_edificio),
+    edificio: Edificio = Depends(requerir_admin_del_edificio),
     db: Session = Depends(obtener_db),
 ):
     piso = Piso(edificio_id=edificio.id, numero=datos.numero, orden=datos.orden)
@@ -234,7 +234,7 @@ def crear_piso(
 @router.post("/{edificio_id}/departamentos", response_model=DepartamentoSalida, status_code=status.HTTP_201_CREATED)
 def crear_departamento(
     datos: DepartamentoEntrada,
-    edificio: Edificio = Depends(_requerir_admin_del_edificio),
+    edificio: Edificio = Depends(requerir_admin_del_edificio),
     db: Session = Depends(obtener_db),
 ):
     piso = db.get(Piso, datos.piso_id)
@@ -260,7 +260,7 @@ def asignar_departamento(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Departamento no encontrado")
 
     edificio_id = depto.piso.edificio_id
-    _requerir_admin_del_edificio(edificio_id=edificio_id, db=db, actual=actual)
+    requerir_admin_del_edificio(edificio_id=edificio_id, db=db, actual=actual)
 
     cambios = datos.model_dump(exclude_unset=True)
     for campo, valor in cambios.items():
@@ -297,14 +297,14 @@ def asignar_departamento(
 # ------------------------------ Cocheras ------------------------------
 
 @router.get("/{edificio_id}/cocheras", response_model=list[CocheraSalida])
-def listar_cocheras(edificio: Edificio = Depends(_requerir_admin_del_edificio), db: Session = Depends(obtener_db)):
+def listar_cocheras(edificio: Edificio = Depends(requerir_admin_del_edificio), db: Session = Depends(obtener_db)):
     return db.query(Cochera).filter(Cochera.edificio_id == edificio.id).order_by(Cochera.numero).all()
 
 
 @router.post("/{edificio_id}/cocheras", response_model=CocheraSalida, status_code=status.HTTP_201_CREATED)
 def crear_cochera(
     datos: CocheraEntrada,
-    edificio: Edificio = Depends(_requerir_admin_del_edificio),
+    edificio: Edificio = Depends(requerir_admin_del_edificio),
     db: Session = Depends(obtener_db),
 ):
     if datos.departamento_id is not None:
@@ -322,14 +322,14 @@ def crear_cochera(
 # --------------------------- Espacios comunes ---------------------------
 
 @router.get("/{edificio_id}/espacios-comunes", response_model=list[EspacioComunSalida])
-def listar_espacios_comunes(edificio: Edificio = Depends(_requerir_admin_del_edificio), db: Session = Depends(obtener_db)):
+def listar_espacios_comunes(edificio: Edificio = Depends(requerir_admin_del_edificio), db: Session = Depends(obtener_db)):
     return db.query(EspacioComun).filter(EspacioComun.edificio_id == edificio.id).order_by(EspacioComun.nombre).all()
 
 
 @router.post("/{edificio_id}/espacios-comunes", response_model=EspacioComunSalida, status_code=status.HTTP_201_CREATED)
 def crear_espacio_comun(
     datos: EspacioComunEntrada,
-    edificio: Edificio = Depends(_requerir_admin_del_edificio),
+    edificio: Edificio = Depends(requerir_admin_del_edificio),
     db: Session = Depends(obtener_db),
 ):
     espacio = EspacioComun(edificio_id=edificio.id, nombre=datos.nombre, capacidad=datos.capacidad, reglas_uso=datos.reglas_uso)

@@ -16,7 +16,7 @@ from app.models.usuario import Usuario  # noqa: F401
 from app.models.usuario_edificio import UsuarioEdificio  # noqa: F401
 from app.models.edificio import Cochera, Departamento, Edificio, EspacioComun, Piso  # noqa: F401
 from app.models.gasto import Gasto  # noqa: F401
-from app.models.expensa import Expensa, ExpensaDetalle  # noqa: F401
+from app.models.expensa import Expensa, ExpensaDepartamento, ExpensaDetalle  # noqa: F401
 from app.models.pago import Pago  # noqa: F401
 from app.models.fondo import Caja, Fondo, MovimientoCaja, MovimientoFondo  # noqa: F401
 from app.models.presupuesto import Factura, Presupuesto  # noqa: F401

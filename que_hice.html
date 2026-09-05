@@ -347,6 +347,7 @@
       <a class="toc-link" data-goto="f2-t5"><span class="n">5</span>Backend: Fondo, MovimientoFondo, Caja<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f2-t6"><span class="n">6</span>Backend: Presupuesto y Factura<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f2-t7"><span class="n">7</span>Servicio de prorrateo automático<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f2-t8"><span class="n">8</span>Generación de expensa mensual<span class="estado-mini pend"></span></a>
     </div>
 
     <div class="toc-progress">
@@ -2885,6 +2886,51 @@ Suma de lo prorrateado: 157432.87
 Coincide exacto con el total de gastos: True
 
 <span class="cm"># suite completa del backend: 159 passed (145 + 12 nuevos + 2 de estructura)</span></div>
+        </div>
+      </section>
+
+      <section class="slide tarea" id="f2-t8" data-crumb="Fase 2 · Tarea 8">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 8</span>
+            <h3>Backend: generación de expensa mensual</h3>
+            <span class="status pend"><i class="dot"></i>Implementado — pendiente de tu revisión</span>
+          </div>
+          <p class="lede"><code>POST /api/edificios/{id}/expensas</code>: toma los gastos del período, aplica el prorrateo ya construido, y genera la <code>Expensa</code> real con su apertura por rubro y el monto de cada departamento. Antes de escribir el endpoint apareció una pregunta de diseño real, investigada y resuelta en <code>Prorrateo.md</code> (sección 6).</p>
+
+          <div class="explicacion">
+            <div class="explicacion-titulo">
+              <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              La pregunta: ¿se guarda el monto por departamento, o se recalcula cuando haga falta?
+            </div>
+            <p><code>calcular_prorrateo_periodo()</code> (Tarea 7) devuelve cuánto le toca a cada departamento, pero nada lo guardaba — ni <code>Expensa</code> ni <code>ExpensaDetalle</code> (que es por rubro, no por unidad) tienen dónde ponerlo. Investigado antes de decidir: la práctica estándar de facturación (Stripe, Zuora, y la literatura de billing en general) es unánime — una liquidación ya emitida es <strong>inmutable</strong>, se guarda una foto fija de cada monto al momento de generarla, nunca se recalcula después con datos que cambiaron (si el coeficiente de un departamento cambia en septiembre, la expensa de julio tiene que seguir mostrando lo que se liquidó en julio). Es la misma lógica que este proyecto ya había aplicado al coeficiente mismo ("no se recalcula solo en cada liquidación"), un nivel más abajo.</p>
+            <p><strong>Decisión:</strong> modelo nuevo <code>ExpensaDepartamento</code> (<code>expensa_id</code>, <code>departamento_id</code>, <code>monto</code>, <code>UniqueConstraint</code> para que cada departamento tenga como máximo una fila por expensa) — la foto fija, calculada una sola vez al generar.</p>
+          </div>
+
+          <h4>El endpoint: todo en una sola transacción</h4>
+          <div class="code-block"><span class="kw">def</span> generar_expensa_mensual(datos, edificio, db):
+    montos_por_departamento = calcular_prorrateo_periodo(db, edificio.id, datos.anio, datos.mes)
+    <span class="cm"># agrupa los mismos Gasto del período por rubro, para ExpensaDetalle</span>
+    expensa = Expensa(edificio_id=edificio.id, anio=datos.anio, mes=datos.mes, total=...)
+    db.add(expensa)
+    db.flush()  <span class="cm"># dispara el UniqueConstraint de período si ya existe</span>
+    <span class="cm"># crea ExpensaDetalle por rubro y ExpensaDepartamento por unidad</span>
+    db.commit()
+    <span class="kw">return</span> expensa</div>
+          <p>Si el prorrateo falla (coeficientes incompletos, sin gastos cargados) se devuelve 400 con el mismo mensaje claro que ya construyó <code>calcular_prorrateo_periodo()</code>, sin crear nada a medias. Se movió <code>requerir_admin_del_edificio</code> de <code>routers/edificios.py</code> a visible sin guión bajo — ya lo necesitan dos routers (edificios y financiero), y reusar un nombre "privado" entre módulos era mala señal.</p>
+
+          <h4>Verificación: 6 tests nuevos (165 en total)</h4>
+          <ul>
+            <li>Flujo completo: 3 deptos (50/30/20%), 2 gastos por rubro → total y apertura correctos, monto por departamento correcto.</li>
+            <li>Generar el mismo período dos veces: la segunda devuelve 400 ("ya existe una expensa...").</li>
+            <li>Sin gastos en el período: 400.</li>
+            <li>Propietario (no admin): 403.</li>
+            <li>Edificio inexistente: 404.</li>
+            <li><strong>Inmutabilidad:</strong> se genera la expensa, después se cambia el coeficiente de un departamento, y se confirma que la fila de <code>ExpensaDepartamento</code> ya emitida sigue con el monto original — no se recalculó.</li>
+          </ul>
+          <div class="code-block">tests/test_financiero.py ...... [6 passed]
+<span class="cm"># suite completa del backend: 165 passed (159 + 6 nuevos)</span></div>
+          <p>Verificado también contra la base real de desarrollo, con el edificio real (Torre Cierre Fase 1, coeficientes y gastos ya cargados en la Tarea 7): <code>POST /edificios/7/expensas</code> devolvió 201 con el total exacto ($157.432,87) y los 12 montos por departamento coincidiendo con lo ya validado a mano. Reintentar el mismo período devolvió 400 correctamente.</p>
         </div>
       </section>
 
