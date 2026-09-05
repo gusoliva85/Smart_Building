@@ -4,14 +4,12 @@
 y "Caja" son el mismo bloque financiero, separado del flujo corriente de
 `Gasto`/`Expensa`/`Pago`.
 
-`Caja` hoy es un único registro por edificio (con su responsable) — el
-Documento General 6.6 también pide "su propio registro de ingresos/
-egresos", pero el Roadmap itemiza esta tarea con solo estos tres modelos.
-Agregar un `MovimientoCaja` ahora sería resolver algo que todavía no le
-toca el turno; si la tarea de endpoints CRUD de Caja (más adelante en
-esta fase) confirma que hace falta, se agrega ahí — mismo criterio ya
-aplicado con `coeficiente` en `Departamento` o la distribución por
-departamento en `ExpensaDetalle`.
+`Caja` sigue el sistema de "fondo fijo" real (investigado en
+`documentacion/Caja_chica.md` tras la duda del usuario sobre el primer
+diseño): un `monto_fijo` al que se repone, y sus propios movimientos
+(`MovimientoCaja`) — sin esto, la caja no podía calcular saldo ni
+sostener una rendición de cuentas, que es justamente para lo que sirve
+una caja chica.
 """
 
 from datetime import date, datetime, timezone
@@ -62,15 +60,42 @@ class MovimientoFondo(Base):
 
 
 class Caja(Base):
-    """Caja chica del edificio, con su responsable — un registro por
-    edificio (no historizado todavía)."""
+    """Caja chica del edificio, con su responsable y el monto fijo al que
+    se repone (sistema de fondo fijo — ver `Caja_chica.md`). Un registro
+    por edificio; sus movimientos viven en `MovimientoCaja`."""
 
     __tablename__ = "cajas"
+    __table_args__ = (CheckConstraint("monto_fijo > 0", name="ck_cajas_monto_fijo_positivo"),)
 
     id = Column(Integer, primary_key=True, index=True)
     edificio_id = Column(Integer, ForeignKey("edificios.id"), nullable=False, unique=True)
     responsable_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
+    monto_fijo = Column(Numeric(12, 2), nullable=False)
     creado_en = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
     edificio = relationship("Edificio", backref=backref("caja", uselist=False))
     responsable = relationship("Usuario")
+    movimientos = relationship("MovimientoCaja", back_populates="caja", order_by="MovimientoCaja.fecha")
+
+
+class MovimientoCaja(Base):
+    """Ingreso (incluida una reposición) o egreso de la caja chica — mismo
+    esqueleto que `MovimientoFondo`. Una reposición no es un campo ni una
+    acción especial: es, en los datos, un movimiento de tipo `"ingreso"`
+    más, igual que ocurre en la práctica real (ver `Caja_chica.md`)."""
+
+    __tablename__ = "movimientos_caja"
+    __table_args__ = (
+        CheckConstraint("tipo IN ('ingreso', 'egreso')", name="ck_movimientos_caja_tipo_valido"),
+        CheckConstraint("monto > 0", name="ck_movimientos_caja_monto_positivo"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    caja_id = Column(Integer, ForeignKey("cajas.id"), nullable=False)
+    tipo = Column(String, nullable=False)
+    monto = Column(Numeric(12, 2), nullable=False)
+    fecha = Column(Date, nullable=False, default=date.today)
+    descripcion = Column(Text, nullable=True)
+    creado_en = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+    caja = relationship("Caja", back_populates="movimientos")

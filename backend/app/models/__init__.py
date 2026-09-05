@@ -18,4 +18,4 @@ from app.models.edificio import Cochera, Departamento, Edificio, EspacioComun, P
 from app.models.gasto import Gasto  # noqa: F401
 from app.models.expensa import Expensa, ExpensaDetalle  # noqa: F401
 from app.models.pago import Pago  # noqa: F401
-from app.models.fondo import Caja, Fondo, MovimientoFondo  # noqa: F401
+from app.models.fondo import Caja, Fondo, MovimientoCaja, MovimientoFondo  # noqa: F401

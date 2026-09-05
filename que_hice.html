@@ -2739,6 +2739,25 @@ test_detalle_no_crece_con_la_cantidad_de_pisos                       PASSED</div
           <div class="code-block">tests/test_modelo_fondo.py ...... [6 passed]
 <span class="cm"># suite completa del backend: 135 passed (129 + 6 nuevos)</span></div>
           <p>Verificado también contra la base real de desarrollo: <code>fondos</code>, <code>movimientos_fondo</code> y <code>cajas</code> creadas solas.</p>
+
+          <div class="correccion">
+            <div class="correccion-titulo">
+              <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              Feedback del usuario: "esto es medio raro" — investigación externa confirma que faltaba algo real
+            </div>
+            <p>El usuario dudó de que una <code>Caja</code> sin ningún movimiento fuera correcta. Se investigó antes de decidir (documentado completo en <code>documentacion/Caja_chica.md</code>): tanto en consorcios como en contabilidad general, la caja chica se maneja con el <strong>sistema de fondo fijo</strong> — un monto fijo inicial, egresos contra comprobante, y reposición periódica hasta volver a ese monto — que requiere un libro de movimientos para poder calcular saldo y rendir cuentas. El primer diseño (solo <code>edificio_id</code> + <code>responsable_id</code>) no podía hacer nada de eso.</p>
+            <p><strong>Fondo/MovimientoFondo no cambiaron</strong> — la investigación confirmó que sí coinciden con el art. 2049 del Código Civil y Comercial (acumulan aportes para gastos imprevistos, sin monto fijo que reponer). El ajuste fue solo en <code>Caja</code>: se agregó <code>monto_fijo</code> (<code>Numeric(12,2)</code>, <code>CHECK &gt; 0</code>) y un modelo nuevo <code>MovimientoCaja</code>, mismo esqueleto que <code>MovimientoFondo</code>. Una reposición no es un campo especial: es, en los datos, un <code>MovimientoCaja</code> de tipo <code>"ingreso"</code> más — igual que en la práctica real.</p>
+            <div class="code-block"><span class="kw">class</span> Caja(Base):
+    monto_fijo = Column(Numeric(12, 2), nullable=<span class="kw">False</span>)  <span class="cm"># NUEVO</span>
+    movimientos = relationship(<span class="str">"MovimientoCaja"</span>, back_populates=<span class="str">"caja"</span>)  <span class="cm"># NUEVO</span>
+
+<span class="kw">class</span> MovimientoCaja(Base):  <span class="cm"># modelo nuevo, mismo esqueleto que MovimientoFondo</span>
+    __table_args__ = (CheckConstraint(<span class="str">"tipo IN ('ingreso', 'egreso')"</span>, ...),)
+    caja_id = Column(Integer, ForeignKey(<span class="str">"cajas.id"</span>), nullable=<span class="kw">False</span>)
+    tipo = Column(String, nullable=<span class="kw">False</span>)
+    monto = Column(Numeric(12, 2), nullable=<span class="kw">False</span>)</div>
+            <p>3 tests nuevos (9 en total para este archivo, 138 en toda la suite): caja con egresos + reposición dando saldo neto exacto, <code>monto_fijo</code> en 0 rechazado, <code>tipo</code> de movimiento inválido rechazado. Verificado también contra la base real de desarrollo — la tabla <code>cajas</code> ya existía vacía (nunca tuvo un endpoint que la usara), así que se recreó directo con el esquema nuevo en vez de migrar datos que no existían; <code>movimientos_caja</code> se creó sola.</p>
+          </div>
         </div>
       </section>
 
