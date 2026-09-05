@@ -68,21 +68,21 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
+    // e.cantidad_pisos / e.cantidad_unidades vienen ya calculados por el
+    // backend (COUNT en la base) — el listado ya no trae pisos/departamentos
+    // completos de cada edificio, solo para mostrar este resumen.
     lista.innerHTML = edificios
-      .map((e) => {
-        const totalUnidades = e.pisos.reduce((suma, p) => suma + p.departamentos.length, 0);
-        return `
+      .map((e) => `
         <a href="edificios.html?id=${e.id}" class="detail-item content-glass fila-lista" style="text-decoration:none; color:inherit;">
           <div>
             <b style="font-size:13.5px;">${e.nombre}</b>
             <div style="font-size:11.5px;color:var(--ink-3);">${e.direccion}${e.cp ? ' · CP ' + e.cp : ''}</div>
           </div>
           <div class="fila-lista-acciones">
-            <span class="rol-badge">${e.pisos.length} piso(s) · ${totalUnidades} unidad(es)</span>
+            <span class="rol-badge">${e.cantidad_pisos} piso(s) · ${e.cantidad_unidades} unidad(es)</span>
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--ink-4);"><path d="M9 18l6-6-6-6"/></svg>
           </div>
-        </a>`;
-      })
+        </a>`)
       .join('');
   }
 

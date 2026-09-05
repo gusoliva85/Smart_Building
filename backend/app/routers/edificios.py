@@ -18,7 +18,8 @@ retoma cuando el login empiece a poblarlo con datos reales).
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy import func
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.dependencies import UsuarioAutenticado, obtener_usuario_actual
 from app.database import obtener_db
@@ -32,6 +33,7 @@ from app.schemas.edificio import (
     DepartamentoSalida,
     EdificioConfiguracion,
     EdificioEntrada,
+    EdificioResumenSalida,
     EdificioSalida,
     EspacioComunEntrada,
     EspacioComunSalida,
@@ -61,30 +63,59 @@ def _obtener_edificio_o_404(edificio_id: int, db: Session) -> Edificio:
     return edificio
 
 
+def _verificar_admin_del_edificio(edificio: Edificio, actual: UsuarioAutenticado) -> None:
+    """Admin General (siempre) o el Admin de Consorcio asignado a ESTE
+    edificio puntual — nadie más gestiona su configuración o estructura.
+    Separado de `_requerir_admin_del_edificio` para poder reutilizar la
+    misma regla de acceso sobre un edificio que ya se cargó con eager
+    loading (ver `obtener_edificio`), en vez de volver a consultarlo."""
+    es_admin_general = actual.usuario.rol == "admin_general"
+    es_admin_de_este_edificio = actual.usuario.rol == "admin_consorcio" and edificio.admin_consorcio_id == actual.usuario.id
+    if not (es_admin_general or es_admin_de_este_edificio):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No administrás este edificio")
+
+
 def _requerir_admin_del_edificio(
     edificio_id: int,
     db: Session = Depends(obtener_db),
     actual: UsuarioAutenticado = Depends(obtener_usuario_actual),
 ) -> Edificio:
-    """Admin General (siempre) o el Admin de Consorcio asignado a ESTE
-    edificio puntual — nadie más gestiona su configuración o estructura."""
     edificio = _obtener_edificio_o_404(edificio_id, db)
-    es_admin_general = actual.usuario.rol == "admin_general"
-    es_admin_de_este_edificio = actual.usuario.rol == "admin_consorcio" and edificio.admin_consorcio_id == actual.usuario.id
-    if not (es_admin_general or es_admin_de_este_edificio):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No administrás este edificio")
+    _verificar_admin_del_edificio(edificio, actual)
     return edificio
 
 
-@router.get("", response_model=list[EdificioSalida])
+@router.get("", response_model=list[EdificioResumenSalida])
 def listar_edificios(
     db: Session = Depends(obtener_db),
     actual: UsuarioAutenticado = Depends(obtener_usuario_actual),
 ):
     """Administrador General ve todos los edificios; Administrador de
     Consorcio ve solo los suyos (mismo criterio que _requerir_admin_del_edificio,
-    acá aplicado a un listado en vez de a un edificio puntual)."""
-    consulta = db.query(Edificio)
+    acá aplicado a un listado en vez de a un edificio puntual).
+
+    Antes traía cada edificio con TODOS sus pisos y departamentos anidados
+    (uno o varios `SELECT` extra por cada piso de cada edificio — un N+1
+    real, medido en 29 consultas SQL para listar 7 edificios de prueba).
+    Acá se pide directo el conteo (`COUNT`) resuelto por la base en una
+    sola consulta con `JOIN` — nunca se trae una fila de piso o
+    departamento solo para poder mostrar "N pisos · M unidades"."""
+    consulta = (
+        db.query(
+            Edificio.id,
+            Edificio.nombre,
+            Edificio.direccion,
+            Edificio.cp,
+            Edificio.cuit,
+            Edificio.admin_consorcio_id,
+            Edificio.activo,
+            func.count(func.distinct(Piso.id)).label("cantidad_pisos"),
+            func.count(Departamento.id).label("cantidad_unidades"),
+        )
+        .outerjoin(Piso, Piso.edificio_id == Edificio.id)
+        .outerjoin(Departamento, Departamento.piso_id == Piso.id)
+        .group_by(Edificio.id)
+    )
     if actual.usuario.rol == "admin_general":
         pass
     elif actual.usuario.rol == "admin_consorcio":
@@ -95,7 +126,27 @@ def listar_edificios(
 
 
 @router.get("/{edificio_id}", response_model=EdificioSalida)
-def obtener_edificio(edificio: Edificio = Depends(_requerir_admin_del_edificio)):
+def obtener_edificio(
+    edificio_id: int,
+    db: Session = Depends(obtener_db),
+    actual: UsuarioAutenticado = Depends(obtener_usuario_actual),
+):
+    """A diferencia del listado, acá sí hace falta la estructura completa
+    (es la pestaña "Estructura" del detalle) — pero traída con
+    `selectinload` en 2 consultas fijas (una para todos los pisos del
+    edificio, una para todos los departamentos de esos pisos), en vez de
+    una consulta de departamentos por cada piso (el N+1 medido: 6
+    consultas para un edificio de solo 3 pisos, uno más por cada piso
+    extra que tuviera)."""
+    edificio = (
+        db.query(Edificio)
+        .options(selectinload(Edificio.pisos).selectinload(Piso.departamentos))
+        .filter(Edificio.id == edificio_id)
+        .first()
+    )
+    if not edificio:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Edificio no encontrado")
+    _verificar_admin_del_edificio(edificio, actual)
     return edificio
 
 

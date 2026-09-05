@@ -335,6 +335,7 @@
       <a class="toc-link" data-goto="f12-t4"><span class="n">4</span>Aurora text + carga rotativa<span class="estado-mini pend"></span></a>
       <a class="toc-link" data-goto="f12-t5"><span class="n">5</span>Botón de estado con ripple<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f12-t6"><span class="n">6</span>Favicon (ícono de la pestaña)<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f12-t7"><span class="n">7</span>Rendimiento: N+1 de edificios<span class="estado-mini pend"></span></a>
     </div>
 
     <div class="toc-group">
@@ -2435,6 +2436,59 @@ pintarBotonEstado(boton, nuevoActivo); <span class="cm">// optimista</span>
 
           <h4>Verificación</h4>
           <p>Servido con <code>content-type: image/svg+xml</code> (200) desde las 4 páginas; render capturado por separado confirma el mismo cuadrado con degradé acero/grafito e ícono de edificio que se ve en el sidebar — sin morado ni colores nuevos, mismos tokens de marca de siempre.</p>
+        </div>
+      </section>
+
+      <section class="slide tarea" id="f12-t7" data-crumb="Fase 12 (adelantada) · Rendimiento N+1">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Fase 12 · Tarea (adelantada)</span>
+            <h3>Backend: optimización N+1 de <code>GET /api/edificios</code></h3>
+            <span class="status pend"><i class="dot"></i>Implementado — pendiente de tu revisión</span>
+          </div>
+          <p class="lede">A pedido explícito del usuario, que reportó lentitud navegando la app en mobile y desktop con solo datos de prueba — "cuando tengamos más datos va a ser imposible navegar". Se midió antes de tocar una sola línea de código, en vez de asumir la causa.</p>
+
+          <div class="explicacion">
+            <div class="explicacion-titulo">
+              <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              Lo que se midió antes de decidir qué arreglar
+            </div>
+            <p>Instrumentando SQLAlchemy para contar las consultas SQL reales de cada request: <code>GET /api/edificios</code> disparaba <strong>29 consultas</strong> para listar 7 edificios de prueba (una por cada piso, otra por cada departamento de cada piso — un N+1 clásico, porque las relaciones <code>Edificio.pisos</code>/<code>Piso.departamentos</code> se cargaban de a una fila por vez). El detalle de un solo edificio de 3 pisos disparaba <strong>6 consultas</strong>. En SQLite local esto es invisible (microsegundos por consulta) — confirmado contra el backend real de producción (Vercel + Supabase), con un solo edificio de prueba cargado: <strong>~1.520ms</strong> para el listado, repetible 3 veces incluso ya "caliente". Contra <code>/api/usuarios</code> (2 consultas nomás) tardó 593ms — la diferencia es casi proporcional a la cantidad de consultas extra, no un cold start puntual.</p>
+          </div>
+
+          <h4>El fix: agregación en la base para el listado, <code>selectinload</code> para el detalle</h4>
+          <p>El listado nunca necesitó la estructura completa — solo muestra "N pisos · M unidades" por edificio. Se reemplazó por un <code>COUNT</code> resuelto en una sola consulta con <code>JOIN</code>, agregado en un schema nuevo (<code>EdificioResumenSalida</code>) que no incluye <code>pisos</code>:</p>
+          <div class="code-block">consulta = (
+    db.query(
+        Edificio.id, Edificio.nombre, Edificio.direccion, ...,
+        func.count(func.distinct(Piso.id)).label(<span class="str">"cantidad_pisos"</span>),
+        func.count(Departamento.id).label(<span class="str">"cantidad_unidades"</span>),
+    )
+    .outerjoin(Piso, Piso.edificio_id == Edificio.id)
+    .outerjoin(Departamento, Departamento.piso_id == Piso.id)
+    .group_by(Edificio.id)
+)</div>
+          <p>El detalle sí necesita la estructura completa (es la pestaña "Estructura"), así que ahí el fix es <code>selectinload</code> en vez de eliminar el dato — trae TODOS los pisos del edificio en una consulta y TODOS los departamentos de esos pisos en otra, sin importar cuántos pisos haya:</p>
+          <div class="code-block">db.query(Edificio)
+  .options(selectinload(Edificio.pisos).selectinload(Piso.departamentos))
+  .filter(Edificio.id == edificio_id)
+  .first()</div>
+          <p>El frontend (<code>edificios.js</code>) pasa a leer <code>e.cantidad_pisos</code>/<code>e.cantidad_unidades</code> ya calculados, en vez de <code>e.pisos.length</code>/<code>reduce()</code> sobre datos que ya no llegan.</p>
+
+          <div class="correccion">
+            <div class="correccion-titulo">
+              <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              Un sospechoso más, todavía sin confirmar: región de Vercel vs. Supabase
+            </div>
+            <p>Hasta el endpoint más simple (<code>/api/usuarios</code>, 2 consultas) tarda ~593ms en producción contra 2.5ms en local — un costo fijo grande que el N+1 por sí solo no explica del todo. La connection string de Supabase apunta a <code>sa-east-1</code> (São Paulo); si el backend en Vercel está desplegado en la región por defecto (EE.UU.), cada consulta paga una vuelta de red intercontinental completa. Se agregó <code>backend/vercel.json</code> fijando <code>"regions": ["gru1"]</code> (São Paulo) para probar si esto mejora — pendiente de confirmar después del próximo deploy, porque el plan de Vercel de la cuenta podría no permitir elegir región.</p>
+          </div>
+
+          <h4>Verificación: 3 tests nuevos que cuentan consultas SQL, no tiempos</h4>
+          <p>Medir tiempos en CI es poco confiable (varía con la máquina); en cambio, se cuentan las consultas SQL reales disparadas y se confirma que quedan <strong>fijas</strong> sin importar cuántos edificios/pisos/departamentos haya — así, si alguien reintroduce sin querer un N+1 a futuro, el test lo detecta solo:</p>
+          <div class="code-block">test_listado_no_crece_con_la_cantidad_de_pisos_y_departamentos       PASSED
+test_listado_devuelve_resumen_con_conteos_correctos_sin_pisos_anidados PASSED
+test_detalle_no_crece_con_la_cantidad_de_pisos                       PASSED</div>
+          <p>Confirmado también contra la base real de desarrollo, con los 7 edificios de prueba ya cargados: <code>GET /api/edificios</code> pasó de <strong>29 a 2 consultas</strong>; <code>GET /api/edificios/7</code> (3 pisos) pasó de <strong>6 a 4</strong> — y esta última cantidad ya no crece si el edificio tiene 10 pisos en vez de 3 (confirmado con el test de arriba). Suite completa: 119 passed.</p>
         </div>
       </section>
 

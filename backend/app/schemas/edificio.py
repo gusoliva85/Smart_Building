@@ -71,6 +71,28 @@ class PisoSalida(BaseModel):
     departamentos: list[DepartamentoSalida]
 
 
+class EdificioResumenSalida(BaseModel):
+    """Usado SOLO por el listado (`GET /api/edificios`) — a diferencia de
+    `EdificioSalida`, no trae `pisos`/`departamentos` completos (eso
+    obligaría a cargar la estructura entera de TODOS los edificios del
+    portfolio para mostrar apenas "N pisos · M unidades" de cada uno).
+    `cantidad_pisos`/`cantidad_unidades` llegan ya calculados por el
+    propio router con un `COUNT` en la base, sin traer una sola fila de
+    piso o departamento."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    nombre: str
+    direccion: str
+    cp: str | None
+    cuit: str | None
+    admin_consorcio_id: int | None
+    activo: bool
+    cantidad_pisos: int
+    cantidad_unidades: int
+
+
 class EdificioSalida(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
