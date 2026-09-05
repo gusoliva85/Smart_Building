@@ -19,3 +19,4 @@ from app.models.gasto import Gasto  # noqa: F401
 from app.models.expensa import Expensa, ExpensaDetalle  # noqa: F401
 from app.models.pago import Pago  # noqa: F401
 from app.models.fondo import Caja, Fondo, MovimientoCaja, MovimientoFondo  # noqa: F401
+from app.models.presupuesto import Factura, Presupuesto  # noqa: F401
