@@ -2512,7 +2512,7 @@ test_detalle_no_crece_con_la_cantidad_de_pisos                       PASSED</div
         <div class="slide-inner">
           <div class="divider-num">02</div>
           <h2>Fase 2 — Gestión financiera básica</h2>
-          <div class="fase-frac-grande" id="fase2-frac">10 / 14 aprobadas</div>
+          <div class="fase-frac-grande" id="fase2-frac">10 / 18 aprobadas</div>
           <p class="divider-desc">Corresponde al Documento General, sección 6; Documento Técnico, sección 8. El módulo más sensible: de acá sale directamente el dato de morosidad que colorea de amarillo/rojo un departamento en el Dashboard Visual (Fase 5).</p>
         </div>
       </section>
@@ -2982,6 +2982,14 @@ tests/test_modelo_pago.py (+3 de estado) .... [8 passed]
               Corrección: se saca el QR — CBU y alias se copian por separado
             </div>
             <p>El usuario decidió no seguir ni con el QR de conveniencia: "si el QR solo muestra un CBU y alias no me convence, prefiero que lo muestres con los botones de copiar cada uno por separado, así el usuario se dirige a su aplicación de banco o billetera virtual y se encarga de realizar el pago." Tiene sentido en la práctica: copiar un texto es un toque; escanear un QR para volver a copiar el texto que había adentro es un paso de más, sin ninguna ganancia real. <code>GET /api/edificios/{id}/medio-pago</code> ahora devuelve solo <code>cbu</code>/<code>alias_cbu</code> — se sacó <code>qr_base64</code> del schema, el helper de generación y el import de <code>qrcode</code> del router (la librería sigue en <code>requirements.txt</code>, la va a necesitar la Fase 4 para los QR de activos). Tests actualizados: 14 en <code>test_financiero_pagos.py</code>, suite completa sigue en 182 (no se sumaron ni se sacaron casos, solo cambió qué se afirma). Verificado contra la base real: <code>/edificios/7/medio-pago</code> devuelve <code>{"cbu": "...", "alias_cbu": "..."}</code>, sin ningún campo de QR.</p>
+          </div>
+
+          <div class="correccion">
+            <div class="correccion-titulo">
+              <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              ⚠️ Hallazgo en la revisión completa de la Fase 2: Inquilino ve/paga financiero sin excepción
+            </div>
+            <p>Revisando toda la Fase 2 contra la matriz de roles (Fase 1, <code>services/autorizacion.py</code>) apareció una inconsistencia real: la matriz fija <code>ve_financiero_unidad: False</code> para Inquilino por defecto, "habilitable por excepción recién en la Fase 11" — pero esta tarea trata a Propietario e Inquilino exactamente igual en <code>/mis-departamentos</code> y <code>/pagos</code>, sin distinción. Como el sistema de excepciones de la Fase 11 todavía no existe, hoy no hay forma de "habilitar" a un inquilino puntual — el efecto real es que <strong>todos</strong> los inquilinos ven y pagan, no ninguno por default como fija la matriz. Detalle completo y la decisión pendiente en <code>documentacion/03_Roadmap.md</code> (nota abierta al final de la Fase 2) — no se corrige en este documento sin que el usuario decida primero si restringe el backend ya aprobado o lo deja así a propósito hasta la Fase 11.</p>
           </div>
         </div>
       </section>

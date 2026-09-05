@@ -150,8 +150,8 @@ Corresponde al Documento General, sección 6; Documento Técnico, sección 8. De
 - [x] **Lógica: criterio de prorrateo.**
   Se define el cálculo antes de tocar modelos — es la pieza más delicada del módulo porque un error afecta a todos los propietarios a la vez. *(Actualización: validado contra la normativa argentina real antes de implementar, a pedido del usuario — Ley 13.512 / Código Civil y Comercial, arts. 2037 y ss. El criterio real es un **coeficiente (%) fijo por departamento** — no "partes iguales o por m²" como criterio global. "Partes iguales" y "por m²" quedan como atajos para completar el coeficiente la primera vez, editables después desde una pantalla de Configuración. `services/finanzas.py` implementado y probado — 18 tests nuevos. Investigación legal completa en `Prorrateo.md`; detalle de la implementación en `que_hice.html`, slide `f2-t1`.)*
 
-- [ ] **Backend: modelo `Gasto`.**
-  Rubro, monto, fecha, descripción, proveedor asociado (opcional, se conecta de verdad recién en la Fase 7), activo asociado (opcional, se conecta en la Fase 4).
+- [x] **Backend: modelo `Gasto`.**
+  Rubro, monto, fecha, descripción, proveedor asociado (opcional, se conecta de verdad recién en la Fase 7), activo asociado (opcional, se conecta en la Fase 4). *(Corrección de bookkeeping: esta tarea ya estaba hecha y aprobada desde la Tarea 2 — el checkbox había quedado sin tildar por error, detectado en la revisión completa de la Fase 2.)*
 
 - [x] **Backend: modelos `Expensa` y `ExpensaDetalle`.**
   `Expensa`: liquidación de un edificio para un período, con total. `ExpensaDetalle`: apertura por rubro dentro de esa expensa — la transparencia de gasto que pide explícitamente el Documento General 6.1.
@@ -181,25 +181,27 @@ Corresponde al Documento General, sección 6; Documento Técnico, sección 8. De
   Todos anidados bajo edificio.
 
 - [ ] **Backend: endpoint de reportes financieros.**
-  `GET /api/edificios/{id}/reportes/financiero`: recaudado vs. esperado, morosidad, evolución de gastos por rubro — la data cruda para Analítica (Fase 6).
+  `GET /api/edificios/{id}/reportes/financiero`: recaudado vs. esperado, morosidad, evolución de gastos por rubro — la data cruda para Analítica (Fase 6). *(Ajuste tras revisar toda la Fase 2 ya construida: gran parte de esta data ya existe, esta tarea consolida en un solo endpoint, no recalcula de cero — morosidad sale de `/deudores` (Tarea 10), evolución de gastos por rubro de `/gastos` con el filtro de período ya soportado (Tarea 11), y recaudado vs. esperado de `Expensa.total` contra la suma de `Pago` `confirmado` por período (Tareas 8-9).)*
 
 - [ ] **Frontend: `financiero.html` — cascarón con pestañas (`.view-switch`) y pestaña "Gastos".**
-  Se crea la página con el selector segmentado que va a organizar todo el módulo (Gastos/Expensas/Pagos/Deudores/Fondos·Caja·Presupuestos·Facturas — Documento Técnico, sección 4.1), con la primera pestaña funcional: carga y listado de gastos, filtro por rubro y rango de fechas.
+  Se crea la página con el selector segmentado que va a organizar todo el módulo (Gastos/Expensas/Pagos/Deudores/Fondos·Caja·Presupuestos·Facturas — Documento Técnico, sección 4.1), con la primera pestaña funcional: carga y listado de gastos, filtro por rubro y rango de fechas. *(Nota: es una pantalla de gestión — Administrador General/de Consorcio — ya con el endpoint real detrás desde la Tarea 11, `GET/POST /api/edificios/{id}/gastos` con filtro `?anio=&mes=`.)*
 
 - [ ] **Frontend: pestaña "Expensas".**
-  Vista de generación/detalle (Administrador) y vista de solo la propia expensa (Propietario — nunca el Inquilino, salvo excepción futura de la Fase 11).
+  Vista de generación/detalle (Administrador) y vista de solo la propia expensa (Propietario — nunca el Inquilino, salvo excepción futura de la Fase 11). *(⚠️ Pendiente de decisión — ver nota de la Tarea 9 más abajo: el backend ya construido, `GET /api/mis-departamentos`, hoy le da esta vista también al Inquilino por defecto, no solo al Propietario como fija esta línea. Antes de construir el frontend hay que resolver esa inconsistencia, no heredarla.)*
 
 - [ ] **Frontend: pestaña "Pagos".**
-  Carga de pago contra una expensa, con confirmación de saldo pendiente si es parcial.
+  Carga de pago contra una expensa, con confirmación de saldo pendiente si es parcial. *(Ajuste: son dos vistas distintas sobre el mismo backend de la Tarea 9, no una sola pantalla — (1) la del Administrador, una cola de `Pago` en estado `pendiente` para conciliar (`PATCH /api/pagos/{id}/estado`); (2) la del propio Propietario/Inquilino, que carga SU pago sin elegir edificio ni piso (`POST /api/pagos`, resuelve sus departamentos solo) — mismo `⚠️` que la pestaña Expensas sobre a quién se le muestra esta segunda vista.)*
 
 - [ ] **Frontend: pestaña "Deudores".**
-  Listado ordenado por antigüedad, visible para Administrador y Auditor.
+  Listado ordenado por antigüedad, visible para Administrador y Auditor. *(Ya tiene el endpoint real detrás desde la Tarea 10, `GET /api/edificios/{id}/deudores`, devuelve `meses_atraso` y `deuda_total` por departamento ya ordenados de más a menos atrasado.)*
 
 - [ ] **Frontend: pestaña "Fondos, Caja, Presupuestos y Facturas".**
-  Puede resolverse como una única pestaña con sub-secciones si el volumen de datos de prueba lo permite, o como pestañas propias dentro del mismo `.view-switch` si se necesita más espacio — se decide al llegar a esta tarea, según cómo se vea con datos reales.
+  Puede resolverse como una única pestaña con sub-secciones si el volumen de datos de prueba lo permite, o como pestañas propias dentro del mismo `.view-switch` si se necesita más espacio — se decide al llegar a esta tarea, según cómo se vea con datos reales. *(Los 4 CRUD ya están construidos y probados desde la Tarea 11 — `Fondo`/`Caja` con `saldo` siempre calculado sumando movimientos, nunca guardado; `Presupuesto` con flujo `pendiente → aprobado/rechazado` vinculando un `Gasto` real; `Factura` exige `gasto_id` del mismo edificio.)*
 
 - [ ] **Prueba manual de punta a punta.**
-  Cargar gastos de un mes de prueba, generar la expensa del edificio de prueba, pagar completo en algunos departamentos y dejar otros en deuda de distinta antigüedad, y confirmar que el endpoint de deudores calcula bien meses y monto en cada caso.
+  Cargar gastos de un mes de prueba, generar la expensa del edificio de prueba, pagar completo en algunos departamentos y dejar otros en deuda de distinta antigüedad, y confirmar que el endpoint de deudores calcula bien meses y monto en cada caso. *(Ya validado a nivel backend con datos reales en las Tareas 7-11 — esta prueba final es la versión de punta a punta real usando el frontend, todavía sin construir.)*
+
+**⚠️ Nota abierta detectada en esta revisión (Fase 2 completa, 2026-09-05): Inquilino ve/paga financiero de su unidad hoy sin excepción.** La matriz de roles (`services/autorizacion.py`, Fase 1) fija `ve_financiero_unidad: False` para Inquilino por defecto, "habilitable por excepción recién en la Fase 11" — pero esa bandera nunca se llegó a *aplicar* en ningún endpoint (se verificó: cero referencias fuera de la matriz y sus tests). El backend de la Tarea 9 (`GET /api/mis-departamentos`, `POST /api/pagos`) trata a Propietario e Inquilino exactamente igual, sin distinción — contradice el default documentado desde la Fase 1. Como el sistema de excepciones recién se construye en la Fase 11, hoy no hay forma de "habilitar" a un Inquilino puntual — la Tarea 9, tal como está, le da acceso a **todos** los inquilinos, no a ninguno por default. Queda pendiente decidir: (a) restringir ahora el backend ya aprobado para que Inquilino no vea/pague por defecto, dejando la puerta lista para la excepción de la Fase 11, o (b) dejarlo así a propósito hasta llegar a la Fase 11. No se resuelve solo en este documento — es una decisión del usuario.
 
 ---
 
