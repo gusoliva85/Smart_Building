@@ -47,6 +47,8 @@ class EdificioConfiguracion(BaseModel):
     dias_vencimiento_expensas: int | None = Field(default=None, ge=1)
     recargo_mora_porcentual: int | None = Field(default=None, ge=0)
     roles_habilitados: list[str] | None = None
+    cbu: str | None = None
+    alias_cbu: str | None = None
 
     _validar_roles = field_validator("roles_habilitados")(_validar_lista_roles)
 
@@ -108,6 +110,8 @@ class EdificioSalida(BaseModel):
     recargo_mora_porcentual: int
     contacto_emergencia_nombre: str | None
     contacto_emergencia_telefono: str | None
+    cbu: str | None
+    alias_cbu: str | None
     activo: bool
     pisos: list[PisoSalida]
 

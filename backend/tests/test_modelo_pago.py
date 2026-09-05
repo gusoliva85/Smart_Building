@@ -60,6 +60,34 @@ def test_pago_total_de_una_expensa(sesion, contexto):
     assert expensa.pagos == [pago]
 
 
+def test_pago_nace_pendiente_por_defecto(sesion, contexto):
+    depto, expensa = contexto
+    pago = Pago(departamento_id=depto.id, expensa_id=expensa.id, monto=10000, medio_pago="transferencia")
+    sesion.add(pago)
+    sesion.commit()
+    sesion.refresh(pago)
+
+    assert pago.estado == "pendiente"
+
+
+def test_pago_puede_pasar_a_confirmado_o_rechazado(sesion, contexto):
+    depto, expensa = contexto
+    confirmado = Pago(departamento_id=depto.id, expensa_id=expensa.id, monto=5000, medio_pago="transferencia", estado="confirmado")
+    rechazado = Pago(departamento_id=depto.id, expensa_id=expensa.id, monto=5000, medio_pago="efectivo", estado="rechazado")
+    sesion.add_all([confirmado, rechazado])
+    sesion.commit()
+
+    assert confirmado.estado == "confirmado"
+    assert rechazado.estado == "rechazado"
+
+
+def test_estado_invalido_rechazado_por_la_base(sesion, contexto):
+    depto, expensa = contexto
+    sesion.add(Pago(departamento_id=depto.id, expensa_id=expensa.id, monto=1000, medio_pago="efectivo", estado="en_camino"))
+    with pytest.raises(IntegrityError):
+        sesion.commit()
+
+
 def test_pago_parcial_no_es_rechazado_por_el_modelo(sesion, contexto):
     # La conciliación (si queda "saldada" o "parcial") es de una tarea
     # futura — el modelo por sí solo no debe objetar un monto menor al

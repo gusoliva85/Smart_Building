@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import TokenInvalido, decodificar_token
 from app.database import obtener_db
+from app.models.edificio import Departamento, Edificio, Piso
 from app.models.usuario import Usuario
 from app.services.autorizacion import tiene_acceso_a_edificio
 
@@ -61,3 +62,39 @@ def requerir_acceso_edificio(
     if not tiene_acceso_a_edificio(actual.usuario.rol, actual.edificios, edificio_id):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tenés acceso a este edificio")
     return actual
+
+
+def requerir_acceso_financiero_edificio(
+    edificio_id: int,
+    db: Session = Depends(obtener_db),
+    actual: UsuarioAutenticado = Depends(obtener_usuario_actual),
+) -> UsuarioAutenticado:
+    """Primer caso real de un propietario/inquilino necesitando acceso de
+    verdad a algo de SU edificio (ver el medio de pago) — `edificios` del
+    JWT todavía está siempre vacío (ver `UsuarioAutenticado`), así que acá
+    no se puede usar `tiene_acceso_a_edificio()`. Se resuelve consultando
+    directo si el usuario tiene al menos un departamento (como propietario
+    o inquilino) en ese edificio — el mismo dato que ya determina si "le
+    corresponde" ver algo financiero de esa unidad."""
+    if actual.usuario.rol == "admin_general":
+        return actual
+
+    if actual.usuario.rol == "admin_consorcio":
+        edificio = db.get(Edificio, edificio_id)
+        if edificio and edificio.admin_consorcio_id == actual.usuario.id:
+            return actual
+
+    if actual.usuario.rol in ("propietario", "inquilino"):
+        tiene_unidad = (
+            db.query(Departamento)
+            .join(Piso, Piso.id == Departamento.piso_id)
+            .filter(
+                Piso.edificio_id == edificio_id,
+                (Departamento.propietario_id == actual.usuario.id) | (Departamento.inquilino_id == actual.usuario.id),
+            )
+            .first()
+        )
+        if tiene_unidad:
+            return actual
+
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tenés acceso a este edificio")

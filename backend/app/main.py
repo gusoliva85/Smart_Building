@@ -31,6 +31,7 @@ app.include_router(auth.router)
 app.include_router(usuarios.router)
 app.include_router(edificios.router)
 app.include_router(financiero.router)
+app.include_router(financiero.router_pagos)
 
 # Crea, al arrancar, cualquier tabla que todavía no exista en la base real
 # (idempotente: no toca las que ya están). Para que funcione, todo modelo

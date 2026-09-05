@@ -347,7 +347,8 @@
       <a class="toc-link" data-goto="f2-t5"><span class="n">5</span>Backend: Fondo, MovimientoFondo, Caja<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f2-t6"><span class="n">6</span>Backend: Presupuesto y Factura<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f2-t7"><span class="n">7</span>Servicio de prorrateo automático<span class="estado-mini done"></span></a>
-      <a class="toc-link" data-goto="f2-t8"><span class="n">8</span>Generación de expensa mensual<span class="estado-mini pend"></span></a>
+      <a class="toc-link" data-goto="f2-t8"><span class="n">8</span>Generación de expensa mensual<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f2-t9"><span class="n">9</span>Pagos, medio de pago y conciliación<span class="estado-mini pend"></span></a>
     </div>
 
     <div class="toc-progress">
@@ -2509,7 +2510,7 @@ test_detalle_no_crece_con_la_cantidad_de_pisos                       PASSED</div
         <div class="slide-inner">
           <div class="divider-num">02</div>
           <h2>Fase 2 — Gestión financiera básica</h2>
-          <div class="fase-frac-grande" id="fase2-frac">7 / 14 aprobadas</div>
+          <div class="fase-frac-grande" id="fase2-frac">8 / 14 aprobadas</div>
           <p class="divider-desc">Corresponde al Documento General, sección 6; Documento Técnico, sección 8. El módulo más sensible: de acá sale directamente el dato de morosidad que colorea de amarillo/rojo un departamento en el Dashboard Visual (Fase 5).</p>
         </div>
       </section>
@@ -2894,7 +2895,7 @@ Coincide exacto con el total de gastos: True
           <div class="tarea-head">
             <span class="tarea-num">Tarea 8</span>
             <h3>Backend: generación de expensa mensual</h3>
-            <span class="status pend"><i class="dot"></i>Implementado — pendiente de tu revisión</span>
+            <span class="status done"><i class="dot"></i>Hecho — aprobado</span>
           </div>
           <p class="lede"><code>POST /api/edificios/{id}/expensas</code>: toma los gastos del período, aplica el prorrateo ya construido, y genera la <code>Expensa</code> real con su apertura por rubro y el monto de cada departamento. Antes de escribir el endpoint apareció una pregunta de diseño real, investigada y resuelta en <code>Prorrateo.md</code> (sección 6).</p>
 
@@ -2931,6 +2932,47 @@ Coincide exacto con el total de gastos: True
           <div class="code-block">tests/test_financiero.py ...... [6 passed]
 <span class="cm"># suite completa del backend: 165 passed (159 + 6 nuevos)</span></div>
           <p>Verificado también contra la base real de desarrollo, con el edificio real (Torre Cierre Fase 1, coeficientes y gastos ya cargados en la Tarea 7): <code>POST /edificios/7/expensas</code> devolvió 201 con el total exacto ($157.432,87) y los 12 montos por departamento coincidiendo con lo ya validado a mano. Reintentar el mismo período devolvió 400 correctamente.</p>
+        </div>
+      </section>
+
+      <section class="slide tarea" id="f2-t9" data-crumb="Fase 2 · Tarea 9">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 9</span>
+            <h3>Backend: registro de pagos, medio de pago (CBU/alias/QR) y conciliación</h3>
+            <span class="status pend"><i class="dot"></i>Implementado — pendiente de tu revisión</span>
+          </div>
+          <p class="lede">A pedido explícito del usuario, ampliando la tarea original del Roadmap: mostrar CBU, alias y un QR como medio de pago, y que el propietario/inquilino cargue su propio pago sin elegir edificio ni piso. Antes de tocar código se investigó si un QR de pago real es legalmente viable con el alcance de este proyecto — no lo es, y cambia la forma de resolverlo. Todo documentado en <code>documentacion/Pagos_y_Conciliacion.md</code>.</p>
+
+          <div class="explicacion">
+            <div class="explicacion-titulo">
+              <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              El hallazgo: el QR de pago instantáneo no lo puede emitir SMART Building
+            </div>
+            <p>El QR "Transferencias 3.0" del BCRA (el que dispara la transferencia con solo escanearlo desde cualquier billetera o app bancaria) lo tienen que emitir las entidades financieras y los PSP registrados — nunca una aplicación de terceros. SMART Building no es (ni tiene planeado ser) un procesador de pagos: la plata nunca pasa por la plataforma. Se le presentó la decisión al usuario y se optó por un <strong>QR de conveniencia</strong>: un código que al escanearlo muestra el CBU/alias como texto, para pegarlo en la propia app del banco — 100% legal (es solo texto codificado, igual que mandar el CBU por WhatsApp), generado con <code>qrcode</code> (la misma librería ya prevista para activos en la Fase 4). Un QR de pago real quedaría para una integración futura con un PSP (Mercado Pago u otro), fuera de alcance de esta tarea.</p>
+            <p>También se investigó la conciliación: en la práctica real de consorcios argentinos, "el consorcista paga y envía un comprobante, esperando a que la administración identifique el movimiento" — nunca se acredita solo. Por eso <code>Pago</code> suma <code>estado</code> (<code>pendiente</code>/<code>confirmado</code>/<code>rechazado</code>): nace <code>pendiente</code> cuando lo carga el residente, y solo un Administrador lo pasa a <code>confirmado</code> — sin este paso, cualquiera podría cargar un comprobante falso y aparecer sin deuda.</p>
+          </div>
+
+          <h4>Lo nuevo</h4>
+          <ul>
+            <li><code>Edificio.cbu</code> / <code>alias_cbu</code>: configurables vía el mismo <code>PATCH /api/edificios/{id}</code> ya existente.</li>
+            <li><code>GET /api/edificios/{id}/medio-pago</code>: devuelve cbu, alias y el QR en base64 — accesible para Administrador General/de Consorcio del edificio, Y para cualquier propietario/inquilino con una unidad ahí. Primer endpoint donde un residente necesita acceso real a su propio edificio — se agregó <code>requerir_acceso_financiero_edificio()</code> (<code>core/dependencies.py</code>) porque la lista de edificios del JWT todavía está siempre vacía (pendiente desde la Fase 1); se resuelve consultando directo si tiene un departamento propio ahí.</li>
+            <li><code>GET /api/mis-departamentos</code>: las unidades del usuario logueado (puede tener más de una, o en más de un edificio — nunca se navega el edificio completo), con sus expensas y saldo (solo cuenta lo <code>confirmado</code>). Cubre de paso el "estado de cuenta por unidad" del Documento General 6.2.</li>
+            <li><code>POST /api/pagos</code>: el residente carga comprobante + fecha + monto; nace <code>pendiente</code>. Valida que el departamento sea suyo (propietario o inquilino) y que la expensa corresponda a ese departamento.</li>
+            <li><code>PATCH /api/pagos/{id}/estado</code>: el Administrador confirma o rechaza — nunca el propio residente.</li>
+          </ul>
+
+          <h4>Verificación: 17 tests nuevos (182 en total) + flujo real completo</h4>
+          <ul>
+            <li>Medio de pago: sin CBU cargado no hay QR; con CBU/alias, aparece un QR real; propietario de una unidad accede, uno ajeno recibe 403.</li>
+            <li>Mis departamentos: expensa y saldo completo sin pagos; usuario sin unidades devuelve lista vacía.</li>
+            <li>Registrar pago: nace <code>pendiente</code>; inquilino también puede pagar la misma unidad que su propietario; departamento ajeno rechazado (403); expensa que no corresponde al departamento rechazada (400).</li>
+            <li>Conciliar: admin confirma y el saldo baja a 0; mientras está pendiente el saldo no se mueve; el propio residente no puede confirmarse a sí mismo (403); estado inválido en el PATCH (422).</li>
+          </ul>
+          <div class="code-block">tests/test_financiero_pagos.py .............. [14 passed]
+tests/test_modelo_pago.py (+3 de estado) .... [8 passed]
+<span class="cm"># suite completa del backend: 182 passed (165 + 17 nuevos)</span></div>
+          <p>Verificado también de punta a punta contra la base real de desarrollo, con datos reales de sesiones anteriores: se cargó CBU/alias en Torre Cierre Fase 1, el Propietario de Prueba (que tiene unidades reales en <strong>dos edificios distintos</strong>) vio su medio de pago y su estado de cuenta completo vía <code>/mis-departamentos</code>, cargó un pago real de $13.118,88 (quedó <code>pendiente</code>, saldo sin cambios), y al confirmarlo el Administrador el saldo bajó a $0 — todo con la API real, sin acceso directo a la base.</p>
         </div>
       </section>
 

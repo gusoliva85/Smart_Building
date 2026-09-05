@@ -50,6 +50,14 @@ class Edificio(Base):
     contacto_emergencia_telefono = Column(String, nullable=True)
     roles_habilitados = Column(Text, nullable=True)
 
+    # Medio de pago (Documento General 6.2, investigado en
+    # documentacion/Pagos_y_Conciliacion.md): CBU/alias de la cuenta del
+    # consorcio para que propietarios/inquilinos transfieran la expensa.
+    # Nunca es la plataforma la que procesa el pago — solo se muestra el
+    # dato, la transferencia se hace por fuera (banco a banco).
+    cbu = Column(String, nullable=True)
+    alias_cbu = Column(String, nullable=True)
+
     activo = Column(Boolean, nullable=False, default=True)
     creado_en = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 

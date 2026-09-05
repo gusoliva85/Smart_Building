@@ -2,10 +2,15 @@
 
 Registra un pago real de un departamento contra una expensa puntual.
 Soporta pago parcial o total simplemente por no forzar `monto == total de
-la expensa` a nivel de modelo — la conciliación real (si con este pago la
-expensa queda saldada o sigue parcial) es lógica de la tarea de
-"registro de pagos y conciliación", más adelante en esta misma fase, no
-algo que el modelo decida por sí solo.
+la expensa` a nivel de modelo.
+
+`estado` (investigado en `documentacion/Pagos_y_Conciliacion.md`): un
+pago cargado por el propio propietario/inquilino nace en `pendiente` —
+recién cuenta como "sin deuda" cuando un Administrador lo pasa a
+`confirmado`, contra el movimiento bancario real. Sin este paso,
+cualquiera podría cargar un comprobante falso y aparecer al día sin que
+la plata haya entrado — la "conciliación" que pide el Documento General
+6.2 es exactamente esto, un chequeo humano, no una confirmación automática.
 """
 
 from datetime import date, datetime, timezone
@@ -34,6 +39,12 @@ class Pago(Base):
     fecha = Column(Date, nullable=False, default=date.today)
     medio_pago = Column(String, nullable=False)
     comprobante_url = Column(String, nullable=True)
+    estado = Column(
+        String,
+        CheckConstraint("estado IN ('pendiente', 'confirmado', 'rechazado')", name="ck_pagos_estado_valido"),
+        nullable=False,
+        server_default="pendiente",
+    )
     creado_en = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
 
     departamento = relationship("Departamento", backref="pagos")
