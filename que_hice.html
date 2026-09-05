@@ -346,7 +346,7 @@
       <a class="toc-link" data-goto="f2-t4"><span class="n">4</span>Backend: modelo Pago<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f2-t5"><span class="n">5</span>Backend: Fondo, MovimientoFondo, Caja<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f2-t6"><span class="n">6</span>Backend: Presupuesto y Factura<span class="estado-mini done"></span></a>
-      <a class="toc-link" data-goto="f2-t7"><span class="n">7</span>Servicio de prorrateo automático<span class="estado-mini pend"></span></a>
+      <a class="toc-link" data-goto="f2-t7"><span class="n">7</span>Servicio de prorrateo automático<span class="estado-mini done"></span></a>
     </div>
 
     <div class="toc-progress">
@@ -430,10 +430,17 @@
                   <td><span class="rol-chip">encargado</span></td>
                   <td>Alta vía <code>usuarios.html</code> (verificación de la Tarea 15, Fase 1)</td>
                 </tr>
+                <tr>
+                  <td class="nombre">10 propietarios + 20 inquilinos (datos random)</td>
+                  <td><code>nombre.apellido@ejemplo.test</code></td>
+                  <td><code>test1234</code> (compartida)</td>
+                  <td><span class="rol-chip">propietario</span> / <span class="rol-chip">inquilino</span></td>
+                  <td>Pedido explícito del usuario (Fase 2) — <code>app/seed_propietarios_inquilinos.py</code> (nombres/apellidos argentinos random, sin pisar los usuarios existentes), replicado en producción vía <code>POST /api/usuarios</code> real. Todavía sin asignar a ningún departamento.</td>
+                </tr>
               </tbody>
             </table>
           </div>
-          <p class="cred-note">Se va a completar con cada rol a medida que la Fase 1 (Usuarios, autenticación y estructura del edificio) avance.</p>
+          <p class="cred-note">Se va a completar con cada rol a medida que la Fase 1 (Usuarios, autenticación y estructura del edificio) avance. Los 30 usuarios random comparten la misma contraseña de prueba a propósito — no tiene sentido documentar 30 filas individuales para datos que solo sirven como volumen de prueba.</p>
         </div>
       </section>
 
@@ -2501,7 +2508,7 @@ test_detalle_no_crece_con_la_cantidad_de_pisos                       PASSED</div
         <div class="slide-inner">
           <div class="divider-num">02</div>
           <h2>Fase 2 — Gestión financiera básica</h2>
-          <div class="fase-frac-grande" id="fase2-frac">6 / 14 aprobadas</div>
+          <div class="fase-frac-grande" id="fase2-frac">7 / 14 aprobadas</div>
           <p class="divider-desc">Corresponde al Documento General, sección 6; Documento Técnico, sección 8. El módulo más sensible: de acá sale directamente el dato de morosidad que colorea de amarillo/rojo un departamento en el Dashboard Visual (Fase 5).</p>
         </div>
       </section>
@@ -2818,7 +2825,7 @@ test_detalle_no_crece_con_la_cantidad_de_pisos                       PASSED</div
           <div class="tarea-head">
             <span class="tarea-num">Tarea 7</span>
             <h3>Backend: servicio de prorrateo automático</h3>
-            <span class="status pend"><i class="dot"></i>Implementado — pendiente de tu revisión</span>
+            <span class="status done"><i class="dot"></i>Hecho — aprobado</span>
           </div>
           <p class="lede">A pedido explícito: "validá que todo funcione perfecto antes de implementarlo, comprobá todo el flujo" — antes de escribir el servicio se trazó toda la cadena de dependencias, y apareció un problema real que había que resolver primero.</p>
 

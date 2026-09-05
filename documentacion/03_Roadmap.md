@@ -165,7 +165,7 @@ Corresponde al Documento General, sección 6; Documento Técnico, sección 8. De
 - [x] **Backend: modelos `Presupuesto` y `Factura`.**
   Para sostener la trazabilidad completa gasto → presupuesto → factura → pago (Documento General 6.7-6.8).
 
-- [ ] **Backend: servicio de prorrateo automático.**
+- [x] **Backend: servicio de prorrateo automático.**
   `services/finanzas.py`: dado un período y el criterio configurado del edificio, calcula cuánto le corresponde a cada departamento.
 
 - [ ] **Backend: generación de expensa mensual.**
