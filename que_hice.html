@@ -349,7 +349,8 @@
       <a class="toc-link" data-goto="f2-t7"><span class="n">7</span>Servicio de prorrateo automático<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f2-t8"><span class="n">8</span>Generación de expensa mensual<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f2-t9"><span class="n">9</span>Pagos, medio de pago y conciliación<span class="estado-mini done"></span></a>
-      <a class="toc-link" data-goto="f2-t10"><span class="n">10</span>Cálculo de deudores<span class="estado-mini pend"></span></a>
+      <a class="toc-link" data-goto="f2-t10"><span class="n">10</span>Cálculo de deudores<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f2-t11"><span class="n">11</span>CRUD Gastos/Fondos/Caja/Presupuestos/Facturas<span class="estado-mini pend"></span></a>
     </div>
 
     <div class="toc-progress">
@@ -2511,7 +2512,7 @@ test_detalle_no_crece_con_la_cantidad_de_pisos                       PASSED</div
         <div class="slide-inner">
           <div class="divider-num">02</div>
           <h2>Fase 2 — Gestión financiera básica</h2>
-          <div class="fase-frac-grande" id="fase2-frac">9 / 14 aprobadas</div>
+          <div class="fase-frac-grande" id="fase2-frac">10 / 14 aprobadas</div>
           <p class="divider-desc">Corresponde al Documento General, sección 6; Documento Técnico, sección 8. El módulo más sensible: de acá sale directamente el dato de morosidad que colorea de amarillo/rojo un departamento en el Dashboard Visual (Fase 5).</p>
         </div>
       </section>
@@ -2990,7 +2991,7 @@ tests/test_modelo_pago.py (+3 de estado) .... [8 passed]
           <div class="tarea-head">
             <span class="tarea-num">Tarea 10</span>
             <h3>Backend: cálculo de deudores</h3>
-            <span class="status pend"><i class="dot"></i>Implementado — pendiente de tu revisión</span>
+            <span class="status done"><i class="dot"></i>Hecho — aprobado (pendiente de ver en funcionamiento cuando exista el frontend)</span>
           </div>
           <p class="lede"><code>GET /api/edificios/{id}/deudores</code> — Documento Técnico 5.2: vista <strong>calculada</strong>, nunca una tabla propia. Recorre los <code>ExpensaDepartamento</code> de todo el edificio, descuenta los <code>Pago</code> ya <code>confirmado</code>s (nunca los <code>pendiente</code>), y devuelve solo las unidades con saldo real. Es el dato que va a alimentar <code>deudaSeverity()</code> en el Dashboard Visual de la Fase 5.</p>
 
@@ -3016,6 +3017,43 @@ tests/test_modelo_pago.py (+3 de estado) .... [8 passed]
           <div class="code-block">tests/test_financiero_deudores.py ........ [8 passed]
 <span class="cm"># suite completa del backend: 190 passed (182 + 8 nuevos)</span></div>
           <p>Verificado también contra la base real de desarrollo: en el edificio de prueba (Torre Cierre Fase 1, con el pago de la Tarea 9 ya confirmado en el departamento 1A), <code>GET /edificios/7/deudores</code> devolvió los 11 departamentos restantes con <code>meses_atraso: 1</code> y los montos exactos ya validados ($13.118,88 / $13.125,19) — 1A correctamente ausente del listado.</p>
+        </div>
+      </section>
+
+      <section class="slide tarea" id="f2-t11" data-crumb="Fase 2 · Tarea 11">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 11</span>
+            <h3>Backend: endpoints CRUD de Gastos, Fondos, Caja, Presupuestos y Facturas</h3>
+            <span class="status pend"><i class="dot"></i>Implementado — pendiente de tu revisión</span>
+          </div>
+          <p class="lede">15 endpoints nuevos, todos anidados bajo <code>/api/edificios/{id}/...</code> y admin-only (mismo criterio que <code>generar_expensa_mensual</code>) — a diferencia de medio de pago/mis-departamentos/pagos (Tarea 9), esto es información de gestión interna, no algo que un residente cargue o necesite ver directo. Tarea más "de plomería" que de diseño: reutiliza modelos ya investigados y aprobados en tareas anteriores (2, 5, 6), sin decisiones de dominio nuevas.</p>
+
+          <h4>Gastos</h4>
+          <p><code>POST</code>/<code>GET /api/edificios/{id}/gastos</code>, con filtro opcional <code>?anio=&mes=</code> — el mismo criterio de período que ya usa <code>calcular_prorrateo_periodo()</code>.</p>
+
+          <h4>Fondos y Caja</h4>
+          <p>Mismo patrón para los dos: alta, listado (con <code>saldo</code> siempre <strong>calculado</strong> sumando movimientos, nunca guardado — igual criterio que <code>ExpensaDepartamento</code>/deudores), y sus movimientos anidados un nivel más abajo. La caja es un caso especial (un único registro por edificio, ya con <code>UniqueConstraint</code> desde la Tarea 5): <code>POST</code> rechaza con 400 si ya existe una, y suma <code>PATCH</code> para ajustar responsable/monto fijo sin tener que recrearla.</p>
+          <div class="code-block"><span class="kw">def</span> _saldo_fondo(fondo):
+    <span class="kw">return round</span>(<span class="kw">sum</span>(
+        <span class="kw">float</span>(m.monto) <span class="kw">if</span> m.tipo == <span class="str">"ingreso"</span> <span class="kw">else</span> -<span class="kw">float</span>(m.monto)
+        <span class="kw">for</span> m <span class="kw">in</span> fondo.movimientos
+    ), 2)  <span class="cm"># misma función, calcada para Caja</span></div>
+
+          <h4>Presupuestos y Facturas</h4>
+          <p>Presupuesto nace <code>pendiente</code> (Tarea 6). El <code>PATCH .../presupuestos/{id}/estado</code> aprueba o rechaza — al aprobar, opcionalmente vincula el <code>gasto_id</code> real (validado que pertenezca al mismo edificio). Factura exige <code>gasto_id</code> de entrada y valida lo mismo: no se puede facturar contra el gasto de otro edificio.</p>
+
+          <h4>Verificación: 17 tests nuevos (207 en total) + flujo real completo</h4>
+          <ul>
+            <li>Gastos: alta y listado; filtro por período; propietario (no admin) rechazado con 403.</li>
+            <li>Fondos: alta + 2 movimientos → saldo neto correcto; movimiento contra un fondo de OTRO edificio → 404; tipo de movimiento inválido → 422.</li>
+            <li>Caja: alta + movimientos → saldo correcto; segunda caja para el mismo edificio → 400; caja inexistente → 404; <code>PATCH</code> cambia el monto fijo.</li>
+            <li>Presupuestos: nace <code>pendiente</code>; aprobar lo vincula a un <code>Gasto</code> real; rechazar sin gasto; aprobar con gasto de otro edificio → 400; estado inválido → 422.</li>
+            <li>Facturas: alta y listado vinculado a su gasto; factura contra gasto de otro edificio → 400.</li>
+          </ul>
+          <div class="code-block">tests/test_financiero_crud.py ................. [17 passed]
+<span class="cm"># suite completa del backend: 207 passed (190 + 17 nuevos)</span></div>
+          <p>Verificado también contra la base real de desarrollo, con el edificio real que ya tenía 3 gastos cargados (Tarea 7): <code>GET /edificios/7/gastos</code> los listó correctamente; se creó un Fondo de Reserva real con un ingreso de $80.000 y el saldo calculado dio exacto; se creó un presupuesto real, naciendo <code>pendiente</code> como se esperaba.</p>
         </div>
       </section>
 

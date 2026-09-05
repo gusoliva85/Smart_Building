@@ -27,8 +27,10 @@ from app.core.dependencies import UsuarioAutenticado, obtener_usuario_actual, re
 from app.database import obtener_db
 from app.models.edificio import Departamento, Edificio, Piso
 from app.models.expensa import Expensa, ExpensaDepartamento, ExpensaDetalle
+from app.models.fondo import Caja, Fondo, MovimientoCaja, MovimientoFondo
 from app.models.gasto import Gasto
 from app.models.pago import Pago
+from app.models.presupuesto import Factura, Presupuesto
 from app.routers.edificios import requerir_admin_del_edificio
 from app.schemas.financiero import (
     DeudorSalida,
@@ -41,6 +43,25 @@ from app.schemas.financiero import (
     PagoEntrada,
     PagoEstadoEntrada,
     PagoSalida,
+)
+from app.schemas.fondo import (
+    CajaConfiguracion,
+    CajaEntrada,
+    CajaSalida,
+    FondoEntrada,
+    FondoSalida,
+    MovimientoCajaEntrada,
+    MovimientoCajaSalida,
+    MovimientoFondoEntrada,
+    MovimientoFondoSalida,
+)
+from app.schemas.gasto import GastoEntrada, GastoSalida
+from app.schemas.presupuesto import (
+    FacturaEntrada,
+    FacturaSalida,
+    PresupuestoEntrada,
+    PresupuestoEstadoEntrada,
+    PresupuestoSalida,
 )
 from app.services.finanzas import calcular_prorrateo_periodo
 
@@ -296,3 +317,282 @@ def actualizar_estado_pago(
     db.commit()
     db.refresh(pago)
     return pago
+
+
+# ------------------------------------------------------------------
+# Gastos, Fondos, Caja, Presupuestos y Facturas — CRUD anidado bajo
+# edificio (Documento General 6.4-6.8). Todo admin-only (mismo criterio
+# que el resto de este router salvo medio-pago/mis-departamentos/pagos):
+# es información de gestión interna, no algo que un residente cargue o
+# necesite ver directo.
+# ------------------------------------------------------------------
+
+@router.post("/{edificio_id}/gastos", response_model=GastoSalida, status_code=status.HTTP_201_CREATED)
+def crear_gasto(
+    datos: GastoEntrada,
+    edificio: Edificio = Depends(requerir_admin_del_edificio),
+    db: Session = Depends(obtener_db),
+):
+    gasto = Gasto(edificio_id=edificio.id, **datos.model_dump())
+    db.add(gasto)
+    db.commit()
+    db.refresh(gasto)
+    return gasto
+
+
+@router.get("/{edificio_id}/gastos", response_model=list[GastoSalida])
+def listar_gastos(
+    anio: int | None = None,
+    mes: int | None = None,
+    edificio: Edificio = Depends(requerir_admin_del_edificio),
+    db: Session = Depends(obtener_db),
+):
+    consulta = db.query(Gasto).filter(Gasto.edificio_id == edificio.id)
+    if anio is not None:
+        consulta = consulta.filter(extract("year", Gasto.fecha) == anio)
+    if mes is not None:
+        consulta = consulta.filter(extract("month", Gasto.fecha) == mes)
+    return consulta.order_by(Gasto.fecha.desc()).all()
+
+
+def _saldo_fondo(fondo: Fondo) -> float:
+    return round(sum(
+        float(m.monto) if m.tipo == "ingreso" else -float(m.monto)
+        for m in fondo.movimientos
+    ), 2)
+
+
+def _salida_fondo(fondo: Fondo) -> FondoSalida:
+    return FondoSalida(
+        id=fondo.id, edificio_id=fondo.edificio_id, nombre=fondo.nombre,
+        saldo=_saldo_fondo(fondo), creado_en=fondo.creado_en,
+    )
+
+
+@router.post("/{edificio_id}/fondos", response_model=FondoSalida, status_code=status.HTTP_201_CREATED)
+def crear_fondo(
+    datos: FondoEntrada,
+    edificio: Edificio = Depends(requerir_admin_del_edificio),
+    db: Session = Depends(obtener_db),
+):
+    fondo = Fondo(edificio_id=edificio.id, nombre=datos.nombre)
+    db.add(fondo)
+    db.commit()
+    db.refresh(fondo)
+    return _salida_fondo(fondo)
+
+
+@router.get("/{edificio_id}/fondos", response_model=list[FondoSalida])
+def listar_fondos(
+    edificio: Edificio = Depends(requerir_admin_del_edificio),
+    db: Session = Depends(obtener_db),
+):
+    fondos = db.query(Fondo).filter(Fondo.edificio_id == edificio.id).order_by(Fondo.nombre).all()
+    return [_salida_fondo(f) for f in fondos]
+
+
+def _obtener_fondo_del_edificio_o_404(fondo_id: int, edificio_id: int, db: Session) -> Fondo:
+    fondo = db.get(Fondo, fondo_id)
+    if not fondo or fondo.edificio_id != edificio_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fondo no encontrado en este edificio")
+    return fondo
+
+
+@router.post(
+    "/{edificio_id}/fondos/{fondo_id}/movimientos",
+    response_model=MovimientoFondoSalida,
+    status_code=status.HTTP_201_CREATED,
+)
+def crear_movimiento_fondo(
+    fondo_id: int,
+    datos: MovimientoFondoEntrada,
+    edificio: Edificio = Depends(requerir_admin_del_edificio),
+    db: Session = Depends(obtener_db),
+):
+    _obtener_fondo_del_edificio_o_404(fondo_id, edificio.id, db)
+    movimiento = MovimientoFondo(fondo_id=fondo_id, **datos.model_dump(exclude_none=True))
+    db.add(movimiento)
+    db.commit()
+    db.refresh(movimiento)
+    return movimiento
+
+
+@router.get("/{edificio_id}/fondos/{fondo_id}/movimientos", response_model=list[MovimientoFondoSalida])
+def listar_movimientos_fondo(
+    fondo_id: int,
+    edificio: Edificio = Depends(requerir_admin_del_edificio),
+    db: Session = Depends(obtener_db),
+):
+    fondo = _obtener_fondo_del_edificio_o_404(fondo_id, edificio.id, db)
+    return fondo.movimientos
+
+
+def _saldo_caja(caja: Caja) -> float:
+    return round(sum(
+        float(m.monto) if m.tipo == "ingreso" else -float(m.monto)
+        for m in caja.movimientos
+    ), 2)
+
+
+def _salida_caja(caja: Caja) -> CajaSalida:
+    return CajaSalida(
+        id=caja.id, edificio_id=caja.edificio_id, responsable_id=caja.responsable_id,
+        monto_fijo=float(caja.monto_fijo), saldo=_saldo_caja(caja), creado_en=caja.creado_en,
+    )
+
+
+@router.post("/{edificio_id}/caja", response_model=CajaSalida, status_code=status.HTTP_201_CREATED)
+def crear_caja(
+    datos: CajaEntrada,
+    edificio: Edificio = Depends(requerir_admin_del_edificio),
+    db: Session = Depends(obtener_db),
+):
+    caja = Caja(edificio_id=edificio.id, responsable_id=datos.responsable_id, monto_fijo=datos.monto_fijo)
+    db.add(caja)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Este edificio ya tiene una caja chica creada")
+    db.refresh(caja)
+    return _salida_caja(caja)
+
+
+def _obtener_caja_del_edificio_o_404(edificio_id: int, db: Session) -> Caja:
+    caja = db.query(Caja).filter(Caja.edificio_id == edificio_id).first()
+    if not caja:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Este edificio todavía no tiene caja chica")
+    return caja
+
+
+@router.get("/{edificio_id}/caja", response_model=CajaSalida)
+def obtener_caja(
+    edificio: Edificio = Depends(requerir_admin_del_edificio),
+    db: Session = Depends(obtener_db),
+):
+    return _salida_caja(_obtener_caja_del_edificio_o_404(edificio.id, db))
+
+
+@router.patch("/{edificio_id}/caja", response_model=CajaSalida)
+def configurar_caja(
+    datos: CajaConfiguracion,
+    edificio: Edificio = Depends(requerir_admin_del_edificio),
+    db: Session = Depends(obtener_db),
+):
+    caja = _obtener_caja_del_edificio_o_404(edificio.id, db)
+    for campo, valor in datos.model_dump(exclude_unset=True).items():
+        setattr(caja, campo, valor)
+    db.commit()
+    db.refresh(caja)
+    return _salida_caja(caja)
+
+
+@router.post(
+    "/{edificio_id}/caja/movimientos",
+    response_model=MovimientoCajaSalida,
+    status_code=status.HTTP_201_CREATED,
+)
+def crear_movimiento_caja(
+    datos: MovimientoCajaEntrada,
+    edificio: Edificio = Depends(requerir_admin_del_edificio),
+    db: Session = Depends(obtener_db),
+):
+    caja = _obtener_caja_del_edificio_o_404(edificio.id, db)
+    movimiento = MovimientoCaja(caja_id=caja.id, **datos.model_dump(exclude_none=True))
+    db.add(movimiento)
+    db.commit()
+    db.refresh(movimiento)
+    return movimiento
+
+
+@router.get("/{edificio_id}/caja/movimientos", response_model=list[MovimientoCajaSalida])
+def listar_movimientos_caja(
+    edificio: Edificio = Depends(requerir_admin_del_edificio),
+    db: Session = Depends(obtener_db),
+):
+    caja = _obtener_caja_del_edificio_o_404(edificio.id, db)
+    return caja.movimientos
+
+
+@router.post("/{edificio_id}/presupuestos", response_model=PresupuestoSalida, status_code=status.HTTP_201_CREATED)
+def crear_presupuesto(
+    datos: PresupuestoEntrada,
+    edificio: Edificio = Depends(requerir_admin_del_edificio),
+    db: Session = Depends(obtener_db),
+):
+    presupuesto = Presupuesto(edificio_id=edificio.id, **datos.model_dump(exclude_none=True))
+    db.add(presupuesto)
+    db.commit()
+    db.refresh(presupuesto)
+    return presupuesto
+
+
+@router.get("/{edificio_id}/presupuestos", response_model=list[PresupuestoSalida])
+def listar_presupuestos(
+    edificio: Edificio = Depends(requerir_admin_del_edificio),
+    db: Session = Depends(obtener_db),
+):
+    return (
+        db.query(Presupuesto)
+        .filter(Presupuesto.edificio_id == edificio.id)
+        .order_by(Presupuesto.creado_en.desc())
+        .all()
+    )
+
+
+@router.patch("/{edificio_id}/presupuestos/{presupuesto_id}/estado", response_model=PresupuestoSalida)
+def actualizar_estado_presupuesto(
+    presupuesto_id: int,
+    datos: PresupuestoEstadoEntrada,
+    edificio: Edificio = Depends(requerir_admin_del_edificio),
+    db: Session = Depends(obtener_db),
+):
+    """Aprobar puede (opcionalmente) vincular el presupuesto al `Gasto`
+    real que generó — el mismo criterio de comparar antes de aprobar de
+    `Pagos_y_Conciliacion.md`, aplicado acá: nada obliga a que el gasto ya
+    exista en el momento de aprobar el presupuesto."""
+    presupuesto = db.get(Presupuesto, presupuesto_id)
+    if not presupuesto or presupuesto.edificio_id != edificio.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Presupuesto no encontrado en este edificio")
+
+    if datos.gasto_id is not None:
+        gasto = db.get(Gasto, datos.gasto_id)
+        if not gasto or gasto.edificio_id != edificio.id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="gasto_id debe pertenecer a este edificio")
+        presupuesto.gasto_id = datos.gasto_id
+
+    presupuesto.estado = datos.estado
+    db.commit()
+    db.refresh(presupuesto)
+    return presupuesto
+
+
+@router.post("/{edificio_id}/facturas", response_model=FacturaSalida, status_code=status.HTTP_201_CREATED)
+def crear_factura(
+    datos: FacturaEntrada,
+    edificio: Edificio = Depends(requerir_admin_del_edificio),
+    db: Session = Depends(obtener_db),
+):
+    gasto = db.get(Gasto, datos.gasto_id)
+    if not gasto or gasto.edificio_id != edificio.id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="gasto_id debe pertenecer a este edificio")
+
+    factura = Factura(**datos.model_dump(exclude_none=True))
+    db.add(factura)
+    db.commit()
+    db.refresh(factura)
+    return factura
+
+
+@router.get("/{edificio_id}/facturas", response_model=list[FacturaSalida])
+def listar_facturas(
+    edificio: Edificio = Depends(requerir_admin_del_edificio),
+    db: Session = Depends(obtener_db),
+):
+    return (
+        db.query(Factura)
+        .join(Gasto, Gasto.id == Factura.gasto_id)
+        .filter(Gasto.edificio_id == edificio.id)
+        .order_by(Factura.creado_en.desc())
+        .all()
+    )
