@@ -156,7 +156,7 @@ Corresponde al Documento General, sección 6; Documento Técnico, sección 8. De
 - [x] **Backend: modelos `Expensa` y `ExpensaDetalle`.**
   `Expensa`: liquidación de un edificio para un período, con total. `ExpensaDetalle`: apertura por rubro dentro de esa expensa — la transparencia de gasto que pide explícitamente el Documento General 6.1.
 
-- [ ] **Backend: modelo `Pago`.**
+- [x] **Backend: modelo `Pago`.**
   Departamento, expensa correspondiente, monto, fecha, medio de pago, comprobante adjunto — soporta pago parcial o total.
 
 - [ ] **Backend: modelos `Fondo`, `MovimientoFondo`, `Caja`.**

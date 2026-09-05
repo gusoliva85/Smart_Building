@@ -343,7 +343,8 @@
       <a class="toc-link" data-goto="f2-t1"><span class="n">1</span>Lógica: criterio de prorrateo<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f2-t2"><span class="n">2</span>Backend: modelo Gasto<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f2-t3"><span class="n">3</span>Backend: Expensa y ExpensaDetalle<span class="estado-mini done"></span></a>
-      <a class="toc-link" data-goto="f2-t4"><span class="n">4</span>Backend: modelo Pago<span class="estado-mini pend"></span></a>
+      <a class="toc-link" data-goto="f2-t4"><span class="n">4</span>Backend: modelo Pago<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f2-t5"><span class="n">5</span>Backend: Fondo, MovimientoFondo, Caja<span class="estado-mini pend"></span></a>
     </div>
 
     <div class="toc-progress">
@@ -2498,7 +2499,7 @@ test_detalle_no_crece_con_la_cantidad_de_pisos                       PASSED</div
         <div class="slide-inner">
           <div class="divider-num">02</div>
           <h2>Fase 2 — Gestión financiera básica</h2>
-          <div class="fase-frac-grande" id="fase2-frac">3 / 14 aprobadas</div>
+          <div class="fase-frac-grande" id="fase2-frac">4 / 14 aprobadas</div>
           <p class="divider-desc">Corresponde al Documento General, sección 6; Documento Técnico, sección 8. El módulo más sensible: de acá sale directamente el dato de morosidad que colorea de amarillo/rojo un departamento en el Dashboard Visual (Fase 5).</p>
         </div>
       </section>
@@ -2650,7 +2651,7 @@ test_detalle_no_crece_con_la_cantidad_de_pisos                       PASSED</div
           <div class="tarea-head">
             <span class="tarea-num">Tarea 4</span>
             <h3>Backend: modelo <code>Pago</code></h3>
-            <span class="status pend"><i class="dot"></i>Implementado — pendiente de tu revisión</span>
+            <span class="status done"><i class="dot"></i>Hecho — aprobado</span>
           </div>
           <p class="lede">Registro de un pago real de un departamento contra una expensa puntual — Documento General, sección 6.2. Soporta pago parcial o total sin ninguna regla especial: el modelo no fuerza que <code>monto</code> sea igual al total de la expensa, esa conciliación (si queda "saldada" o sigue "parcial") es lógica de una tarea posterior de esta misma fase.</p>
 
@@ -2686,6 +2687,58 @@ test_detalle_no_crece_con_la_cantidad_de_pisos                       PASSED</div
           <div class="code-block">tests/test_modelo_pago.py ..... [5 passed]
 <span class="cm"># suite completa del backend: 129 passed (124 + 5 nuevos)</span></div>
           <p>Verificado también contra la base real de desarrollo: <code>PRAGMA table_info(pagos)</code> confirma las 8 columnas creadas solas, con los tipos esperados.</p>
+        </div>
+      </section>
+
+      <section class="slide tarea" id="f2-t5" data-crumb="Fase 2 · Tarea 5">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 5</span>
+            <h3>Backend: modelos <code>Fondo</code>, <code>MovimientoFondo</code> y <code>Caja</code></h3>
+            <span class="status pend"><i class="dot"></i>Implementado — pendiente de tu revisión</span>
+          </div>
+          <p class="lede">Documento General, secciones 6.5 y 6.6: fondos especiales (reserva, obras) separados del flujo corriente de gastos/expensas, y la caja chica del edificio con su responsable. Un solo archivo (<code>models/fondo.py</code>) para los tres, mismo criterio que <code>models/edificio.py</code>.</p>
+
+          <div class="code-block"><span class="kw">class</span> Fondo(Base):
+    __tablename__ = <span class="str">"fondos"</span>
+    edificio_id = Column(Integer, ForeignKey(<span class="str">"edificios.id"</span>), nullable=<span class="kw">False</span>)
+    nombre = Column(String, nullable=<span class="kw">False</span>)  <span class="cm"># "Fondo de Reserva", "Fondo de Obras"</span>
+    movimientos = relationship(<span class="str">"MovimientoFondo"</span>, back_populates=<span class="str">"fondo"</span>)
+
+<span class="kw">class</span> MovimientoFondo(Base):
+    __tablename__ = <span class="str">"movimientos_fondo"</span>
+    __table_args__ = (CheckConstraint(<span class="str">"tipo IN ('ingreso', 'egreso')"</span>, ...),)
+    fondo_id = Column(Integer, ForeignKey(<span class="str">"fondos.id"</span>), nullable=<span class="kw">False</span>)
+    tipo = Column(String, nullable=<span class="kw">False</span>)
+    monto = Column(Numeric(12, 2), nullable=<span class="kw">False</span>)
+    fecha = Column(Date, nullable=<span class="kw">False</span>, default=date.today)
+
+<span class="kw">class</span> Caja(Base):
+    __tablename__ = <span class="str">"cajas"</span>
+    edificio_id = Column(Integer, ForeignKey(<span class="str">"edificios.id"</span>), nullable=<span class="kw">False</span>, unique=<span class="kw">True</span>)
+    responsable_id = Column(Integer, ForeignKey(<span class="str">"usuarios.id"</span>), nullable=<span class="kw">False</span>)</div>
+
+          <div class="explicacion">
+            <div class="explicacion-titulo">
+              <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              Por qué el saldo no se guarda, y por qué <code>Caja</code> no tiene movimientos todavía
+            </div>
+            <p>El saldo disponible de un <code>Fondo</code> se calcula sumando sus <code>MovimientoFondo</code> (ingresos menos egresos) — no se guarda una columna aparte, para no tener un número que se pueda desincronizar del historial real. <code>tipo</code> en <code>MovimientoFondo</code> sí lleva un <code>CHECK</code> cerrado (a diferencia de <code>Gasto.rubro</code> o <code>Pago.medio_pago</code>) porque acá solo hay dos valores reales posibles — mismo criterio que <code>Cochera.tipo</code>.</p>
+            <p>El Documento General (6.6) también pide que la Caja tenga "su propio registro de ingresos/egresos", pero el Roadmap itemiza esta tarea con solo estos tres modelos — se dejó <code>Caja</code> como un registro único por edificio (<code>unique=True</code> en <code>edificio_id</code>) con su responsable, sin un <code>MovimientoCaja</code> todavía. Si la tarea de endpoints CRUD de Caja (más adelante en esta fase) confirma que hace falta, se agrega ahí — mismo criterio ya aplicado con <code>coeficiente</code> en <code>Departamento</code> o la distribución por departamento en <code>ExpensaDetalle</code>.</p>
+          </div>
+
+          <h4>Verificación: 6 tests nuevos (135 en total)</h4>
+          <ul>
+            <li>Fondo con un ingreso y un egreso: el saldo calculado a partir de los movimientos da el neto correcto.</li>
+            <li>Dos fondos distintos en el mismo edificio (Reserva + Obras), recuperables vía <code>edificio.fondos</code>.</li>
+            <li><code>tipo</code> de movimiento inválido ("transferencia"): rechazado por el <code>CHECK</code>.</li>
+            <li><code>monto</code> de movimiento en 0: rechazado.</li>
+            <li>Caja con responsable, recuperable vía <code>edificio.caja.responsable</code> (relación 1 a 1 real, con <code>backref(..., uselist=False)</code>).</li>
+            <li>Un edificio no puede tener dos cajas: rechazado por el <code>UniqueConstraint</code> en <code>edificio_id</code>.</li>
+          </ul>
+          <div class="code-block">tests/test_modelo_fondo.py ...... [6 passed]
+<span class="cm"># suite completa del backend: 135 passed (129 + 6 nuevos)</span></div>
+          <p>Verificado también contra la base real de desarrollo: <code>fondos</code>, <code>movimientos_fondo</code> y <code>cajas</code> creadas solas.</p>
         </div>
       </section>
 
