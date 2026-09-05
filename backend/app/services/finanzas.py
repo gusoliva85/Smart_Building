@@ -21,7 +21,20 @@ a todos los propietarios a la vez. Por eso el prorrateo de un monto nunca
 redondea cada parte por separado (eso puede dejar centavos de más o de
 menos sin asignar) — la última unidad recibe el resto exacto, así la suma
 de lo repartido da siempre igual al total original.
+
+`calcular_prorrateo_periodo()` es la evolución "automática" ya anticipada
+en `Prorrateo.md`: las funciones de arriba son lógica pura (sin tocar la
+base), pero automatizar el prorrateo de verdad necesita ir a buscar el
+monto real (sumando los `Gasto` del período) y el criterio real
+(`Departamento.coeficiente`) — por eso, a diferencia del resto del
+archivo, esa única función sí importa modelos y recibe una sesión.
 """
+
+from sqlalchemy import extract, func
+from sqlalchemy.orm import Session
+
+from app.models.edificio import Departamento, Piso
+from app.models.gasto import Gasto
 
 TOLERANCIA_SUMA_COEFICIENTES = 0.01  # margen para redondeos de punta a punta, no para errores reales
 
@@ -75,3 +88,46 @@ def prorratear_gasto(monto_total: float, coeficientes: list[float]) -> list[floa
     montos = [round(monto_total * coeficiente / 100, 2) for coeficiente in coeficientes[:-1]]
     montos.append(round(monto_total - sum(montos), 2))
     return montos
+
+
+def calcular_prorrateo_periodo(db: Session, edificio_id: int, anio: int, mes: int) -> dict[int, float]:
+    """Dado un edificio y un período (año/mes), resuelve de la base real
+    lo que `prorratear_gasto()` necesita — el monto total (sumando los
+    `Gasto` de ese edificio con `fecha` dentro de ese mes) y los
+    coeficientes reales (`Departamento.coeficiente`) — y devuelve cuánto
+    le corresponde a cada departamento.
+
+    Devuelve `{departamento_id: monto}`, nunca una lista posicional: dos
+    listas separadas (departamentos y montos) que dependen de mantenerse
+    en el mismo orden son un bug esperando pasar."""
+    departamentos = (
+        db.query(Departamento)
+        .join(Piso, Piso.id == Departamento.piso_id)
+        .filter(Piso.edificio_id == edificio_id)
+        .order_by(Departamento.id)
+        .all()
+    )
+    if not departamentos:
+        raise ValueError("El edificio no tiene departamentos")
+
+    sin_coeficiente = [d.identificador for d in departamentos if d.coeficiente is None]
+    if sin_coeficiente:
+        raise ValueError(
+            f"Hay departamentos sin coeficiente cargado: {', '.join(sin_coeficiente)}"
+        )
+    coeficientes = [float(d.coeficiente) for d in departamentos]
+
+    monto_total = (
+        db.query(func.sum(Gasto.monto))
+        .filter(
+            Gasto.edificio_id == edificio_id,
+            extract("year", Gasto.fecha) == anio,
+            extract("month", Gasto.fecha) == mes,
+        )
+        .scalar()
+    )
+    if not monto_total:
+        raise ValueError(f"No hay gastos cargados para el edificio en {mes}/{anio}")
+
+    montos = prorratear_gasto(float(monto_total), coeficientes)
+    return {departamento.id: monto for departamento, monto in zip(departamentos, montos)}

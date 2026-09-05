@@ -7,7 +7,7 @@ estructurales (`Edificio`, `Piso`, `Departamento`, `Cochera`,
 
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, CheckConstraint, Column, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, CheckConstraint, Column, DateTime, Float, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -81,7 +81,17 @@ class Piso(Base):
 class Departamento(Base):
     """Pertenece a un piso. `propietario_id`/`inquilino_id` son opcionales
     porque, al generarse la estructura vacía del edificio (Documento
-    General, sección 5.1), todavía no tienen a nadie asignado."""
+    General, sección 5.1), todavía no tienen a nadie asignado.
+
+    `coeficiente` (%) es el dato real de prorrateo (Documento General
+    6.1, investigado en `documentacion/Prorrateo.md`) — nace en `NULL`
+    (la estructura se genera antes de que exista el reglamento cargado
+    en el sistema) y se completa después desde una pantalla de
+    Configuración, todavía no construida. El `CheckConstraint` va pegado
+    a la columna (no en `__table_args__`) a propósito: es la única forma
+    en que `agregar_columnas_faltantes` (`core/migraciones.py`) puede
+    sumarlo con un `ALTER TABLE` real a la tabla `departamentos`, que ya
+    tiene filas reales."""
 
     __tablename__ = "departamentos"
 
@@ -92,6 +102,11 @@ class Departamento(Base):
     propietario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
     inquilino_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
     ocupado = Column(Boolean, nullable=False, default=False)  # "estado ocupacional" del Documento Técnico
+    coeficiente = Column(
+        Numeric(6, 3),
+        CheckConstraint("coeficiente IS NULL OR (coeficiente > 0 AND coeficiente <= 100)", name="ck_departamentos_coeficiente_valido"),
+        nullable=True,
+    )
 
 
 class Cochera(Base):

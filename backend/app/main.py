@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 import app.models  # noqa: F401 — registra todos los modelos en Base.metadata
 from app.core.config import NOMBRE_APP, ORIGENES_CORS, verificar_configuracion_produccion
+from app.core.migraciones import agregar_columnas_faltantes
 from app.database import Base, engine
 from app.routers import auth, edificios, usuarios
 
@@ -35,6 +36,7 @@ app.include_router(edificios.router)
 # nuevo tiene que quedar importado antes de esta línea — lo garantiza el
 # import de los routers de arriba, que a su vez importan sus modelos.
 Base.metadata.create_all(bind=engine)
+agregar_columnas_faltantes(engine, Base)
 
 
 @app.get("/api/salud")

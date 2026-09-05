@@ -79,12 +79,20 @@ Verificado con 18 tests (`backend/tests/test_servicio_finanzas.py`), incluyendo 
 
 ## 5. Lo que falta (próximas tareas de la Fase 2)
 
-- Agregar el campo `coeficiente` al modelo `Departamento` (hoy no existe — esta tarea fue deliberadamente "antes de tocar modelos").
-- Modelos `Gasto`, `Expensa`, `ExpensaDetalle`.
-- Servicio de prorrateo automático (`services/finanzas.py` va a crecer acá) que llame a `prorratear_gasto()` con los coeficientes reales de la base.
-- Pantalla de Configuración donde Administrador General/de Consorcio vean y editen los coeficientes por unidad.
+- Pantalla de Configuración donde Administrador General/de Consorcio vean y editen los coeficientes por unidad — hoy el `coeficiente` solo se puede cargar directo en la base o vía script, no hay UI todavía.
+- Endpoint de generación de expensa mensual que llame a `calcular_prorrateo_periodo()` y genere `Expensa`/`ExpensaDetalle` reales (próxima tarea del Roadmap).
 - (Más adelante, fuera de esta fase) excepción de prorrateo por rubro.
+
+### Cerrado en esta actualización
+
+- **`Departamento.coeficiente`**: agregado (`Numeric(6,3)`, `CHECK` de rango 0-100, nace en `NULL`). Como la tabla `departamentos` ya tenía filas reales (65 en desarrollo, datos reales en producción), hizo falta un mecanismo de migración que el proyecto no tenía — ver `core/migraciones.py` y la nota técnica abajo.
+- **`services/finanzas.py::calcular_prorrateo_periodo(db, edificio_id, anio, mes)`**: la versión automática ya anticipada acá — resuelve el monto real (suma de `Gasto` del período) y los coeficientes reales de la base, y llama a `prorratear_gasto()`. Único punto del archivo que toca la base (el resto sigue siendo lógica pura).
+- Verificado de punta a punta contra la base real de desarrollo (no solo tests en memoria): edificio real de 12 departamentos, coeficientes cargados con el atajo de partes iguales, 3 gastos reales de un período — el prorrateo devuelto suma exactamente el total de gastos, sin perder un centavo.
+
+### Nota técnica: por qué hizo falta `core/migraciones.py`
+
+`Base.metadata.create_all()` (lo único que este proyecto usa para el esquema, sin Alembic) crea tablas que no existen, pero **no les agrega columnas nuevas a tablas que ya existen**. Hasta esta tarea nunca hizo falta nada más porque cada modelo nuevo fue siempre una tabla nueva — `coeficiente` es la primera columna que se suma a una tabla vieja con datos reales. Se resolvió con un helper mínimo (`agregar_columnas_faltantes`, ver `que_hice.html`) que compara columnas del modelo contra la tabla real y agrega solo las que faltan, con `ALTER TABLE`. Detalle importante encontrado al escribir sus tests: el `CheckConstraint` de `coeficiente` tiene que declararse pegado a la columna (no en `__table_args__`), porque solo así viaja en el propio `ADD COLUMN` — la única forma en que SQLite acepta un `CHECK` agregado después de crear la tabla.
 
 ---
 
-*Última actualización: aprobado el diseño inicial (coeficiente por unidad + atajos de carga) — 2026-09-03. Este documento se actualiza antes que el código cada vez que el criterio de prorrateo cambie.*
+*Última actualización: agregado `Departamento.coeficiente` y `calcular_prorrateo_periodo()`, verificado de punta a punta contra la base real — 2026-09-04. Este documento se actualiza antes que el código cada vez que el criterio de prorrateo cambie.*

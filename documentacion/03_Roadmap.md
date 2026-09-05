@@ -162,7 +162,7 @@ Corresponde al Documento General, sección 6; Documento Técnico, sección 8. De
 - [x] **Backend: modelos `Fondo`, `MovimientoFondo`, `Caja`.**
   Fondo de reserva y otros fondos especiales con sus movimientos, separados del flujo corriente; caja chica del edificio con responsable. *(Corrección: el primer diseño de `Caja` no tenía movimientos propios — investigado en `documentacion/Caja_chica.md` tras la duda del usuario, se agregó `monto_fijo` y el modelo `MovimientoCaja`, siguiendo el sistema real de "fondo fijo" de una caja chica.)*
 
-- [ ] **Backend: modelos `Presupuesto` y `Factura`.**
+- [x] **Backend: modelos `Presupuesto` y `Factura`.**
   Para sostener la trazabilidad completa gasto → presupuesto → factura → pago (Documento General 6.7-6.8).
 
 - [ ] **Backend: servicio de prorrateo automático.**

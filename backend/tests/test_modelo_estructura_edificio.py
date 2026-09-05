@@ -105,3 +105,37 @@ def test_departamento_sin_asignar_queda_libre_para_generacion_automatica(sesion)
     assert depto.propietario_id is None
     assert depto.inquilino_id is None
     assert depto.ocupado is False
+    assert depto.coeficiente is None  # nace vacío, se completa desde Configuración
+
+
+def test_coeficiente_valido_se_guarda(sesion):
+    edificio = Edificio(nombre="Torre Coeficiente", direccion="Calle 1")
+    sesion.add(edificio)
+    sesion.commit()
+    piso = Piso(edificio_id=edificio.id, numero="1", orden=1)
+    sesion.add(piso)
+    sesion.commit()
+
+    depto = Departamento(piso_id=piso.id, identificador="1A", coeficiente=33.333)
+    sesion.add(depto)
+    sesion.commit()
+
+    assert float(depto.coeficiente) == 33.333
+
+
+def test_coeficiente_fuera_de_rango_rechazado_por_la_base(sesion):
+    edificio = Edificio(nombre="Torre Coeficiente Invalido", direccion="Calle 2")
+    sesion.add(edificio)
+    sesion.commit()
+    piso = Piso(edificio_id=edificio.id, numero="1", orden=1)
+    sesion.add(piso)
+    sesion.commit()
+
+    sesion.add(Departamento(piso_id=piso.id, identificador="1A", coeficiente=0))
+    with pytest.raises(IntegrityError):
+        sesion.commit()
+    sesion.rollback()
+
+    sesion.add(Departamento(piso_id=piso.id, identificador="1B", coeficiente=150))
+    with pytest.raises(IntegrityError):
+        sesion.commit()
