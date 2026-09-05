@@ -98,6 +98,27 @@ class PagoSalida(BaseModel):
     creado_en: datetime
 
 
+class ExpensaImpagaSalida(BaseModel):
+    expensa_id: int
+    anio: int
+    mes: int
+    saldo: float
+
+
+class DeudorSalida(BaseModel):
+    """Documento Técnico, sección 5.2: vista calculada, nunca una tabla
+    propia. `meses_atraso` es lo que alimenta `deudaSeverity()` en la
+    Fase 5: 1 mes → amarillo, más de 1 mes → rojo (Documento General 6.3)."""
+
+    departamento_id: int
+    identificador: str
+    propietario_id: int | None
+    inquilino_id: int | None
+    deuda_total: float
+    meses_atraso: int
+    expensas_impagas: list[ExpensaImpagaSalida]
+
+
 class PagoEstadoEntrada(BaseModel):
     """Un Administrador solo puede llevar un pago a `confirmado` o
     `rechazado` — nunca de vuelta a `pendiente` a mano (ese es el estado

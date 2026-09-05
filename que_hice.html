@@ -348,7 +348,8 @@
       <a class="toc-link" data-goto="f2-t6"><span class="n">6</span>Backend: Presupuesto y Factura<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f2-t7"><span class="n">7</span>Servicio de prorrateo automático<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f2-t8"><span class="n">8</span>Generación de expensa mensual<span class="estado-mini done"></span></a>
-      <a class="toc-link" data-goto="f2-t9"><span class="n">9</span>Pagos, medio de pago y conciliación<span class="estado-mini pend"></span></a>
+      <a class="toc-link" data-goto="f2-t9"><span class="n">9</span>Pagos, medio de pago y conciliación<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f2-t10"><span class="n">10</span>Cálculo de deudores<span class="estado-mini pend"></span></a>
     </div>
 
     <div class="toc-progress">
@@ -2510,7 +2511,7 @@ test_detalle_no_crece_con_la_cantidad_de_pisos                       PASSED</div
         <div class="slide-inner">
           <div class="divider-num">02</div>
           <h2>Fase 2 — Gestión financiera básica</h2>
-          <div class="fase-frac-grande" id="fase2-frac">8 / 14 aprobadas</div>
+          <div class="fase-frac-grande" id="fase2-frac">9 / 14 aprobadas</div>
           <p class="divider-desc">Corresponde al Documento General, sección 6; Documento Técnico, sección 8. El módulo más sensible: de acá sale directamente el dato de morosidad que colorea de amarillo/rojo un departamento en el Dashboard Visual (Fase 5).</p>
         </div>
       </section>
@@ -2939,8 +2940,8 @@ Coincide exacto con el total de gastos: True
         <div class="slide-inner">
           <div class="tarea-head">
             <span class="tarea-num">Tarea 9</span>
-            <h3>Backend: registro de pagos, medio de pago (CBU/alias/QR) y conciliación</h3>
-            <span class="status pend"><i class="dot"></i>Implementado — pendiente de tu revisión</span>
+            <h3>Backend: registro de pagos, medio de pago (CBU/alias) y conciliación</h3>
+            <span class="status done"><i class="dot"></i>Hecho — aprobado</span>
           </div>
           <p class="lede">A pedido explícito del usuario, ampliando la tarea original del Roadmap: mostrar CBU, alias y un QR como medio de pago, y que el propietario/inquilino cargue su propio pago sin elegir edificio ni piso. Antes de tocar código se investigó si un QR de pago real es legalmente viable con el alcance de este proyecto — no lo es, y cambia la forma de resolverlo. Todo documentado en <code>documentacion/Pagos_y_Conciliacion.md</code>.</p>
 
@@ -2981,6 +2982,40 @@ tests/test_modelo_pago.py (+3 de estado) .... [8 passed]
             </div>
             <p>El usuario decidió no seguir ni con el QR de conveniencia: "si el QR solo muestra un CBU y alias no me convence, prefiero que lo muestres con los botones de copiar cada uno por separado, así el usuario se dirige a su aplicación de banco o billetera virtual y se encarga de realizar el pago." Tiene sentido en la práctica: copiar un texto es un toque; escanear un QR para volver a copiar el texto que había adentro es un paso de más, sin ninguna ganancia real. <code>GET /api/edificios/{id}/medio-pago</code> ahora devuelve solo <code>cbu</code>/<code>alias_cbu</code> — se sacó <code>qr_base64</code> del schema, el helper de generación y el import de <code>qrcode</code> del router (la librería sigue en <code>requirements.txt</code>, la va a necesitar la Fase 4 para los QR de activos). Tests actualizados: 14 en <code>test_financiero_pagos.py</code>, suite completa sigue en 182 (no se sumaron ni se sacaron casos, solo cambió qué se afirma). Verificado contra la base real: <code>/edificios/7/medio-pago</code> devuelve <code>{"cbu": "...", "alias_cbu": "..."}</code>, sin ningún campo de QR.</p>
           </div>
+        </div>
+      </section>
+
+      <section class="slide tarea" id="f2-t10" data-crumb="Fase 2 · Tarea 10">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 10</span>
+            <h3>Backend: cálculo de deudores</h3>
+            <span class="status pend"><i class="dot"></i>Implementado — pendiente de tu revisión</span>
+          </div>
+          <p class="lede"><code>GET /api/edificios/{id}/deudores</code> — Documento Técnico 5.2: vista <strong>calculada</strong>, nunca una tabla propia. Recorre los <code>ExpensaDepartamento</code> de todo el edificio, descuenta los <code>Pago</code> ya <code>confirmado</code>s (nunca los <code>pendiente</code>), y devuelve solo las unidades con saldo real. Es el dato que va a alimentar <code>deudaSeverity()</code> en el Dashboard Visual de la Fase 5.</p>
+
+          <div class="explicacion">
+            <div class="explicacion-titulo">
+              <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              Cómo se cuenta "un mes de atraso"
+            </div>
+            <p>El Documento General (6.3) fija la regla exacta: 1 mes de deuda → amarillo, más de 1 mes → rojo. La expensa del mes corriente <strong>no</strong> cuenta como atrasada todavía (recién se generó, es normal que no esté pagada el mismo día) — <code>meses_atraso</code> se calcula desde el período impago más viejo hasta hoy, sin contar el propio mes de esa expensa: agosto evaluado en agosto da 0, evaluado en septiembre da 1, evaluado en octubre (si siguen sin pagar julio) da más. El endpoint acepta un parámetro <code>hoy</code> opcional (por defecto la fecha real) solo para poder testear reglas de fecha sin depender del reloj del sistema.</p>
+            <p>Se factorizó el cálculo de saldo (<code>_saldo()</code>/<code>_pagado_confirmado()</code>) que ya existía duplicado en <code>/mis-departamentos</code> — misma lógica, un solo lugar.</p>
+          </div>
+
+          <h4>Verificación: 8 tests nuevos (190 en total) + flujo real completo</h4>
+          <ul>
+            <li>Sin deuda real (las dos unidades del edificio de prueba con su expensa confirmada): lista vacía.</li>
+            <li>Deuda del mes corriente evaluada el mismo mes: <code>meses_atraso = 0</code> (no cuenta todavía).</li>
+            <li>Un mes de atraso real (agosto impago, evaluado en septiembre): <code>meses_atraso = 1</code>.</li>
+            <li>Dos períodos impagos seguidos (julio y agosto, evaluado en septiembre): <code>meses_atraso = 2</code>, deuda total suma los dos.</li>
+            <li>Confirmar el pago saca al departamento del listado; uno al día (con las dos expensas pagas) nunca aparece, aunque el moroso siga apareciendo.</li>
+            <li>Orden: el más atrasado primero.</li>
+            <li>Propietario (no admin): 403 — mismo criterio que el resto del router financiero.</li>
+          </ul>
+          <div class="code-block">tests/test_financiero_deudores.py ........ [8 passed]
+<span class="cm"># suite completa del backend: 190 passed (182 + 8 nuevos)</span></div>
+          <p>Verificado también contra la base real de desarrollo: en el edificio de prueba (Torre Cierre Fase 1, con el pago de la Tarea 9 ya confirmado en el departamento 1A), <code>GET /edificios/7/deudores</code> devolvió los 11 departamentos restantes con <code>meses_atraso: 1</code> y los montos exactos ya validados ($13.118,88 / $13.125,19) — 1A correctamente ausente del listado.</p>
         </div>
       </section>
 

@@ -171,8 +171,8 @@ Corresponde al Documento General, sección 6; Documento Técnico, sección 8. De
 - [x] **Backend: generación de expensa mensual.**
   `POST /api/edificios/{id}/expensas`: toma los gastos del período, aplica el prorrateo, genera `Expensa` + `ExpensaDetalle` por departamento.
 
-- [ ] **Backend: registro de pagos y conciliación.**
-  `POST /api/departamentos/{id}/pagos`: registra el pago, actualiza si la expensa queda saldada o parcial. *(Ampliada a pedido explícito del usuario: medio de pago del edificio (CBU/alias + QR de conveniencia — investigado en `documentacion/Pagos_y_Conciliacion.md`, un QR de pago instantáneo real requiere ser/integrar un PSP registrado y queda fuera de alcance) y carga de pago por el propio usuario logueado (`POST /api/pagos`, sin elegir edificio/piso — resuelve sus propios departamentos), naciendo en estado `pendiente` hasta que un Administrador lo concilie (`PATCH /api/pagos/{id}/estado`). `GET /api/mis-departamentos` cubre de paso el "estado de cuenta por unidad" del Documento General 6.2.)*
+- [x] **Backend: registro de pagos y conciliación.**
+  `POST /api/departamentos/{id}/pagos`: registra el pago, actualiza si la expensa queda saldada o parcial. *(Ampliada a pedido explícito del usuario: medio de pago del edificio (CBU/alias — investigado en `documentacion/Pagos_y_Conciliacion.md`; un QR de pago instantáneo real requiere ser/integrar un PSP registrado y queda fuera de alcance, y el propio usuario terminó prefiriendo directamente copiar CBU/alias por separado, sin QR de ningún tipo) y carga de pago por el propio usuario logueado (`POST /api/pagos`, sin elegir edificio/piso — resuelve sus propios departamentos), naciendo en estado `pendiente` hasta que un Administrador lo concilie (`PATCH /api/pagos/{id}/estado`). `GET /api/mis-departamentos` cubre de paso el "estado de cuenta por unidad" del Documento General 6.2.)*
 
 - [ ] **Backend: cálculo de deudores.**
   `GET /api/edificios/{id}/deudores` (vista calculada, no tabla propia — Documento Técnico 5.2): antigüedad de deuda en meses por departamento. Este es el dato que va a alimentar `deudaSeverity()` en la Fase 5.

@@ -16,6 +16,7 @@ real y lo confirma.
 """
 
 from collections import defaultdict
+from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import extract
@@ -30,7 +31,9 @@ from app.models.gasto import Gasto
 from app.models.pago import Pago
 from app.routers.edificios import requerir_admin_del_edificio
 from app.schemas.financiero import (
+    DeudorSalida,
     ExpensaGeneracionEntrada,
+    ExpensaImpagaSalida,
     ExpensaSalida,
     MedioPagoSalida,
     MiDepartamentoSalida,
@@ -122,6 +125,75 @@ def obtener_medio_pago(
     return MedioPagoSalida(cbu=edificio.cbu, alias_cbu=edificio.alias_cbu)
 
 
+TOLERANCIA_SALDO = 0.01  # mismo margen de redondeo que services/finanzas.py, no para deuda real
+
+
+def _pagado_confirmado(expensa_departamento: ExpensaDepartamento) -> float:
+    return sum(
+        float(p.monto) for p in expensa_departamento.expensa.pagos
+        if p.departamento_id == expensa_departamento.departamento_id and p.estado == "confirmado"
+    )
+
+
+def _saldo(expensa_departamento: ExpensaDepartamento) -> float:
+    return round(float(expensa_departamento.monto) - _pagado_confirmado(expensa_departamento), 2)
+
+
+@router.get("/{edificio_id}/deudores", response_model=list[DeudorSalida])
+def listar_deudores(
+    hoy: date | None = None,
+    edificio: Edificio = Depends(requerir_admin_del_edificio),
+    db: Session = Depends(obtener_db),
+):
+    """Documento Técnico 5.2: vista CALCULADA, no una tabla propia — se
+    recorren los `ExpensaDepartamento` de todo el edificio y se descarta
+    todo lo que ya está saldado. `meses_atraso` cuenta desde el período
+    más viejo con saldo pendiente hasta hoy, sin contar el mes de la
+    propia expensa (la del mes corriente todavía no está "atrasada",
+    aunque tenga saldo) — así 1 mes vencido da amarillo, más de 1 da
+    rojo (Documento General 6.3). `hoy` es un parámetro de test/depuración
+    (por defecto la fecha real) para no depender de la fecha del sistema
+    en los tests."""
+    hoy = hoy or date.today()
+    mes_actual_absoluto = hoy.year * 12 + hoy.month
+
+    departamentos = (
+        db.query(Departamento)
+        .join(Piso, Piso.id == Departamento.piso_id)
+        .filter(Piso.edificio_id == edificio.id)
+        .all()
+    )
+
+    deudores = []
+    for depto in departamentos:
+        impagas = []
+        for ed in depto.expensas_departamento:
+            saldo = _saldo(ed)
+            if saldo > TOLERANCIA_SALDO:
+                impagas.append((ed, saldo))
+        if not impagas:
+            continue
+
+        mas_vieja = min(ed.expensa.anio * 12 + ed.expensa.mes for ed, _ in impagas)
+        meses_atraso = max(0, mes_actual_absoluto - mas_vieja)
+
+        deudores.append(DeudorSalida(
+            departamento_id=depto.id,
+            identificador=depto.identificador,
+            propietario_id=depto.propietario_id,
+            inquilino_id=depto.inquilino_id,
+            deuda_total=round(sum(saldo for _, saldo in impagas), 2),
+            meses_atraso=meses_atraso,
+            expensas_impagas=sorted(
+                (ExpensaImpagaSalida(expensa_id=ed.expensa_id, anio=ed.expensa.anio, mes=ed.expensa.mes, saldo=saldo)
+                 for ed, saldo in impagas),
+                key=lambda e: (e.anio, e.mes),
+            ),
+        ))
+
+    return sorted(deudores, key=lambda d: d.meses_atraso, reverse=True)
+
+
 @router_pagos.get("/mis-departamentos", response_model=list[MiDepartamentoSalida])
 def listar_mis_departamentos(
     db: Session = Depends(obtener_db),
@@ -140,20 +212,17 @@ def listar_mis_departamentos(
 
     resultado = []
     for depto in departamentos:
-        expensas_salida = []
-        for ed in depto.expensas_departamento:
-            pagado_confirmado = sum(
-                float(p.monto) for p in ed.expensa.pagos
-                if p.departamento_id == depto.id and p.estado == "confirmado"
-            )
-            expensas_salida.append(MiExpensaSalida(
+        expensas_salida = [
+            MiExpensaSalida(
                 expensa_id=ed.expensa_id,
                 anio=ed.expensa.anio,
                 mes=ed.expensa.mes,
                 monto=float(ed.monto),
-                pagado_confirmado=pagado_confirmado,
-                saldo=round(float(ed.monto) - pagado_confirmado, 2),
-            ))
+                pagado_confirmado=_pagado_confirmado(ed),
+                saldo=_saldo(ed),
+            )
+            for ed in depto.expensas_departamento
+        ]
         resultado.append(MiDepartamentoSalida(
             departamento_id=depto.id,
             identificador=depto.identificador,
