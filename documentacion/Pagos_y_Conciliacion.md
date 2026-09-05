@@ -35,7 +35,9 @@ Hay dos caminos posibles, con implicancias muy distintas:
 | **A. QR de conveniencia** (recomendado) | Un QR que al escanearlo muestra el CBU/alias como texto (o los copia), para que el usuario lo pegue en su propia app bancaria. | Bajo — se genera con la misma librería `qrcode` ya prevista en el proyecto (Fase 4, activos). | 100% legal: es solo un código de barras con texto, exactamente igual a mostrar el CBU escrito. No es un medio de pago en sí, es una ayuda para copiarlo. |
 | B. QR de pago real (Transferencias 3.0 / Mercado Pago, etc.) | Un QR que dispara la transferencia automáticamente al escanearlo desde cualquier app. | Alto — requiere integrar con un PSP real (Mercado Pago, un banco) vía su API, con el administrador del edificio dado de alta como comercio en ese proveedor. | Requiere ser (o integrar con) un PSP registrado — fuera del alcance actual del proyecto, ninguna fase del Roadmap lo contempla. |
 
-**Recomendación: Opción A.** Resuelve el pedido real ("mostrar un QR para pagar") sin prometer una función que técnicamente no se puede construir de forma legítima con el alcance actual. Hay que ser explícito con el usuario de que este QR es **para copiar el CBU/alias más rápido, no un QR de pago instantáneo** — si más adelante se quiere integrar con Mercado Pago u otro PSP, es una integración nueva y grande, no una extensión chica de este modelo.
+**Recomendación original: Opción A** (QR de conveniencia) — resuelve el pedido sin prometer una función que técnicamente no se puede construir de forma legítima con el alcance actual.
+
+**Decisión final del usuario (corrección):** ni siquiera el QR de conveniencia — directamente **CBU y alias como texto, cada uno con su propio botón de copiar**, para que el usuario los pegue en la app de su banco/billetera. Más simple de usar en la práctica (copiar un texto es un toque; escanear un QR para volver a copiar el texto que había adentro es un paso de más) y elimina cualquier ambigüedad sobre si "hay un QR" implica que el pago se dispara solo. `qrcode` sigue en `requirements.txt` porque la Fase 4 (activos) sí lo va a necesitar para los códigos QR de matafuegos/ascensores — no se saca la dependencia, solo se saca su uso acá.
 
 ---
 
@@ -62,7 +64,7 @@ El pedido es "esto se hace por usuario, no hace falta elegir el piso" — cierto
 | Cambio | Detalle |
 |---|---|
 | `Edificio.cbu`, `Edificio.alias_cbu` | Nuevos campos de configuración (nullable — no todos los edificios los van a tener cargados de entrada), editables por Administrador General/de Consorcio del edificio, mismo criterio que `contacto_emergencia_nombre`. |
-| Endpoint que devuelve un QR con el CBU/alias | Generado con `qrcode` (misma librería ya prevista para activos en la Fase 4) — texto plano, no un payload de Transferencias 3.0. |
+| `GET /api/edificios/{id}/medio-pago` devuelve solo `cbu`/`alias_cbu` como texto | Sin QR (corrección final del usuario) — el frontend los muestra con un botón de copiar cada uno. |
 | `Pago.estado` (`pendiente` / `confirmado` / `rechazado`) | Nace en `pendiente` cuando lo carga un propietario/inquilino. Un Administrador lo pasa a `confirmado` o `rechazado`. Solo `confirmado` cuenta para el estado de deuda (próxima tarea: cálculo de deudores). |
 | `POST /api/mis-pagos` (o similar, alcance del usuario logueado) | El propietario/inquilino carga comprobante + fecha + monto; el `departamento_id` se resuelve solo si tiene una única unidad, o se elige entre las propias si tiene más de una — nunca un desplegable del edificio completo. |
 | `PATCH /api/pagos/{id}/estado` | Para que el Administrador confirme o rechace — separado del alta, porque lo hace un rol distinto. |
@@ -86,4 +88,4 @@ El pedido es "esto se hace por usuario, no hace falta elegir el piso" — cierto
 
 ---
 
-*Última actualización: investigación inicial (QR de conveniencia vs. Transferencias 3.0, conciliación obligatoria, propietarios multi-unidad) — 2026-09-05. Este documento se actualiza antes que el código cada vez que el criterio de pagos/conciliación cambie.*
+*Última actualización: se saca el QR de conveniencia — CBU/alias se copian por separado, decisión final del usuario — 2026-09-05. Este documento se actualiza antes que el código cada vez que el criterio de pagos/conciliación cambie.*

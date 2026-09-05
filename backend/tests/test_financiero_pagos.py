@@ -103,15 +103,16 @@ def _expensa_id_de(entorno, depto_id):
 
 # ------------------------------- medio de pago -------------------------------
 
-def test_medio_pago_sin_cbu_cargado_devuelve_nulos_sin_qr(entorno):
+def test_medio_pago_sin_cbu_cargado_devuelve_nulos(entorno):
     cliente, headers_admin = entorno["cliente"], entorno["headers_admin"]
     r = cliente.get(f"/api/edificios/{entorno['edificio_id']}/medio-pago", headers=headers_admin)
     assert r.status_code == 200
     cuerpo = r.json()
-    assert cuerpo["cbu"] is None and cuerpo["qr_base64"] is None
+    assert cuerpo["cbu"] is None and cuerpo["alias_cbu"] is None
+    assert "qr_base64" not in cuerpo  # sin QR — decisión final del usuario
 
 
-def test_admin_carga_cbu_y_alias_y_aparece_el_qr(entorno):
+def test_admin_carga_cbu_y_alias(entorno):
     cliente, headers_admin = entorno["cliente"], entorno["headers_admin"]
     r = cliente.patch(
         f"/api/edificios/{entorno['edificio_id']}",
@@ -124,7 +125,6 @@ def test_admin_carga_cbu_y_alias_y_aparece_el_qr(entorno):
     cuerpo = r.json()
     assert cuerpo["cbu"] == "0000003100000000000001"
     assert cuerpo["alias_cbu"] == "torre.pagos.test"
-    assert cuerpo["qr_base64"]  # se generó algo
 
 
 def test_propietario_de_una_unidad_puede_ver_el_medio_de_pago(entorno):

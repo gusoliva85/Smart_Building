@@ -40,13 +40,13 @@ class ExpensaSalida(BaseModel):
 
 
 class MedioPagoSalida(BaseModel):
-    """CBU/alias del edificio + un QR "de conveniencia" (texto plano, no
-    un QR de Transferencias 3.0 — ver Pagos_y_Conciliacion.md sección 2).
-    `qr_base64` viene vacío si el edificio todavía no cargó cbu/alias."""
+    """CBU/alias del edificio para transferir por fuera de la plataforma
+    — sin QR (decisión final del usuario, ver Pagos_y_Conciliacion.md):
+    cada dato se copia por separado y el pago se hace desde la app del
+    banco/billetera del propio usuario."""
 
     cbu: str | None
     alias_cbu: str | None
-    qr_base64: str | None
 
 
 class MiExpensaSalida(BaseModel):

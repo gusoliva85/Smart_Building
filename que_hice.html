@@ -2964,7 +2964,7 @@ Coincide exacto con el total de gastos: True
 
           <h4>Verificación: 17 tests nuevos (182 en total) + flujo real completo</h4>
           <ul>
-            <li>Medio de pago: sin CBU cargado no hay QR; con CBU/alias, aparece un QR real; propietario de una unidad accede, uno ajeno recibe 403.</li>
+            <li>Medio de pago: sin CBU cargado devuelve nulos; con CBU/alias cargados, los devuelve; propietario de una unidad accede, uno ajeno recibe 403.</li>
             <li>Mis departamentos: expensa y saldo completo sin pagos; usuario sin unidades devuelve lista vacía.</li>
             <li>Registrar pago: nace <code>pendiente</code>; inquilino también puede pagar la misma unidad que su propietario; departamento ajeno rechazado (403); expensa que no corresponde al departamento rechazada (400).</li>
             <li>Conciliar: admin confirma y el saldo baja a 0; mientras está pendiente el saldo no se mueve; el propio residente no puede confirmarse a sí mismo (403); estado inválido en el PATCH (422).</li>
@@ -2973,6 +2973,14 @@ Coincide exacto con el total de gastos: True
 tests/test_modelo_pago.py (+3 de estado) .... [8 passed]
 <span class="cm"># suite completa del backend: 182 passed (165 + 17 nuevos)</span></div>
           <p>Verificado también de punta a punta contra la base real de desarrollo, con datos reales de sesiones anteriores: se cargó CBU/alias en Torre Cierre Fase 1, el Propietario de Prueba (que tiene unidades reales en <strong>dos edificios distintos</strong>) vio su medio de pago y su estado de cuenta completo vía <code>/mis-departamentos</code>, cargó un pago real de $13.118,88 (quedó <code>pendiente</code>, saldo sin cambios), y al confirmarlo el Administrador el saldo bajó a $0 — todo con la API real, sin acceso directo a la base.</p>
+
+          <div class="correccion">
+            <div class="correccion-titulo">
+              <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              Corrección: se saca el QR — CBU y alias se copian por separado
+            </div>
+            <p>El usuario decidió no seguir ni con el QR de conveniencia: "si el QR solo muestra un CBU y alias no me convence, prefiero que lo muestres con los botones de copiar cada uno por separado, así el usuario se dirige a su aplicación de banco o billetera virtual y se encarga de realizar el pago." Tiene sentido en la práctica: copiar un texto es un toque; escanear un QR para volver a copiar el texto que había adentro es un paso de más, sin ninguna ganancia real. <code>GET /api/edificios/{id}/medio-pago</code> ahora devuelve solo <code>cbu</code>/<code>alias_cbu</code> — se sacó <code>qr_base64</code> del schema, el helper de generación y el import de <code>qrcode</code> del router (la librería sigue en <code>requirements.txt</code>, la va a necesitar la Fase 4 para los QR de activos). Tests actualizados: 14 en <code>test_financiero_pagos.py</code>, suite completa sigue en 182 (no se sumaron ni se sacaron casos, solo cambió qué se afirma). Verificado contra la base real: <code>/edificios/7/medio-pago</code> devuelve <code>{"cbu": "...", "alias_cbu": "..."}</code>, sin ningún campo de QR.</p>
+          </div>
         </div>
       </section>
 

@@ -7,16 +7,16 @@ operación transaccional.
 Medio de pago y registro de pagos (investigado en
 `documentacion/Pagos_y_Conciliacion.md`): el CBU/alias de un edificio es
 informativo — la plata nunca pasa por la plataforma, se muestra el dato
-para transferir por fuera. El pago que carga un propietario/inquilino
-nace `pendiente`: recién cuenta como cobrado cuando un Administrador lo
-concilia contra el movimiento bancario real y lo confirma.
+para transferir por fuera. Sin QR (decisión final del usuario, corrección
+sobre el QR de conveniencia inicial): CBU y alias se copian por separado,
+el pago se hace en la app del banco/billetera del usuario. El pago que
+carga un propietario/inquilino nace `pendiente`: recién cuenta como
+cobrado cuando un Administrador lo concilia contra el movimiento bancario
+real y lo confirma.
 """
 
-import base64
-import io
 from collections import defaultdict
 
-import qrcode
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import extract
 from sqlalchemy.exc import IntegrityError
@@ -102,13 +102,6 @@ def generar_expensa_mensual(
     return expensa
 
 
-def _generar_qr_base64(texto: str) -> str:
-    imagen = qrcode.make(texto)
-    buffer = io.BytesIO()
-    imagen.save(buffer, format="PNG")
-    return base64.b64encode(buffer.getvalue()).decode("ascii")
-
-
 @router.get("/{edificio_id}/medio-pago", response_model=MedioPagoSalida)
 def obtener_medio_pago(
     edificio_id: int,
@@ -118,24 +111,15 @@ def obtener_medio_pago(
     """Accesible para Administrador General/de Consorcio del edificio Y
     para cualquier propietario/inquilino con una unidad ahí — a
     diferencia del resto de este router (solo administración), acá el
-    residente necesita ver el dato para poder pagar. El QR es "de
-    conveniencia" (texto plano con CBU/alias) — NO un QR de Transferencias
-    3.0 (ver `Pagos_y_Conciliacion.md`, sección 2): ese solo lo puede
-    emitir el banco/PSP del administrador, no esta plataforma."""
+    residente necesita ver el dato para poder pagar. Sin QR (decisión
+    final del usuario, ver `Pagos_y_Conciliacion.md`): CBU y alias se
+    copian por separado, el pago se hace desde la app del banco/billetera
+    del propio usuario — esta plataforma nunca lo procesa."""
     edificio = db.get(Edificio, edificio_id)
     if not edificio:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Edificio no encontrado")
 
-    qr_base64 = None
-    if edificio.cbu or edificio.alias_cbu:
-        partes = []
-        if edificio.alias_cbu:
-            partes.append(f"Alias: {edificio.alias_cbu}")
-        if edificio.cbu:
-            partes.append(f"CBU: {edificio.cbu}")
-        qr_base64 = _generar_qr_base64("\n".join(partes))
-
-    return MedioPagoSalida(cbu=edificio.cbu, alias_cbu=edificio.alias_cbu, qr_base64=qr_base64)
+    return MedioPagoSalida(cbu=edificio.cbu, alias_cbu=edificio.alias_cbu)
 
 
 @router_pagos.get("/mis-departamentos", response_model=list[MiDepartamentoSalida])
