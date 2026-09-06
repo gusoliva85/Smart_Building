@@ -8,7 +8,6 @@ edificio de un vistazo.
 - **Qué es y por qué** → [`documentacion/01_Documento_General.md`](documentacion/01_Documento_General.md)
 - **Arquitectura, stack, modelo de datos** → [`documentacion/02_Documento_Tecnico.md`](documentacion/02_Documento_Tecnico.md)
 - **Fases y tareas, en curso** → [`documentacion/03_Roadmap.md`](documentacion/03_Roadmap.md)
-- **Bitácora de desarrollo (qué se hizo, cómo, con qué código)** → `que_hice.html` (abrilo en el navegador)
 - **Sistema de diseño obligatorio del frontend** → [`.claude/skills/premium-uiux/`](.claude/skills/premium-uiux/SKILL.md)
 
 ## Stack
@@ -51,8 +50,17 @@ cambio.
 
 ### 3. Abrir la aplicación
 
-`http://127.0.0.1:8090/index.html` — credenciales de prueba en la sección
-"Credenciales de prueba" de `que_hice.html`.
+`http://127.0.0.1:8090/index.html` — credenciales de prueba:
+
+| Usuario | Email | Contraseña | Rol |
+|---|---|---|---|
+| Administrador General | `admin@smartbuilding.test` | `admin123` | `admin_general` |
+| Propietario de Prueba | `propietario@smartbuilding.test` | `prop123` | `propietario` |
+| Administrador de Consorcio de Prueba | `consorcio@smartbuilding.test` | `consorcio123` | `admin_consorcio` |
+| Encargado de Prueba | `encargado@smartbuilding.test` | `encargado123` | `encargado` |
+| 10 propietarios + 20 inquilinos (datos random) | `nombre.apellido@ejemplo.test` | `test1234` (compartida) | `propietario` / `inquilino` |
+
+Son deliberadamente triviales porque el proyecto está en modo test — nunca se guardan en texto plano en la base, solo hasheadas (Documento Técnico, sección 3.2).
 
 ## Metodología del proyecto
 
