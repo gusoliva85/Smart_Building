@@ -102,13 +102,12 @@
         </a>
         <h1 id="detalle-titulo" style="margin:0; font-size:19px;">—</h1>
         <p id="detalle-subtitulo" style="margin:2px 0 16px; font-size:12.5px; color:var(--ink-3);">—</p>
-        <!-- Fondos·Caja·Presupuestos·Facturas se suma en su propia tarea
-             del Roadmap, no se deja acá deshabilitada. -->
         <div class="view-switch" id="detalle-view-switch" role="tablist">
           <button class="active" data-view="gastos" type="button">Gastos</button>
           <button data-view="expensas" type="button">Expensas</button>
           <button data-view="pagos" type="button">Pagos</button>
           <button data-view="deudores" type="button">Deudores</button>
+          <button data-view="fondos" type="button">Fondos</button>
         </div>
       </div>
 
@@ -168,6 +167,51 @@
       <div id="panel-deudores" style="display:none; padding:16px 24px 26px;">
         <div id="resumen-deudores" style="margin-bottom:12px; font-size:12.5px; color:var(--ink-3);"><!-- generado por JS --></div>
         <div id="lista-deudores"><!-- filas generadas por JS --></div>
+      </div>
+
+      <!-- Fondos, Caja chica, Presupuestos y Facturas (Documento General
+           6.5-6.8) — se agrupan bajo una sola pestaña principal con su
+           propia sub-navegación en vez de sumar 4 botones más al switch
+           de arriba: son registros de gestión interna secundarios frente
+           al ciclo Gastos→Expensas→Pagos→Deudores, no el flujo principal. -->
+      <div id="panel-fondos" style="display:none; padding:16px 24px 26px;">
+        <div class="view-switch" id="fondos-view-switch" role="tablist" style="margin-bottom:16px;">
+          <button class="active" data-subview="fondos" type="button">Fondos</button>
+          <button data-subview="caja" type="button">Caja chica</button>
+          <button data-subview="presupuestos" type="button">Presupuestos</button>
+          <button data-subview="facturas" type="button">Facturas</button>
+        </div>
+
+        <div id="subpanel-fondos">
+          <div style="display:flex; align-items:center; justify-content:flex-end; margin-bottom:14px;">
+            <button type="button" class="boton-primario" id="boton-nuevo-fondo" style="width:auto; padding:9px 16px;">+ Nuevo fondo</button>
+          </div>
+          <div id="lista-fondos"><!-- filas generadas por JS --></div>
+        </div>
+
+        <div id="subpanel-caja" style="display:none;">
+          <div id="caja-contenido"><!-- generado por JS --></div>
+        </div>
+
+        <div id="subpanel-presupuestos" style="display:none;">
+          <div style="display:flex; align-items:center; justify-content:flex-end; margin-bottom:14px;">
+            <button type="button" class="boton-primario" id="boton-nuevo-presupuesto" style="width:auto; padding:9px 16px;">+ Nuevo presupuesto</button>
+          </div>
+          <div class="mensaje-error" id="mensaje-error-presupuestos-lista" style="display:none;">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+            <span id="mensaje-error-presupuestos-lista-texto"></span>
+          </div>
+          <div id="resumen-presupuestos" style="margin-bottom:12px; font-size:12.5px; color:var(--ink-3);"><!-- generado por JS --></div>
+          <div id="lista-presupuestos"><!-- filas generadas por JS --></div>
+        </div>
+
+        <div id="subpanel-facturas" style="display:none;">
+          <div style="display:flex; align-items:center; justify-content:flex-end; margin-bottom:14px;">
+            <button type="button" class="boton-primario" id="boton-nueva-factura" style="width:auto; padding:9px 16px;">+ Nueva factura</button>
+          </div>
+          <div id="resumen-facturas" style="margin-bottom:12px; font-size:12.5px; color:var(--ink-3);"><!-- generado por JS --></div>
+          <div id="lista-facturas"><!-- filas generadas por JS --></div>
+        </div>
       </div>
     </section>
   </div>
@@ -267,6 +311,214 @@
     <span class="modal-formulario-sub" id="detalle-deudor-resumen">—</span>
     <h4 style="margin:16px 0 8px; font-size:12.5px; color:var(--ink-3);">Expensas impagas</h4>
     <div id="detalle-deudor-expensas" class="detail-item content-glass"><!-- generado por JS --></div>
+  </div>
+</div>
+
+<!-- Modal: alta de fondo -->
+<div class="modal-backdrop" id="modal-fondo">
+  <div class="modal modal-formulario shell">
+    <button type="button" class="modal-close" id="modal-fondo-cerrar" aria-label="Cerrar">✕</button>
+    <h3>Nuevo fondo</h3>
+    <span class="modal-formulario-sub">Fondo de reserva u otro fondo especial, separado del flujo corriente de gastos.</span>
+    <div class="mensaje-error" id="mensaje-error-fondo" style="display:none;">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+      <span id="mensaje-error-fondo-texto"></span>
+    </div>
+    <form id="form-fondo" autocomplete="off">
+      <div class="campo">
+        <label for="campo-fondo-nombre">Nombre</label>
+        <input type="text" id="campo-fondo-nombre" required placeholder="Ej.: Fondo de Reserva, Fondo de Obras...">
+      </div>
+      <div class="modal-formulario-acciones">
+        <button type="button" class="boton-primario" id="boton-fondo-cancelar" style="background:var(--glass-content-bg); color:var(--ink-2); box-shadow:inset 0 0 0 1px var(--line);">Cancelar</button>
+        <button type="submit" class="boton-primario" id="boton-fondo-guardar">Crear fondo</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: detalle de un fondo — sus movimientos + alta de uno nuevo,
+     ambos en el mismo lugar porque son inseparables: no tiene sentido ver
+     el saldo de un fondo sin poder ver ni cargar de dónde sale. -->
+<div class="modal-backdrop" id="modal-detalle-fondo">
+  <div class="modal modal-formulario shell">
+    <button type="button" class="modal-close" id="modal-detalle-fondo-cerrar" aria-label="Cerrar">✕</button>
+    <h3 id="detalle-fondo-titulo">—</h3>
+    <span class="modal-formulario-sub" id="detalle-fondo-saldo">—</span>
+
+    <h4 style="margin:16px 0 8px; font-size:12.5px; color:var(--ink-3);">Movimientos</h4>
+    <div id="detalle-fondo-movimientos" class="detail-item content-glass" style="margin-bottom:16px;"><!-- generado por JS --></div>
+
+    <div class="mensaje-error" id="mensaje-error-movimiento-fondo" style="display:none;">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+      <span id="mensaje-error-movimiento-fondo-texto"></span>
+    </div>
+    <form id="form-movimiento-fondo" autocomplete="off">
+      <div class="form-grid-2">
+        <div class="campo">
+          <label for="campo-movimiento-fondo-tipo">Tipo</label>
+          <select id="campo-movimiento-fondo-tipo" required>
+            <option value="ingreso">Ingreso</option>
+            <option value="egreso">Egreso</option>
+          </select>
+        </div>
+        <div class="campo">
+          <label for="campo-movimiento-fondo-monto">Monto</label>
+          <input type="number" id="campo-movimiento-fondo-monto" min="0.01" step="0.01" required placeholder="0.00">
+        </div>
+      </div>
+      <div class="form-grid-2">
+        <div class="campo">
+          <label for="campo-movimiento-fondo-fecha">Fecha</label>
+          <input type="date" id="campo-movimiento-fondo-fecha" required>
+        </div>
+        <div class="campo">
+          <label for="campo-movimiento-fondo-descripcion">Descripción (opcional)</label>
+          <input type="text" id="campo-movimiento-fondo-descripcion" placeholder="Detalle breve">
+        </div>
+      </div>
+      <div class="modal-formulario-acciones">
+        <button type="submit" class="boton-primario" id="boton-movimiento-fondo-guardar">+ Cargar movimiento</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: configurar/editar la caja chica (alta si no existe, edición si ya existe) -->
+<div class="modal-backdrop" id="modal-caja-config">
+  <div class="modal modal-formulario shell">
+    <button type="button" class="modal-close" id="modal-caja-config-cerrar" aria-label="Cerrar">✕</button>
+    <h3 id="modal-caja-config-titulo">Configurar caja chica</h3>
+    <span class="modal-formulario-sub">Sistema de "fondo fijo": se repone hasta este monto cada vez que se rinde.</span>
+    <div class="mensaje-error" id="mensaje-error-caja-config" style="display:none;">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+      <span id="mensaje-error-caja-config-texto"></span>
+    </div>
+    <form id="form-caja-config" autocomplete="off">
+      <div class="campo" id="campo-caja-responsable-select-wrap">
+        <label for="campo-caja-responsable-select">Responsable</label>
+        <!-- Sin "required": este campo y el numérico de abajo son
+             mutuamente excluyentes (uno queda oculto según el rol) y un
+             <select required> oculto por display:none en un ancestro hace
+             que Chromium bloquee el submit en silencio sin poder enfocarlo
+             (bug real, encontrado con Playwright) — la validación real de
+             "falta el responsable" queda a cargo del JS del formulario. -->
+        <select id="campo-caja-responsable-select"></select>
+      </div>
+      <div class="campo" id="campo-caja-responsable-numero-wrap" style="display:none;">
+        <label for="campo-caja-responsable-numero">ID de usuario responsable</label>
+        <input type="number" id="campo-caja-responsable-numero" min="1" placeholder="Ver el ID en Usuarios">
+      </div>
+      <div class="campo">
+        <label for="campo-caja-monto-fijo">Monto fijo</label>
+        <input type="number" id="campo-caja-monto-fijo" min="0.01" step="0.01" required placeholder="0.00">
+      </div>
+      <div class="modal-formulario-acciones">
+        <button type="button" class="boton-primario" id="boton-caja-config-cancelar" style="background:var(--glass-content-bg); color:var(--ink-2); box-shadow:inset 0 0 0 1px var(--line);">Cancelar</button>
+        <button type="submit" class="boton-primario" id="boton-caja-config-guardar">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: alta de presupuesto -->
+<div class="modal-backdrop" id="modal-presupuesto">
+  <div class="modal modal-formulario shell">
+    <button type="button" class="modal-close" id="modal-presupuesto-cerrar" aria-label="Cerrar">✕</button>
+    <h3>Nuevo presupuesto</h3>
+    <span class="modal-formulario-sub">Nace "pendiente" — se aprueba o rechaza desde el listado.</span>
+    <div class="mensaje-error" id="mensaje-error-presupuesto" style="display:none;">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+      <span id="mensaje-error-presupuesto-texto"></span>
+    </div>
+    <form id="form-presupuesto" autocomplete="off">
+      <div class="campo">
+        <label for="campo-presupuesto-descripcion">Descripción</label>
+        <input type="text" id="campo-presupuesto-descripcion" required placeholder="Ej.: Pintura de palier, Reparación de ascensor...">
+      </div>
+      <div class="form-grid-2">
+        <div class="campo">
+          <label for="campo-presupuesto-monto">Monto</label>
+          <input type="number" id="campo-presupuesto-monto" min="0.01" step="0.01" required placeholder="0.00">
+        </div>
+        <div class="campo">
+          <label for="campo-presupuesto-fecha">Fecha</label>
+          <input type="date" id="campo-presupuesto-fecha" required>
+        </div>
+      </div>
+      <div class="modal-formulario-acciones">
+        <button type="button" class="boton-primario" id="boton-presupuesto-cancelar" style="background:var(--glass-content-bg); color:var(--ink-2); box-shadow:inset 0 0 0 1px var(--line);">Cancelar</button>
+        <button type="submit" class="boton-primario" id="boton-presupuesto-guardar">Crear presupuesto</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: aprobar un presupuesto — vincular (opcional) al Gasto real -->
+<div class="modal-backdrop" id="modal-aprobar-presupuesto">
+  <div class="modal modal-formulario shell">
+    <button type="button" class="modal-close" id="modal-aprobar-presupuesto-cerrar" aria-label="Cerrar">✕</button>
+    <h3>Aprobar presupuesto</h3>
+    <span class="modal-formulario-sub" id="aprobar-presupuesto-sub">—</span>
+    <div class="mensaje-error" id="mensaje-error-aprobar-presupuesto" style="display:none;">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+      <span id="mensaje-error-aprobar-presupuesto-texto"></span>
+    </div>
+    <form id="form-aprobar-presupuesto" autocomplete="off">
+      <div class="campo">
+        <label for="campo-aprobar-presupuesto-gasto">Vincular a un gasto ya cargado (opcional)</label>
+        <select id="campo-aprobar-presupuesto-gasto">
+          <option value="">Sin vincular todavía</option>
+        </select>
+      </div>
+      <div class="modal-formulario-acciones">
+        <button type="button" class="boton-primario" id="boton-aprobar-presupuesto-cancelar" style="background:var(--glass-content-bg); color:var(--ink-2); box-shadow:inset 0 0 0 1px var(--line);">Cancelar</button>
+        <button type="submit" class="boton-primario" id="boton-aprobar-presupuesto-guardar">Aprobar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: alta de factura -->
+<div class="modal-backdrop" id="modal-factura">
+  <div class="modal modal-formulario shell">
+    <button type="button" class="modal-close" id="modal-factura-cerrar" aria-label="Cerrar">✕</button>
+    <h3>Nueva factura</h3>
+    <span class="modal-formulario-sub">Siempre vinculada a un gasto real de este edificio.</span>
+    <div class="mensaje-error" id="mensaje-error-factura" style="display:none;">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+      <span id="mensaje-error-factura-texto"></span>
+    </div>
+    <form id="form-factura" autocomplete="off">
+      <div class="campo">
+        <label for="campo-factura-gasto">Gasto</label>
+        <select id="campo-factura-gasto" required></select>
+      </div>
+      <div class="form-grid-2">
+        <div class="campo">
+          <label for="campo-factura-numero">Número</label>
+          <input type="text" id="campo-factura-numero" required placeholder="Ej.: 0001-00001234">
+        </div>
+        <div class="campo">
+          <label for="campo-factura-monto">Monto</label>
+          <input type="number" id="campo-factura-monto" min="0.01" step="0.01" required placeholder="0.00">
+        </div>
+      </div>
+      <div class="form-grid-2">
+        <div class="campo">
+          <label for="campo-factura-fecha">Fecha</label>
+          <input type="date" id="campo-factura-fecha" required>
+        </div>
+        <div class="campo">
+          <label for="campo-factura-archivo">Archivo (opcional)</label>
+          <input type="text" id="campo-factura-archivo" placeholder="Link al archivo">
+        </div>
+      </div>
+      <div class="modal-formulario-acciones">
+        <button type="button" class="boton-primario" id="boton-factura-cancelar" style="background:var(--glass-content-bg); color:var(--ink-2); box-shadow:inset 0 0 0 1px var(--line);">Cancelar</button>
+        <button type="submit" class="boton-primario" id="boton-factura-guardar">Crear factura</button>
+      </div>
+    </form>
   </div>
 </div>
 
