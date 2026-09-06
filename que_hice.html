@@ -358,7 +358,8 @@
 
     <div class="toc-group">
       <span class="toc-group-title" data-goto="fase-x-divider">Fase X — Solicitud de Facultad</span>
-      <a class="toc-link" data-goto="fx-t1"><span class="n">1</span>Verificación de los 6 requisitos mínimos<span class="estado-mini pend"></span></a>
+      <a class="toc-link" data-goto="fx-t1"><span class="n">1</span>Verificación de los 6 requisitos mínimos<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="fx-t2"><span class="n">2</span>16 heurísticas de UX<span class="estado-mini pend"></span></a>
     </div>
 
     <div class="toc-progress">
@@ -3186,7 +3187,7 @@ tests/test_modelo_pago.py (+3 de estado) .... [8 passed]
         <div class="slide-inner">
           <div class="divider-num">X</div>
           <h2>Fase X — Solicitud de Facultad</h2>
-          <div class="fase-frac-grande" id="fasex-frac">0 / 6 verificados</div>
+          <div class="fase-frac-grande" id="fasex-frac">5 / 6 verificados</div>
           <p class="divider-desc">No es una fase de desarrollo — es el checklist de los 6 requisitos mínimos que pide la facultad, verificado contra todo lo ya construido en el proyecto. Se agrega tal cual la pidió el usuario, con el nombre literal, para dejar claro que es un requisito externo, no una etapa funcional del producto.</p>
         </div>
       </section>
@@ -3196,7 +3197,7 @@ tests/test_modelo_pago.py (+3 de estado) .... [8 passed]
           <div class="tarea-head">
             <span class="tarea-num">Verificación</span>
             <h3>Los 6 requisitos mínimos de la facultad, contra lo ya construido</h3>
-            <span class="status pend"><i class="dot"></i>Analizado — pendiente de tu revisión</span>
+            <span class="status done"><i class="dot"></i>Analizado y aprobado</span>
           </div>
           <p class="lede">El usuario pidió confirmar si el proyecto ya cumple 6 requisitos mínimos exigidos por la facultad, o si hace falta sumar trabajo nuevo. Se revisó cada punto contra el código real (no de memoria) antes de responder.</p>
 
@@ -3224,6 +3225,73 @@ tests/test_modelo_pago.py (+3 de estado) .... [8 passed]
               Conclusión
             </div>
             <p>5 de los 6 requisitos ya estaban cumplidos por decisiones tomadas desde el inicio del proyecto (Documento Técnico, secciones 2.1-2.2 y 4) — no hizo falta agregar nada nuevo al código. El único punto abierto (lineamientos de seguridad) no depende del proyecto sino de un insumo externo todavía no entregado.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="slide tarea" id="fx-t2" data-crumb="Fase X · Heurísticas de UX">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Heurísticas de UX</span>
+            <h3>16 heurísticas de usabilidad pedidas por la facultad, contra lo ya construido</h3>
+            <span class="status pend"><i class="dot"></i>Analizado — 9 ya cubiertas, 7 a construir</span>
+          </div>
+          <p class="lede">El usuario pidió sumar 16 heurísticas de usabilidad (estilo Nielsen) como nuevas tareas dentro de la Fase X, marcando cuáles ya están contempladas o realizadas y detallando un poco más las que todavía no, porque esas se van a tener que construir. Se revisó cada una contra el código real (no de memoria): se buscó `confirm(` en todo el frontend, atajos de teclado, `beforeunload`/aviso de cambios sin guardar, y la tarea de accesibilidad ya existente en la Fase 12.</p>
+
+          <h4>1. Visibilidad del estado del sistema</h4>
+          <p><span class="status done" style="display:inline-flex;margin-bottom:6px;">Ya cumplido</span><br> <code>assets/js/cargando.js</code> (indicador de carga en toda pantalla que pide datos), <code>.mensaje-error</code> en cada formulario, cambio optimista con reversión visible si falla.</p>
+
+          <h4>2. Consistencia con el mundo real</h4>
+          <p><span class="status done" style="display:inline-flex;margin-bottom:6px;">Ya cumplido</span><br> Dominio siempre en español y con los términos reales del rubro (Expensa, Propietario, CBU, Coeficiente) — regla del Documento Técnico desde el día 1.</p>
+
+          <h4>3. Control y libertad de usuario (deshacer/rehacer)</h4>
+          <p><span class="status pend" style="display:inline-flex;margin-bottom:6px;">A construir</span><br> Hoy ninguna acción ya confirmada se puede deshacer. Falta un patrón de aviso temporal tipo "Deshacer" para las acciones reversibles más comunes — activar/desactivar usuario, asignar/desvincular un departamento.</p>
+
+          <h4>4. Consistencia y estándares</h4>
+          <p><span class="status done" style="display:inline-flex;margin-bottom:6px;">Ya cumplido</span><br> Es la razón de ser de la skill <code>premium-uiux</code> completa: todo componente nuevo se compara primero contra <code>references/componentes.md</code>.</p>
+
+          <h4>5. Prevención de errores</h4>
+          <p><span class="status pend" style="display:inline-flex;margin-bottom:6px;">A construir</span><br> La validación de datos ya está resuelta (Pydantic + HTML5), pero falta confirmación explícita antes de acciones destructivas — hoy "Desactivar" o "Rechazar pago" ejecutan directo. Falta un modal de confirmación reutilizable.</p>
+
+          <h4>6. Reconocer antes que recordar</h4>
+          <p><span class="status done" style="display:inline-flex;margin-bottom:6px;">Ya cumplido</span><br> Los <code>&lt;select&gt;</code> siempre vienen poblados con datos reales, y el panel de detalle muestra toda la información junta — nada que el usuario tenga que recordar de otra pantalla.</p>
+
+          <h4>7. Flexibilidad y eficiencia de uso</h4>
+          <p><span class="status pend" style="display:inline-flex;margin-bottom:6px;">A construir</span><br> Sin atajos de teclado más allá de Enter-como-Tab, sin recordar el último filtro usado. Falta al menos "recordar el último filtro" (localStorage) y atajos en las pantallas de mayor uso.</p>
+
+          <h4>8. Estética y diseño minimalista</h4>
+          <p><span class="status done" style="display:inline-flex;margin-bottom:6px;">Ya cumplido</span><br> El otro pilar de la skill: vidrio en dos capas con densidad deliberada, composición bento en los KPI, nada que compita con el dato real.</p>
+
+          <h4>9. Ayudar a reconocer, diagnosticar y recuperarse de errores</h4>
+          <p><span class="status done" style="display:inline-flex;margin-bottom:6px;">Ya cumplido</span><br> <code>.mensaje-error</code> siempre muestra el texto real del backend en lenguaje llano, nunca un código crudo — repetido en cada formulario del proyecto.</p>
+
+          <h4>10. Ayuda y documentación</h4>
+          <p><span class="status pend" style="display:inline-flex;margin-bottom:6px;">A construir</span><br> <code>que_hice.html</code> es una bitácora técnica interna, no ayuda de usuario final — hoy no existe ninguna sección de ayuda dentro de la app. Falta un panel de ayuda contextual por pantalla, con pasos concretos, no un manual extenso.</p>
+
+          <h4>11. Anticipación</h4>
+          <p><span class="status pend" style="display:inline-flex;margin-bottom:6px;">A construir</span><br> Hay anticipación puntual (fecha de hoy precargada, unidad propia auto-seleccionada), pero no es política sistemática. Falta, por ejemplo, sugerir el próximo período a liquidar en "Generar expensa" y avisar de vencimientos próximos en el dashboard.</p>
+
+          <h4>12. Autonomía</h4>
+          <p><span class="status done" style="display:inline-flex;margin-bottom:6px;">Ya cumplido</span><br> Sidebar siempre visible con usuario/rol, <code>chip-link</code> de "‹ Volver" en cada detalle, título de contexto siempre presente.</p>
+
+          <h4>13. Legibilidad</h4>
+          <p><span class="status done" style="display:inline-flex;margin-bottom:6px;">Ya contemplado</span><br> Jerarquía tipográfica ya resuelta por diseño (Outfit para titulares/montos, Inter para cuerpo). La verificación formal de contraste ya es parte de la tarea de Fase 12 "auditoría de accesibilidad" — no hace falta duplicarla acá.</p>
+
+          <h4>14. Registro del estado</h4>
+          <p><span class="status pend" style="display:inline-flex;margin-bottom:6px;">A construir</span><br> El tema (claro/oscuro) ya persiste, pero no hay "volver a donde lo dejé" — todo login aterriza siempre en <code>dashboard.html</code>. Falta recordar la última pantalla visitada y si es la primera vez que el usuario entra al sistema.</p>
+
+          <h4>15. Simplificación de la estructura de las tareas</h4>
+          <p><span class="status done" style="display:inline-flex;margin-bottom:6px;">Ya cumplido</span><br> Es la metodología misma del proyecto ("una tarea a la vez") trasladada al diseño: modales de un solo paso, formularios cortos.</p>
+
+          <h4>16. Protección del trabajo del usuario</h4>
+          <p><span class="status pend" style="display:inline-flex;margin-bottom:6px;">A construir</span><br> Verificado que no hay <code>beforeunload</code> ni aviso de cambios sin guardar en ningún modal. Falta un aviso de confirmación al cerrar un modal con campos completados, y más adelante reintento automático ante una falla de red puntual.</p>
+
+          <div class="explicacion">
+            <div class="explicacion-titulo">
+              <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              Conclusión
+            </div>
+            <p>9 de las 16 heurísticas ya estaban cubiertas por decisiones de diseño tomadas desde el inicio (8 realizadas + 1 ya contemplada en la tarea de accesibilidad de la Fase 12). Las 7 restantes (3, 5, 7, 10, 11, 14 y 16) quedan documentadas en <code>03_Roadmap.md</code> como tareas concretas a futuro dentro de la Fase X, cada una con el detalle de lo que falta construir.</p>
           </div>
         </div>
       </section>

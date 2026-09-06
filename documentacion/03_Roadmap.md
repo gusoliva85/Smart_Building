@@ -586,23 +586,75 @@ Corresponde al Documento Técnico, sección 1.3.1 (migración Tailwind CDN → C
 
 No es una fase de desarrollo más (no sigue el orden lógica → backend → frontend, ni se hace tarea por tarea en secuencia): es el **checklist de los requisitos mínimos que pide la facultad** para el proyecto, verificado contra todo lo ya construido. Se agrega tal cual la pidió el usuario, con el nombre literal — no "Fase 14", a propósito, para que quede claro que es un requisito externo al diseño del producto, no una etapa funcional.
 
-- [ ] **1. Sistema de procesamiento transaccional + repositorio de información en una base de datos relacional.**
+- [x] **1. Sistema de procesamiento transaccional + repositorio de información en una base de datos relacional.**
   **Ya cumplido.** El backend completo (FastAPI + SQLAlchemy) opera con transacciones reales — `db.commit()` / `db.rollback()` explícitos, por ejemplo en `generar_expensa_mensual` (Fase 2, Tarea 8): si el prorrateo falla a mitad de camino, se hace rollback y no queda nada a medio crear. Repositorio: SQLite en desarrollo, **PostgreSQL (Supabase) en producción** — ambas relacionales, PostgreSQL es la que normalmente se trabaja en la carrera.
 
-- [ ] **2. Herramienta de mapeo objeto-relacional (ORM).**
+- [x] **2. Herramienta de mapeo objeto-relacional (ORM).**
   **Ya cumplido.** SQLAlchemy, usado en el 100% de los modelos y consultas del proyecto desde la Fase 0 — nunca SQL crudo salvo la migración puntual de `core/migraciones.py` (Fase 2, Tarea 7), y ahí también se usa el compilador de DDL de SQLAlchemy, no strings armados a mano.
 
-- [ ] **3. Diseño web adaptable (RWD) — tablets, smartphones, portátiles.**
+- [x] **3. Diseño web adaptable (RWD) — tablets, smartphones, portátiles.**
   **Ya cumplido.** Mobile-first real en toda la skill `premium-uiux` (dos quiebres: 640px y 1024px, nunca dos maquetados separados) — verificado con Playwright en cada pantalla nueva a lo largo de todo el proyecto (sin overflow horizontal en 360-390px, layout reorganizado en tablet/desktop). No es una promesa de diseño: cada tarea de frontend de este Roadmap lo comprobó antes de darse por terminada.
 
-- [ ] **4. API de autenticación.**
+- [x] **4. API de autenticación.**
   **Ya cumplido.** `POST /api/auth/login` (Fase 1, Tarea 5) — JWT de corta duración (`python-jose`), contraseñas hasheadas con `bcrypt` (`passlib`), nunca texto plano ni en la base ni en logs. `GET /api/auth/me` para que el frontend recupere la sesión. Cada endpoint protegido depende de `obtener_usuario_actual`, que decodifica el token en cada request.
 
-- [ ] **5. Otras APIs (se sugiere geolocalización).**
+- [x] **5. Otras APIs (se sugiere geolocalización).**
   **Ya cumplido.** `assets/js/mapa.js` (Fase 1, Tarea 14 — alta de edificio): geocodifica dirección + CP contra la **API de Nominatim** (OpenStreetMap, gratuita, sin API key) y muestra el resultado en un mapa real con **Leaflet**. Se usa hoy en `edificios.html` al dar de alta un edificio nuevo.
 
 - [ ] **6. Cumplimiento de los lineamientos de seguridad informática de la facultad.**
   **No evaluable todavía** — el enunciado dice explícitamente "que serán brindados oportunamente": no existen todavía los lineamientos concretos contra los cuales verificar cumplimiento, así que no se puede marcar ni como hecho ni como pendiente real, solo como **a la espera**. Mientras tanto, la base de seguridad ya construida a lo largo del proyecto (y que se va a repasar formalmente en la Fase 13, "Revisión de seguridad general"): JWT + contraseñas hasheadas, RBAC en cada endpoint (`services/autorizacion.py`, Fase 1), validación de entrada con Pydantic en todos los `Entrada`, ningún secreto en el código (`.env`/variables de entorno de Vercel), HTTPS en producción (Vercel). En cuanto la facultad entregue los lineamientos puntuales, esta tarea se abre en tareas concretas — hoy es un placeholder a propósito, no una tarea vacía.
+
+### Requerimientos de UX (16 heurísticas pedidas por la facultad)
+
+Mismo criterio que los 6 puntos de arriba: se revisó cada heurística contra el código y el resto del Roadmap antes de responder — 9 de las 16 ya están cubiertas (algunas realizadas, una ya tiene su propia tarea en la Fase 12), las 7 restantes se detallan como tareas concretas a futuro, no como ítems vacíos.
+
+- [x] **1. Visibilidad del estado del sistema.**
+  **Ya realizado.** `assets/js/cargando.js` (indicador de carga con frases rotando, reutilizado en toda pantalla que pide datos), `.mensaje-error` en cada formulario, y el patrón de cambio optimista con reversión visible si falla (`usuarios.js`, botón de estado; `financiero.js`, alta de gasto/expensa) — el usuario nunca se queda sin saber si algo está pasando o si algo salió mal.
+
+- [x] **2. Consistencia entre el sistema y el mundo real.**
+  **Ya realizado.** Regla de nomenclatura del proyecto desde el Documento Técnico, sección 2.3: "el código habla el mismo idioma que esta documentación" — dominio siempre en español y con los términos reales del rubro (`Expensa`, `Propietario`, `Inquilino`, `CBU`, `Alias`, `Coeficiente`), nunca traducciones literales de un genérico en inglés.
+
+- [ ] **3. Control y libertad de usuario (deshacer/rehacer).**
+  **No contemplado todavía — nueva tarea.** Hoy los modales tienen "Cancelar" (antes de confirmar), pero ninguna acción ya confirmada se puede deshacer — ej. desactivar un usuario, asignar un departamento. Agregar un patrón de **"Deshacer" tipo toast** (aviso temporal con un botón "Deshacer" de unos segundos) para las acciones reversibles más comunes, empezando por las que ya tuvieron un incidente real: activar/desactivar usuario (Fase 12, `f12-t5` — el bug de seguridad de autodesactivación ya mostró que esta acción necesita más resguardo, no menos) y asignar/desvincular un departamento.
+
+- [x] **4. Consistencia y estándares.**
+  **Ya realizado.** Es la razón de ser de la skill `premium-uiux` completa ("Regla de oro: reutilizar, nunca reinventar") — cada botón, ícono, badge y patrón de interacción nuevo se compara primero contra `references/componentes.md` antes de diseñarse desde cero.
+
+- [ ] **5. Prevención de errores.**
+  **Parcialmente cubierto — falta una pieza concreta.** La validación de entrada sí está resuelta en las dos puntas (Pydantic en el backend, HTML5 `required`/tipos en el frontend), pero **falta confirmación explícita antes de acciones destructivas o irreversibles** — hoy "Desactivar" un usuario o rechazar un pago ejecutan directo, sin un "¿estás seguro?". Nueva tarea: modal de confirmación reutilizable (`.modal` chico, ya existe el patrón visual en `modal-direccion`) para toda acción marcada como destructiva, empezando por desactivar usuario y rechazar un pago.
+
+- [x] **6. Reconocer antes que recordar.**
+  **Ya realizado.** Ningún formulario pide escribir un ID de memoria — los `<select>` de propietario/inquilino/piso/departamento siempre vienen poblados con los datos reales ya cargados, y el panel de detalle (`.detail`, edificios/departamentos) muestra toda la información relevante junta, no repartida en pantallas que haya que recordar.
+
+- [ ] **7. Flexibilidad y eficiencia de uso (novato y experto).**
+  **No contemplado todavía — nueva tarea.** Hoy no hay nada pensado para acelerar el uso frecuente de un usuario experto: sin atajos de teclado más allá de "Enter avanza al siguiente campo" (`formularios.js`), sin recordar el último filtro usado al volver a una pantalla (ej. año/mes en Gastos), sin acciones en lote. Nueva tarea, a definir con más detalle cuando le toque el turno: al menos "recordar el último filtro" (via `localStorage`, mismo mecanismo ya usado para el tema) y accesos rápidos de teclado en las pantallas de mayor uso (Usuarios, Financiero).
+
+- [x] **8. Estética y diseño minimalista.**
+  **Ya realizado.** Es el otro pilar de `premium-uiux` — vidrio en dos capas con densidad de información deliberada (`.shell` para contenedores grandes, `.content-glass` para contenido denso), composición *bento* para KPIs (nunca grillas idénticas sin jerarquía), nada que compita visualmente con el dato real.
+
+- [x] **9. Ayudar a reconocer, diagnosticar y recuperarse de errores.**
+  **Ya realizado.** El patrón `.mensaje-error` (repetido en cada formulario del proyecto, desde el login hasta el alta de gasto) muestra el mensaje real que devuelve el backend, siempre en lenguaje llano ("Ya existe un usuario con ese email", "Ese departamento no es tuyo") — nunca un código de error crudo ni un stack trace.
+
+- [ ] **10. Ayuda y documentación.**
+  **No contemplado todavía — nueva tarea.** `que_hice.html` es una bitácora técnica para el equipo de desarrollo, no ayuda para el usuario final — hoy no existe ninguna sección de ayuda dentro de la aplicación. Nueva tarea: una pantalla o panel de ayuda contextual (por ejemplo, un ícono "?" en el topbar que abra pasos concretos de la tarea de esa pantalla puntual — "cómo generar una expensa", "cómo cargar un pago" — nunca un manual extenso, sí una lista corta de pasos como pide el propio enunciado).
+
+- [ ] **11. Anticipación.**
+  **Parcialmente cubierto — falta sistematizarlo.** Hay anticipación puntual (la fecha de hoy precargada en Gasto/Expensa, la unidad propia auto-seleccionada si el usuario tiene una sola — Tarea 9), pero no es una política deliberada del proyecto. Nueva tarea, a definir con más detalle cuando le toque el turno: por ejemplo, sugerir el próximo período a liquidar en "Generar expensa" (el mes siguiente al de la última expensa generada, no siempre el mes calendario actual) y avisar proactivamente de vencimientos próximos en el dashboard del rol correspondiente.
+
+- [x] **12. Autonomía.**
+  **Ya realizado.** El sidebar muestra siempre el usuario y rol logueado, cada pantalla de detalle tiene su `chip-link` de "‹ Volver" (edificios.html, financiero.html) y el título de contexto (nombre del edificio) queda visible en todo momento — el usuario nunca pierde de vista dónde está ni cómo volver atrás sin que el sistema le imponga un único camino.
+
+- [x] **13. Legibilidad.**
+  **Ya contemplado en el Roadmap — no hace falta una tarea nueva.** La jerarquía tipográfica (Outfit para titulares/KPIs/montos, Inter para cuerpo, tokens `--ink`/`--ink-2`/`--ink-3` para dar más peso al dato que a la etiqueta — ya aplicado en `financiero.html`: el monto en negrita, el rubro en texto plano) está resuelta por diseño desde la skill. La verificación formal de contraste (WCAG) ya es parte de la tarea "Frontend: auditoría de accesibilidad y de consistencia con la skill" (Fase 12) — se marca ahí, no hace falta duplicarla acá.
+
+- [ ] **14. Registro del estado.**
+  **Parcialmente cubierto — falta la parte de sesión/navegación.** El tema (claro/oscuro) ya persiste entre páginas y sesiones (`localStorage`, Fase 12). Lo que falta: recordar dónde estaba el usuario la última vez (hoy, todo login redirige siempre a `dashboard.html`, nunca a la última pantalla visitada) y si es la primera vez que usa el sistema (para poder mostrar una bienvenida distinta). Nueva tarea, a definir con más detalle cuando le toque el turno.
+
+- [x] **15. Simplificación de la estructura de las tareas.**
+  **Ya realizado.** Es la metodología misma del proyecto ("una tarea a la vez", nunca una pantalla con secciones de funcionalidades futuras) trasladada al diseño de cada pantalla: modales de un solo paso (nunca un wizard de varios pasos para un alta simple), formularios cortos, cada pantalla resuelve un propósito concreto.
+
+- [ ] **16. Protección del trabajo del usuario.**
+  **No contemplado todavía — nueva tarea.** Hoy cerrar cualquier modal (backdrop, ✕, o navegar afuera) descarta lo escrito sin avisar — no hay "tenés cambios sin guardar, ¿seguro que querés salir?", ni reintento automático si falla la conexión a mitad de un guardado. Nueva tarea, a definir con más detalle cuando le toque el turno: al menos un aviso de confirmación al cerrar un modal con campos ya completados, y (más adelante) reintento automático en el `Api` wrapper (`api.js`) ante una falla de red puntual, antes de mostrarle el error al usuario.
 
 ---
 
