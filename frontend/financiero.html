@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Aplica el tema guardado ANTES de pintar nada — si esto fuera en
+     theme.js (al final del body) se vería un parpadeo de claro antes de
+     pasar a oscuro en cada página nueva. -->
+<script>try{if(localStorage.getItem('tema')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+<title>SMART Building — Financiero</title>
+<link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/components.css">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="assets/js/tailwind-config.js"></script>
+</head>
+<body>
+
+<div class="layout-app">
+  <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+  <aside class="sidebar shell" id="sidebar">
+    <a class="sidebar-brand" href="dashboard.html" style="text-decoration:none; color:inherit;">
+      <span class="brand-mark" style="width:32px;height:32px;border-radius:10px;">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 21V6l8-3 8 3v15"/><path d="M9 21v-6h6v6"/><path d="M9 10h.01M15 10h.01M9 14h.01M15 14h.01"/>
+        </svg>
+      </span>
+      <b style="font-size:14px;">SMART <span class="aurora-text">Building</span></b>
+    </a>
+    <nav class="sidebar-nav" id="sidebar-nav"></nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="avatar" style="width:32px;height:32px;border-radius:10px;">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M4.5 20c1.4-3.6 4.4-5.5 7.5-5.5s6.1 1.9 7.5 5.5"/></svg>
+        </div>
+        <div>
+          <div class="nombre" id="sidebar-user-nombre">—</div>
+          <div class="rol" id="sidebar-user-rol">—</div>
+        </div>
+      </div>
+      <button type="button" class="boton-primario" id="boton-logout" style="background:var(--glass-content-bg); color:var(--ink-2); box-shadow:inset 0 0 0 1px var(--line); padding:9px;">Cerrar sesión</button>
+    </div>
+  </aside>
+
+  <div class="main-column">
+    <header class="topbar shell" style="margin-bottom:14px;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <button class="icon-btn hamburger-btn" id="menu-btn" aria-label="Abrir menú">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+        <b style="font-size:14.5px;">Financiero</b>
+      </div>
+      <div class="topbar-actions">
+        <button class="icon-btn" aria-label="Cambiar tema" id="theme-toggle">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Se muestra solo si el rol logueado no gestiona ningún edificio -->
+    <section class="shell panel-centrado" id="vista-no-autorizado" style="display:none; padding:22px 24px;">
+      <p style="margin:0; font-size:13px; color:var(--ink-2);">Esta pantalla es solo para Administrador General o Administrador de Consorcio.</p>
+    </section>
+
+    <!-- Listado de edificios — mismo patrón que edificios.html. Cada fila
+         lleva a financiero.html?id=N. Si el rol solo administra un
+         edificio (Admin de Consorcio), la lista trae una sola fila. -->
+    <section class="shell panel-centrado" id="vista-listado" style="display:none; max-width:760px; padding:22px 24px;">
+      <div style="margin-bottom:16px;">
+        <h1 style="margin:0; font-size:18px;">Financiero</h1>
+        <p style="margin:2px 0 0; font-size:12.5px; color:var(--ink-3);">Elegí un edificio para ver sus gastos, expensas y pagos.</p>
+      </div>
+      <div id="lista-edificios"><!-- filas generadas por JS --></div>
+    </section>
+
+    <!-- Detalle de un edificio: pestañas del módulo financiero -->
+    <section class="shell panel-centrado" id="vista-detalle" style="display:none; max-width:900px; padding:0; overflow:hidden;">
+      <div style="padding:22px 24px 0;">
+        <a href="financiero.html" class="chip-link" style="margin-bottom:14px; display:inline-flex;">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;"><path d="M15 18l-6-6 6-6"/></svg>
+          Financiero
+        </a>
+        <h1 id="detalle-titulo" style="margin:0; font-size:19px;">—</h1>
+        <p id="detalle-subtitulo" style="margin:2px 0 16px; font-size:12.5px; color:var(--ink-3);">—</p>
+        <!-- Un solo botón por ahora a propósito: Expensas/Pagos/Deudores/
+             Fondos·Caja·Presupuestos·Facturas se suman en sus propias
+             tareas del Roadmap, no se dejan acá deshabilitadas. -->
+        <div class="view-switch" id="detalle-view-switch" role="tablist">
+          <button class="active" data-view="gastos" type="button">Gastos</button>
+        </div>
+      </div>
+
+      <div id="panel-gastos" style="padding:16px 24px 26px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:14px;">
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <select id="filtro-anio" class="campo-select-chico" aria-label="Filtrar por año">
+              <option value="">Todos los años</option>
+            </select>
+            <select id="filtro-mes" class="campo-select-chico" aria-label="Filtrar por mes">
+              <option value="">Todos los meses</option>
+              <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
+              <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
+              <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+              <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+            </select>
+          </div>
+          <button type="button" class="boton-primario" id="boton-nuevo-gasto" style="width:auto; padding:9px 16px;">+ Nuevo gasto</button>
+        </div>
+
+        <div id="resumen-gastos" style="margin-bottom:12px; font-size:12.5px; color:var(--ink-3);"><!-- generado por JS --></div>
+        <div id="lista-gastos"><!-- filas generadas por JS --></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- Modal: alta de gasto -->
+<div class="modal-backdrop" id="modal-gasto">
+  <div class="modal modal-formulario shell">
+    <button type="button" class="modal-close" id="modal-gasto-cerrar" aria-label="Cerrar">✕</button>
+    <h3>Nuevo gasto</h3>
+    <span class="modal-formulario-sub">Rubro, monto y fecha reales — es la base de la próxima liquidación de expensas.</span>
+    <div class="mensaje-error" id="mensaje-error-gasto" style="display:none;">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+      <span id="mensaje-error-gasto-texto"></span>
+    </div>
+    <form id="form-gasto" autocomplete="off">
+      <div class="campo">
+        <label for="campo-gasto-rubro">Rubro</label>
+        <input type="text" id="campo-gasto-rubro" required placeholder="Ej.: Limpieza, Seguridad, Ascensor...">
+      </div>
+      <div class="form-grid-2">
+        <div class="campo">
+          <label for="campo-gasto-monto">Monto</label>
+          <input type="number" id="campo-gasto-monto" min="0.01" step="0.01" required placeholder="0.00">
+        </div>
+        <div class="campo">
+          <label for="campo-gasto-fecha">Fecha</label>
+          <input type="date" id="campo-gasto-fecha" required>
+        </div>
+      </div>
+      <div class="campo">
+        <label for="campo-gasto-descripcion">Descripción (opcional)</label>
+        <input type="text" id="campo-gasto-descripcion" placeholder="Detalle breve del gasto">
+      </div>
+      <div class="modal-formulario-acciones">
+        <button type="button" class="boton-primario" id="boton-gasto-cancelar" style="background:var(--glass-content-bg); color:var(--ink-2); box-shadow:inset 0 0 0 1px var(--line);">Cancelar</button>
+        <button type="submit" class="boton-primario" id="boton-gasto-guardar">Crear gasto</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="assets/js/config.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/theme.js"></script>
+<script src="assets/js/layout.js"></script>
+<script src="assets/js/formularios.js"></script>
+<script src="assets/js/view-switch.js"></script>
+<script src="assets/js/cargando.js"></script>
+<script src="assets/js/moneda.js"></script>
+<script src="assets/js/financiero.js"></script>
+</body>
+</html>

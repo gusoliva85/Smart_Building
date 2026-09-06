@@ -180,7 +180,7 @@ Corresponde al Documento General, sección 6; Documento Técnico, sección 8. De
 - [x] **Backend: endpoints CRUD de Gastos, Fondos, Caja, Presupuestos, Facturas.**
   Todos anidados bajo edificio.
 
-- [ ] **Backend: endpoint de reportes financieros.**
+- [x] **Backend: endpoint de reportes financieros.**
   `GET /api/edificios/{id}/reportes/financiero`: recaudado vs. esperado, morosidad, evolución de gastos por rubro — la data cruda para Analítica (Fase 6). *(Ajuste tras revisar toda la Fase 2 ya construida: gran parte de esta data ya existe, esta tarea consolida en un solo endpoint, no recalcula de cero — morosidad sale de `/deudores` (Tarea 10), evolución de gastos por rubro de `/gastos` con el filtro de período ya soportado (Tarea 11), y recaudado vs. esperado de `Expensa.total` contra la suma de `Pago` `confirmado` por período (Tareas 8-9).)*
 
 - [ ] **Frontend: `financiero.html` — cascarón con pestañas (`.view-switch`) y pestaña "Gastos".**

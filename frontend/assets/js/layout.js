@@ -9,14 +9,25 @@
 const ICONOS_SIDEBAR = {
   edificios: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V6l8-3 8 3v15"/><path d="M9 21v-6h6v6"/><path d="M9 10h.01M15 10h.01M9 14h.01M15 14h.01"/></svg>',
   usuarios: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>',
+  financiero: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5c0-1.4 1.2-2.5 2.5-2.5s2.5 1 2.5 2.2c0 2.8-5 1.6-5 4.2 0 1.3 1.2 2.3 2.5 2.3s2.5-1 2.5-2.3"/></svg>',
 };
 
 // Accesos habilitados por rol. Se completa a medida que existen más
 // pantallas — nunca se linkea a un archivo que todavía no existe.
+//
+// admin_consorcio suma su primer acceso acá (Financiero, Fase 2 Tarea 13)
+// — hasta ahora tenía el sidebar vacío porque ninguna pantalla propia
+// existía todavía. Sigue sin "Edificios": el backend ya le permite
+// configurar el suyo (Fase 1), pero esa pantalla es tarea aparte, no se
+// adelanta acá solo porque el permiso ya esté.
 const ACCESOS_POR_ROL = {
   admin_general: [
     { href: 'edificios.html', texto: 'Edificios', icono: 'edificios' },
     { href: 'usuarios.html', texto: 'Usuarios', icono: 'usuarios' },
+    { href: 'financiero.html', texto: 'Financiero', icono: 'financiero' },
+  ],
+  admin_consorcio: [
+    { href: 'financiero.html', texto: 'Financiero', icono: 'financiero' },
   ],
 };
 

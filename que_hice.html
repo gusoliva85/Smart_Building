@@ -351,7 +351,8 @@
       <a class="toc-link" data-goto="f2-t9"><span class="n">9</span>Pagos, medio de pago y conciliación<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f2-t10"><span class="n">10</span>Cálculo de deudores<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f2-t11"><span class="n">11</span>CRUD Gastos/Fondos/Caja/Presupuestos/Facturas<span class="estado-mini done"></span></a>
-      <a class="toc-link" data-goto="f2-t12"><span class="n">12</span>Endpoint de reportes financieros<span class="estado-mini pend"></span></a>
+      <a class="toc-link" data-goto="f2-t12"><span class="n">12</span>Endpoint de reportes financieros<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f2-t13"><span class="n">13</span>financiero.html + pestaña Gastos<span class="estado-mini pend"></span></a>
     </div>
 
     <div class="toc-progress">
@@ -2513,7 +2514,7 @@ test_detalle_no_crece_con_la_cantidad_de_pisos                       PASSED</div
         <div class="slide-inner">
           <div class="divider-num">02</div>
           <h2>Fase 2 — Gestión financiera básica</h2>
-          <div class="fase-frac-grande" id="fase2-frac">11 / 18 aprobadas</div>
+          <div class="fase-frac-grande" id="fase2-frac">12 / 18 aprobadas</div>
           <p class="divider-desc">Corresponde al Documento General, sección 6; Documento Técnico, sección 8. El módulo más sensible: de acá sale directamente el dato de morosidad que colorea de amarillo/rojo un departamento en el Dashboard Visual (Fase 5).</p>
         </div>
       </section>
@@ -3071,7 +3072,7 @@ tests/test_modelo_pago.py (+3 de estado) .... [8 passed]
           <div class="tarea-head">
             <span class="tarea-num">Tarea 12</span>
             <h3>Backend: endpoint de reportes financieros</h3>
-            <span class="status pend"><i class="dot"></i>Implementado — pendiente de tu revisión</span>
+            <span class="status done"><i class="dot"></i>Hecho — aprobado</span>
           </div>
           <p class="lede"><code>GET /api/edificios/{id}/reportes/financiero</code> — Documento Técnico, sección 8: consolida recaudado vs. esperado, evolución de gastos por rubro y morosidad en un solo endpoint, la data cruda para Analítica (Fase 6). Tal como se anotó en la revisión completa de la Fase 2 (tarea anterior): <strong>ninguna de las tres piezas se recalcula desde cero</strong>, todas reutilizan lo ya construido y probado.</p>
 
@@ -3094,6 +3095,50 @@ tests/test_modelo_pago.py (+3 de estado) .... [8 passed]
           <div class="code-block">tests/test_financiero_reportes.py ..... [5 passed]
 <span class="cm"># suite completa del backend: 212 passed (207 + 5 nuevos)</span></div>
           <p>Verificado también contra la base real de desarrollo, con el edificio real ya usado en toda la fase (Torre Cierre Fase 1): <code>esperado: 157.432,87</code> / <code>recaudado: 13.118,88</code> (el único pago confirmado hasta ahora), los 3 gastos reales agrupados correctamente por rubro, <code>deuda_total_actual: 144.313,99</code> (exactamente <code>esperado - recaudado</code>) y <code>cantidad_deudores: 11</code> — coincidiendo con lo ya validado en la Tarea 10.</p>
+        </div>
+      </section>
+
+      <section class="slide tarea" id="f2-t13" data-crumb="Fase 2 · Tarea 13">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 13</span>
+            <h3>Frontend: <code>financiero.html</code> — cascarón con pestañas y pestaña "Gastos"</h3>
+            <span class="status pend"><i class="dot"></i>Implementado — pendiente de tu revisión</span>
+          </div>
+          <p class="lede">Primera pantalla nueva de la Fase 2 — mismo esqueleto que <code>edificios.html</code> (listado de edificios → detalle con <code>.view-switch</code>), con la primera pestaña funcional: alta y listado de gastos, con filtro por año/mes. A propósito, un solo botón en el <code>.view-switch</code> por ahora — Expensas/Pagos/Deudores/Fondos·Caja·Presupuestos·Facturas se suman en sus propias tareas, nunca como pestañas deshabilitadas esperando su turno.</p>
+
+          <h4>Primer acceso real de Administrador de Consorcio a algo</h4>
+          <p>Hasta esta tarea, <code>admin_consorcio</code> tenía el sidebar completamente vacío ("Todavía no hay pantallas para tu rol") — nunca había una pantalla propia. <code>ACCESOS_POR_ROL</code> (<code>layout.js</code>) suma su primera entrada para este rol: <b>Financiero</b>. Sigue sin "Edificios" a propósito — el backend ya le permite configurar el suyo desde la Fase 1, pero esa pantalla es tarea aparte del Roadmap, no se adelanta solo porque el permiso ya exista.</p>
+          <p>El listado de edificios reutiliza el mismo patrón ya validado en <code>edificios.html</code> (mismo <code>GET /api/edificios</code>, ya scopeado por rol) — para <code>admin_consorcio</code> la lista trae naturalmente solo lo suyo, sin ningún filtro extra del lado del frontend.</p>
+
+          <div class="explicacion">
+            <div class="explicacion-titulo">
+              <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              Dos patrones nuevos, documentados en la skill para reusar
+            </div>
+            <p><b>Formato de moneda</b> (<code>assets/js/moneda.js</code>): primera pantalla que muestra dinero real — se centralizó un <code>Intl.NumberFormat('es-AR', {style:'currency', ...})</code> en vez de dejar que cada pantalla futura (Expensas, Pagos, Deudores) arme el suyo. Un monto en una fila va en <b>Outfit</b> (como un KPI), nunca en Inter.</p>
+            <p><b>Fechas <code>YYYY-MM-DD</code> del backend, nunca por <code>new Date()</code> directo:</b> <code>new Date('2026-08-05')</code> se interpreta como medianoche UTC — con la zona horaria de Argentina (UTC-3), se muestra un día antes de la fecha real. Se resolvió separando el string a mano (<code>formatearFecha()</code>), sin pasar por el objeto <code>Date</code> en ningún momento.</p>
+            <p><b>Select chico de filtro</b> (<code>.campo-select-chico</code>, nuevo en <code>components.css</code>): mismo peso visual que <code>.chip-link</code> (píldora, vidrio) pero funcional, para los filtros de año/mes en línea junto al botón "+ Nuevo gasto".</p>
+          </div>
+
+          <div class="correccion">
+            <div class="correccion-titulo">
+              <svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              El mismo bug histórico de "temporal dead zone", encontrado de nuevo
+            </div>
+            <p>Al probar con Playwright: <code>Cannot access 'edificioId' before initialization</code> — exactamente el mismo bug ya documentado en <code>edificios.js</code> (Fase 1, Tarea 18): las variables <code>let edificioId</code>/<code>let gastosCache</code> estaban declaradas más abajo en el archivo que el código de ruteo que ya las necesitaba al cargar la página. Se movieron al principio de la función, mismo fix de siempre — repetido acá para dejar constancia de que este patrón (declarar el estado compartido ANTES del bloque de ruteo, no junto a la función que lo usa) hay que aplicarlo desde el vamos en la próxima pantalla nueva, no descubrirlo de nuevo cada vez.</p>
+          </div>
+
+          <h4>Verificación con Playwright, contra el backend real</h4>
+          <ul>
+            <li>Sidebar: <code>admin_general</code> ve Edificios/Usuarios/Financiero; <code>admin_consorcio</code> ve solo Financiero (su primer acceso real); Propietario ve "Esta pantalla es solo para..." y no entra.</li>
+            <li>Listado: 7 edificios para <code>admin_general</code>; 3 para <code>admin_consorcio</code> (scopeado por el backend, sin filtro extra del frontend).</li>
+            <li>Detalle (Torre Cierre Fase 1, con 3 gastos reales de la Fase 2): título y resumen correctos ("3 gastos · $157.432,87 en total"), las 3 filas con rubro/fecha/monto exactos.</li>
+            <li>Filtro por mes: agosto muestra los 3 (todos son de agosto); enero muestra "Sin gastos cargados para este filtro."</li>
+            <li>Alta real de un gasto nuevo vía el modal: aparece de inmediato en la lista, el resumen pasa a "4 gastos · $169.778,54".</li>
+            <li>Responsive: sin overflow horizontal en mobile (390px). Verificado también en tema oscuro — todo con tokens, sin colores sueltos (salvo el chevron del select, documentado como excepción técnica reconocida).</li>
+            <li>Cero errores de consola en todo el recorrido.</li>
+          </ul>
         </div>
       </section>
 

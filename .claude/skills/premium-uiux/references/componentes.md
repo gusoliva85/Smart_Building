@@ -729,3 +729,41 @@ function dispararRipple(boton, evento, color) {
 **El texto va en un `<span>` interno, nunca directo en `boton.textContent`** — si no, cada cambio de estado borraría el/los `<span class="ripple">` que estén animando en ese momento (`textContent` reemplaza TODOS los hijos, ripples incluidos). Cambio optimista: el ripple + el color nuevo aparecen al clic, sin esperar la respuesta del servidor — si la llamada falla, se revierte el color/texto (ver la lección de seguridad abajo, la razón de fondo por la que esto importa).
 
 **Lección de seguridad real, encontrada probando este mismo botón — no algo teórico:** el primer intento de esta funcionalidad no tenía ningún resguardo contra que un usuario se desactivara A SÍ MISMO. Al probar el botón sobre la fila del propio Administrador General logueado, la cuenta quedó realmente desactivada — y como el login rechaza usuarios inactivos, y hace falta ser `admin_general` para reactivar a alguien, **la cuenta quedó bloqueada sin ninguna forma de volver a entrar** (se reparó a mano, directo en la base de datos, para poder seguir probando). Corregido en dos capas: el **backend** rechaza con 400 tanto `POST /usuarios/{id}/desactivar` como `PATCH /usuarios/{id}` con `activo:false` cuando `usuario_id` es el mismo que el usuario autenticado; el **frontend** además deshabilita el botón en la propia fila del usuario logueado, con un `title` explicando por qué, para no dejar ni intentarlo. Cualquier acción de "desactivar/eliminar/degradar" sobre uno mismo necesita este mismo resguardo doble — nunca confiar solo en el frontend para una regla de este tipo.
+
+## Formato de moneda (`assets/js/moneda.js`)
+
+`financiero.html` es la primera pantalla que muestra dinero real — se centralizó el formato en vez de dejar que cada pantalla nueva (Expensas, Pagos, Deudores...) arme su propio `Intl.NumberFormat` suelto:
+
+```js
+const FORMATEADOR_ARS = new Intl.NumberFormat('es-AR', {
+  style: 'currency', currency: 'ARS', minimumFractionDigits: 2, maximumFractionDigits: 2,
+});
+window.Moneda = { formatear: (valor) => FORMATEADOR_ARS.format(Number(valor) || 0) };
+```
+
+Un monto en una fila de listado va en `Outfit` (números, igual que un KPI), nunca en `Inter` — `font-family:Outfit, sans-serif; font-weight:700;` sobre el `<span>` del monto.
+
+**Fechas `YYYY-MM-DD` del backend: nunca pasarlas por `new Date()` directo.** `new Date('2026-08-05')` se interpreta como medianoche UTC — con la zona horaria de Argentina (UTC-3), `toLocaleDateString()` la muestra un día antes de la fecha real. Se resuelve separando el string a mano:
+
+```js
+function formatearFecha(fechaISO) {
+  const [anio, mes, dia] = fechaISO.split('-');
+  return `${dia}/${mes}/${anio}`;
+}
+```
+
+## Select chico de filtro (`.campo-select-chico`)
+
+Para filtros en línea junto a otros controles (año/mes en un listado, por ejemplo) — mismo peso visual que `.chip-link` (píldora, vidrio, borde fino) pero es un `<select>` real, no un link. Distinto de `.campo select` (esa es de ancho completo, con label, para formularios de alta):
+
+```css
+.campo-select-chico{
+  font:inherit; font-size:12.5px; font-weight:600; padding:8px 30px 8px 14px; border-radius:99px;
+  background:var(--glass-content-bg); border:1px solid var(--line); color:var(--ink-2);
+  outline:none; cursor:pointer; appearance:none; -webkit-appearance:none;
+  background-image:url("data:image/svg+xml,..."); /* chevron, ver components.css */
+  background-repeat:no-repeat; background-position:right 10px center; background-size:13px;
+}
+```
+
+**Excepción reconocida a la regla de "nunca un color fijo suelto":** el chevron del `<select>` es un SVG embebido como `data:` URI en `background-image` — no puede leer variables CSS (`var(--ink-3)`), así que su `stroke` queda en un gris neutro fijo (`#888`). Es una limitación técnica real de la propiedad `background-image`, no una excepción de comodidad — se probó que ese gris puntual queda legible tanto en tema claro como oscuro (a diferencia de un color con licencia de marca o de semáforo, que si necesitan variar si o si entre temas). Cualquier otro color de la regla — fondo, borde, texto — sigue token normal.
