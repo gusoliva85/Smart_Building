@@ -561,6 +561,7 @@ Corresponde al Documento Técnico, sección 1.3.1 (migración Tailwind CDN → C
 
 - [ ] **Revisión de seguridad general.**
   Repaso de autorización por rol de todos los endpoints construidos (Documento Técnico, sección 19), validación de entrada, y que ningún dato sensible (contraseñas, tokens) quede expuesto donde no corresponde.
+  *(Ampliada con los puntos 11, 12 y 13 de la Fase X — Requerimientos de seguridad informática: repaso explícito contra el checklist de **OWASP Top 10**, revisión formal de las decisiones de arquitectura ya tomadas — JWT sin estado, CORS con whitelist, secretos por variable de entorno — y un assessment de amenazas/riesgo básico antes del cierre. Incluye además ejecutar los puntos ya identificados como pendientes: deshabilitar `/docs`/`/redoc`/`/openapi.json` en producción, exigir contraseñas robustas, y crear un rol de base de datos de mínimo privilegio en Supabase.)*
 
 - [ ] **Pruebas de carga básicas.**
   Confirmar que la plataforma responde bien con varios edificios y usuarios simultáneos, no solo con el edificio de prueba usado durante todo el desarrollo.
@@ -601,8 +602,48 @@ No es una fase de desarrollo más (no sigue el orden lógica → backend → fro
 - [x] **5. Otras APIs (se sugiere geolocalización).**
   **Ya cumplido.** `assets/js/mapa.js` (Fase 1, Tarea 14 — alta de edificio): geocodifica dirección + CP contra la **API de Nominatim** (OpenStreetMap, gratuita, sin API key) y muestra el resultado en un mapa real con **Leaflet**. Se usa hoy en `edificios.html` al dar de alta un edificio nuevo.
 
-- [ ] **6. Cumplimiento de los lineamientos de seguridad informática de la facultad.**
-  **No evaluable todavía** — el enunciado dice explícitamente "que serán brindados oportunamente": no existen todavía los lineamientos concretos contra los cuales verificar cumplimiento, así que no se puede marcar ni como hecho ni como pendiente real, solo como **a la espera**. Mientras tanto, la base de seguridad ya construida a lo largo del proyecto (y que se va a repasar formalmente en la Fase 13, "Revisión de seguridad general"): JWT + contraseñas hasheadas, RBAC en cada endpoint (`services/autorizacion.py`, Fase 1), validación de entrada con Pydantic en todos los `Entrada`, ningún secreto en el código (`.env`/variables de entorno de Vercel), HTTPS en producción (Vercel). En cuanto la facultad entregue los lineamientos puntuales, esta tarea se abre en tareas concretas — hoy es un placeholder a propósito, no una tarea vacía.
+### Requerimientos de seguridad informática (13 lineamientos pedidos por la facultad)
+
+El punto 6 original ("cumplimiento de lineamientos de seguridad... a definir oportunamente") se reemplaza por esta lista concreta que el usuario acercó. Mismo criterio de siempre: se verificó cada uno contra el código real (grep de validaciones existentes, lectura de `main.py`/`config.py`/`core/security.py`), no de memoria — 6 de los 13 ya están cumplidos, 7 quedan como tareas concretas a construir antes del cierre del proyecto.
+
+- [x] **1. Seguridad y control de acceso basado en permisos.**
+  **Ya cumplido.** Ningún endpoint del backend queda sin una dependencia de autorización — `core/dependencies.py` (`requerir_admin_del_edificio`, `requerir_acceso_financiero_edificio`, etc.) decide siempre en base al rol y la relación real del usuario con el edificio/departamento, nunca en base a lo que el frontend decide mostrar u ocultar.
+
+- [x] **2. Autenticar y autorizar contra un dominio de base de datos.**
+  **Cumplido, con un matiz a documentar.** El login (`POST /api/auth/login`) valida siempre contra la tabla `Usuario` real (password hasheada con `bcrypt`, nunca en texto plano) — no hay usuarios ni contraseñas hardcodeadas en el código. El matiz: el enunciado dice "preferentemente separado del de la aplicación" (ej. un directorio tipo LDAP/Active Directory aparte), y acá el dominio de autenticación vive en la misma base que el resto de la app. Para el tamaño y alcance de este proyecto (una sola base, sin necesidad de SSO corporativo) no se justifica separar ambos dominios — se documenta como decisión consciente, no como algo que falte.
+
+- [x] **3. Accesos otorgados por rol (RBAC), nunca directo a la aplicación.**
+  **Ya cumplido.** `Usuario.rol` es siempre uno de los 8 roles fijos de `services/autorizacion.py` (`ROLES`) — ningún permiso se asigna a un usuario puntual, todo pasa por su rol (y, en Financiero, además por su vínculo real con un departamento).
+
+- [ ] **4. Contraseñas robustas (mínimo 8 caracteres, mayúsculas + minúsculas + números + especiales).**
+  **No implementado — a construir.** Se verificó `schemas/usuario.py` y `schemas/auth.py`: hoy no existe ninguna validación de fortaleza, un usuario puede darse de alta con una contraseña de un solo carácter. Falta un `field_validator` en `UsuarioEntrada` (backend, la garantía real) que exija los 4 requisitos, más el reflejo en el frontend (`pattern`/mensaje de ayuda en el input de alta de usuario) para que el error se vea antes de mandar el formulario.
+
+- [x] **5. Ocultar la extensión de los scripts públicos.**
+  **Ya cumplido.** Todas las rutas del backend son limpias por diseño de FastAPI (`/api/edificios/7/gastos`, nunca `/servicio.py`) — no hay forma de inferir el lenguaje/framework desde una URL del sistema.
+
+- [x] **6. Deshabilitar la visualización de errores por pantalla.**
+  **Ya cumplido.** `FastAPI()` nunca se instanció con `debug=True` — un error no manejado devuelve siempre un 500 genérico, nunca el traceback real. Los únicos errores que sí muestran texto (`HTTPException` con `detail`) fueron revisados uno por uno: siempre son mensajes de negocio redactados a mano (ej. "Faltan coeficientes para prorratear", `financiero.py`), nunca el texto crudo de una excepción de SQLAlchemy o de Python que pueda filtrar estructura interna.
+
+- [ ] **7. Solo los archivos que deben verse desde afuera, en directorios publicados.**
+  **Hallazgo concreto — a construir.** `/docs`, `/redoc` y `/openapi.json` (documentación interactiva automática de FastAPI) quedan activos tal cual en producción — no hay ningún `docs_url=None`/`openapi_url=None` en `main.py`. Hoy cualquier visitante anónimo puede ver el esquema completo de la API (todas las rutas, todos los campos de cada modelo) sin loguearse. Falta deshabilitarlos en producción (`docs_url=None if ES_PRODUCCION else "/docs"`, mismo patrón ya usado por `ES_PRODUCCION` en `config.py`).
+
+- [x] **8. Validar los parámetros de entrada, cliente y servidor.**
+  **Ya cumplido.** El 100% de los `Entrada` del backend pasan por Pydantic (tipos, campos obligatorios, `field_validator` donde aplica) y el frontend usa `required`/tipos HTML5 en cada formulario. Se verificó además que no existe ni una sola consulta armada con string/f-string a partir de un dato del request — todo pasa por el ORM de SQLAlchemy (la única excepción, `core/migraciones.py`, arma DDL a partir de metadata de los propios modelos, nunca de un dato de usuario), así que no hay superficie de inyección SQL.
+
+- [ ] **9. Mínimo privilegio en los permisos de base de datos.**
+  **No implementado — a construir.** La conexión a Supabase/Postgres en producción usa hoy el rol de conexión por defecto del proyecto, no un rol dedicado creado a mano con el mínimo permiso necesario (lectura/escritura solo de las tablas de la app). Falta crear ese rol en Supabase y apuntar `DATABASE_URL` de producción a él, antes del cierre del proyecto.
+
+- [x] **10. Evitar accesos a carpetas privadas — directorios específicos, no los default.**
+  **Ya cumplido.** `backend/venv/` y `smart_building.db` nunca se versionan ni se despliegan (`.gitignore`); ni el hosting estático del frontend ni las funciones serverless del backend en Vercel exponen listado de directorios ni el filesystem del proyecto — cada uno sirve únicamente lo que expone explícitamente (rutas `/api/*` uno, los archivos de `frontend/` el otro).
+
+- [ ] **11. Análisis preliminar de código contra vulnerabilidades conocidas (OWASP).**
+  **Ya contemplado en el Roadmap — se amplía, no se duplica.** No se hizo todavía un repaso explícito contra el checklist de OWASP Top 10. En vez de una tarea nueva y aislada, se suma como parte concreta de la tarea ya existente **"Revisión de seguridad general"** (Fase 13) — ver nota agregada ahí mismo.
+
+- [ ] **12. Revisar las cuestiones de seguridad que dependen solo de la arquitectura.**
+  **Parcialmente cubierto por decisiones ya tomadas — falta la revisión formal.** Varias ya están de base: JWT sin estado (nada de sesiones en el servidor), CORS con whitelist explícita de orígenes (nunca `allow_origins=["*"]`, `core/config.py`), secretos solo por variable de entorno y `verificar_configuracion_produccion()` que no deja arrancar en Vercel con el secreto de desarrollo puesto. Falta una revisión formal dedicada, no solo decisiones tomadas sobre la marcha — se suma también a la tarea de la Fase 13.
+
+- [ ] **13. Assessment completo de seguridad (amenazas y riesgo).**
+  **No hecho — ya contemplado en el Roadmap.** Se cubre con el alcance ampliado de "Revisión de seguridad general" (Fase 13) más "Pruebas de carga básicas" (misma fase). La herramienta que cita el enunciado (subgraph.com) es una referencia de la cátedra, no necesariamente la que se termine usando — se evalúa cuando llegue el turno de esa tarea.
 
 ### Requerimientos de UX (16 heurísticas pedidas por la facultad)
 

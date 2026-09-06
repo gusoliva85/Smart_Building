@@ -358,8 +358,9 @@
 
     <div class="toc-group">
       <span class="toc-group-title" data-goto="fase-x-divider">Fase X — Solicitud de Facultad</span>
-      <a class="toc-link" data-goto="fx-t1"><span class="n">1</span>Verificación de los 6 requisitos mínimos<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="fx-t1"><span class="n">1</span>Verificación de los 5 requisitos técnicos<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="fx-t2"><span class="n">2</span>16 heurísticas de UX<span class="estado-mini pend"></span></a>
+      <a class="toc-link" data-goto="fx-t3"><span class="n">3</span>13 lineamientos de seguridad informática<span class="estado-mini pend"></span></a>
     </div>
 
     <div class="toc-progress">
@@ -3187,7 +3188,7 @@ tests/test_modelo_pago.py (+3 de estado) .... [8 passed]
         <div class="slide-inner">
           <div class="divider-num">X</div>
           <h2>Fase X — Solicitud de Facultad</h2>
-          <div class="fase-frac-grande" id="fasex-frac">5 / 6 verificados</div>
+          <div class="fase-frac-grande" id="fasex-frac">21 / 34 verificados</div>
           <p class="divider-desc">No es una fase de desarrollo — es el checklist de los 6 requisitos mínimos que pide la facultad, verificado contra todo lo ya construido en el proyecto. Se agrega tal cual la pidió el usuario, con el nombre literal, para dejar claro que es un requisito externo, no una etapa funcional del producto.</p>
         </div>
       </section>
@@ -3196,10 +3197,10 @@ tests/test_modelo_pago.py (+3 de estado) .... [8 passed]
         <div class="slide-inner">
           <div class="tarea-head">
             <span class="tarea-num">Verificación</span>
-            <h3>Los 6 requisitos mínimos de la facultad, contra lo ya construido</h3>
+            <h3>Los 5 requisitos técnicos mínimos de la facultad, contra lo ya construido</h3>
             <span class="status done"><i class="dot"></i>Analizado y aprobado</span>
           </div>
-          <p class="lede">El usuario pidió confirmar si el proyecto ya cumple 6 requisitos mínimos exigidos por la facultad, o si hace falta sumar trabajo nuevo. Se revisó cada punto contra el código real (no de memoria) antes de responder.</p>
+          <p class="lede">El usuario pidió confirmar si el proyecto ya cumple los requisitos mínimos exigidos por la facultad, o si hace falta sumar trabajo nuevo. Se revisó cada punto contra el código real (no de memoria) antes de responder. El sexto punto original (lineamientos de seguridad informática) dejó de ser un placeholder: el usuario acercó la lista concreta y se mudó a su propia slide, <a data-goto="fx-t3">"13 lineamientos de seguridad informática"</a>.</p>
 
           <h4>1. Sistema de procesamiento transaccional + repositorio en base de datos relacional</h4>
           <p><span class="status done" style="display:inline-flex;margin-bottom:6px;">Ya cumplido</span><br> El backend completo (FastAPI + SQLAlchemy) opera con transacciones reales — <code>db.commit()</code> / <code>db.rollback()</code> explícitos, por ejemplo en <code>generar_expensa_mensual</code> (Fase 2, Tarea 8): si el prorrateo falla a mitad de camino, se hace rollback y no queda nada a medio crear. Repositorio: SQLite en desarrollo, <strong>PostgreSQL (Supabase) en producción</strong> — ambas relacionales.</p>
@@ -3216,15 +3217,12 @@ tests/test_modelo_pago.py (+3 de estado) .... [8 passed]
           <h4>5. Otras APIs (se sugiere geolocalización)</h4>
           <p><span class="status done" style="display:inline-flex;margin-bottom:6px;">Ya cumplido</span><br> <code>assets/js/mapa.js</code> (Fase 1, Tarea 14 — alta de edificio): geocodifica dirección + CP contra la <strong>API de Nominatim</strong> (OpenStreetMap) y muestra el resultado en un mapa real con <strong>Leaflet</strong>. En uso hoy en <code>edificios.html</code>.</p>
 
-          <h4>6. Cumplimiento de lineamientos de seguridad informática de la facultad</h4>
-          <p><span class="status pend" style="display:inline-flex;margin-bottom:6px;">A la espera</span><br> El enunciado dice explícitamente "que serán brindados oportunamente" — no existen todavía los lineamientos concretos, así que no se puede evaluar cumplimiento de algo que no está definido. Base de seguridad ya construida mientras tanto: JWT + contraseñas hasheadas, RBAC en cada endpoint, validación de entrada con Pydantic, sin secretos en el código, HTTPS en producción. Se retoma en tareas concretas en cuanto la facultad entregue los lineamientos — hoy es un placeholder a propósito.</p>
-
           <div class="explicacion">
             <div class="explicacion-titulo">
               <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
               Conclusión
             </div>
-            <p>5 de los 6 requisitos ya estaban cumplidos por decisiones tomadas desde el inicio del proyecto (Documento Técnico, secciones 2.1-2.2 y 4) — no hizo falta agregar nada nuevo al código. El único punto abierto (lineamientos de seguridad) no depende del proyecto sino de un insumo externo todavía no entregado.</p>
+            <p>Los 5 requisitos técnicos ya estaban cumplidos por decisiones tomadas desde el inicio del proyecto (Documento Técnico, secciones 2.1-2.2 y 4) — no hizo falta agregar nada nuevo al código. El sexto punto original de esta lista (lineamientos de seguridad, entonces "a la espera") dejó de ser un placeholder en cuanto el usuario acercó la lista real de 13 lineamientos — se analiza en su propia slide, "13 lineamientos de seguridad informática".</p>
           </div>
         </div>
       </section>
@@ -3292,6 +3290,64 @@ tests/test_modelo_pago.py (+3 de estado) .... [8 passed]
               Conclusión
             </div>
             <p>9 de las 16 heurísticas ya estaban cubiertas por decisiones de diseño tomadas desde el inicio (8 realizadas + 1 ya contemplada en la tarea de accesibilidad de la Fase 12). Las 7 restantes (3, 5, 7, 10, 11, 14 y 16) quedan documentadas en <code>03_Roadmap.md</code> como tareas concretas a futuro dentro de la Fase X, cada una con el detalle de lo que falta construir.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="slide tarea" id="fx-t3" data-crumb="Fase X · Seguridad informática">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Seguridad informática</span>
+            <h3>13 lineamientos de seguridad de la facultad, contra lo ya construido</h3>
+            <span class="status pend"><i class="dot"></i>Analizado — 7 ya cubiertos, 6 a construir</span>
+          </div>
+          <p class="lede">El usuario acercó los 13 lineamientos de seguridad informática que reemplazan al punto 6 original de la Fase X ("a la espera de la facultad"). Se verificó cada uno leyendo el código real — <code>main.py</code>, <code>core/config.py</code>, <code>core/security.py</code>, <code>schemas/usuario.py</code> — y con búsquedas puntuales (<code>grep</code> de validaciones de contraseña, de <code>docs_url</code>, de SQL armado a mano) en vez de dar nada por sentado de memoria.</p>
+
+          <h4>1. Seguridad y control de acceso basado en permisos</h4>
+          <p><span class="status done" style="display:inline-flex;margin-bottom:6px;">Ya cumplido</span><br> Ningún endpoint queda sin una dependencia de autorización — <code>core/dependencies.py</code> decide siempre según el rol y el vínculo real del usuario con el edificio/departamento.</p>
+
+          <h4>2. Autenticar/autorizar contra un dominio de base de datos</h4>
+          <p><span class="status done" style="display:inline-flex;margin-bottom:6px;">Cumplido, con un matiz</span><br> El login valida siempre contra la tabla <code>Usuario</code> real (hash bcrypt). El matiz: vive en la misma base que el resto de la app, no en un dominio separado (ej. LDAP) — decisión consciente para el tamaño de este proyecto, no un descuido.</p>
+
+          <h4>3. Accesos por rol (RBAC), nunca directo a la aplicación</h4>
+          <p><span class="status done" style="display:inline-flex;margin-bottom:6px;">Ya cumplido</span><br> <code>Usuario.rol</code> es siempre uno de los 8 roles fijos de <code>services/autorizacion.py</code> — nunca un permiso suelto asignado a un usuario puntual.</p>
+
+          <h4>4. Contraseñas robustas (8+ caracteres, mayúsculas, minúsculas, números y especiales)</h4>
+          <p><span class="status pend" style="display:inline-flex;margin-bottom:6px;">A construir</span><br> Verificado en <code>schemas/usuario.py</code>: hoy no hay ninguna validación de fortaleza. Falta un <code>field_validator</code> en el backend (la garantía real) más el reflejo en el formulario de alta de usuario.</p>
+
+          <h4>5. Ocultar la extensión de los scripts públicos</h4>
+          <p><span class="status done" style="display:inline-flex;margin-bottom:6px;">Ya cumplido</span><br> Rutas limpias de FastAPI (<code>/api/edificios/7/gastos</code>) — nunca se ve el lenguaje o framework en una URL.</p>
+
+          <h4>6. Deshabilitar la visualización de errores por pantalla</h4>
+          <p><span class="status done" style="display:inline-flex;margin-bottom:6px;">Ya cumplido</span><br> <code>FastAPI()</code> nunca corrió con <code>debug=True</code> — un error no manejado siempre devuelve un 500 genérico. Los mensajes que sí se muestran (<code>HTTPException</code>) son siempre texto de negocio redactado a mano, nunca una excepción cruda.</p>
+
+          <h4>7. Solo los archivos públicos en directorios publicados</h4>
+          <p><span class="status pend" style="display:inline-flex;margin-bottom:6px;">Hallazgo — a construir</span><br> <code>/docs</code>, <code>/redoc</code> y <code>/openapi.json</code> quedan activos en producción — no hay <code>docs_url=None</code> en <code>main.py</code>. Cualquier visitante anónimo puede ver hoy el esquema completo de la API sin loguearse.</p>
+
+          <h4>8. Validar los parámetros de entrada, cliente y servidor</h4>
+          <p><span class="status done" style="display:inline-flex;margin-bottom:6px;">Ya cumplido</span><br> Pydantic en el 100% de los <code>Entrada</code> + HTML5 en el frontend. Verificado que no existe ninguna consulta armada con string a partir de un dato de request — todo pasa por el ORM.</p>
+
+          <h4>9. Mínimo privilegio en los permisos de base de datos</h4>
+          <p><span class="status pend" style="display:inline-flex;margin-bottom:6px;">A construir</span><br> La conexión a Supabase en producción usa hoy el rol por defecto, no uno dedicado con el mínimo permiso necesario. Falta crear ese rol antes del cierre del proyecto.</p>
+
+          <h4>10. Evitar accesos a carpetas privadas</h4>
+          <p><span class="status done" style="display:inline-flex;margin-bottom:6px;">Ya cumplido</span><br> <code>venv/</code> y la base SQLite nunca se versionan ni se despliegan; ni el frontend estático ni las funciones serverless de Vercel exponen listado de directorios ni el filesystem del proyecto.</p>
+
+          <h4>11. Análisis preliminar contra vulnerabilidades conocidas (OWASP)</h4>
+          <p><span class="status pend" style="display:inline-flex;margin-bottom:6px;">Ya contemplado</span><br> No hecho todavía. Se suma como parte concreta de la tarea ya existente "Revisión de seguridad general" (Fase 13), en vez de una tarea nueva y aislada.</p>
+
+          <h4>12. Revisar las cuestiones de seguridad de la arquitectura</h4>
+          <p><span class="status pend" style="display:inline-flex;margin-bottom:6px;">Parcial — falta la revisión formal</span><br> Ya hay varias decisiones de base (JWT sin estado, CORS con whitelist, secretos por variable de entorno), pero nunca una revisión formal dedicada. Se suma también a la Fase 13.</p>
+
+          <h4>13. Assessment completo de seguridad (amenazas y riesgo)</h4>
+          <p><span class="status pend" style="display:inline-flex;margin-bottom:6px;">Ya contemplado</span><br> No hecho. Se cubre con el alcance ampliado de "Revisión de seguridad general" + "Pruebas de carga básicas" (Fase 13).</p>
+
+          <div class="explicacion">
+            <div class="explicacion-titulo">
+              <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              Conclusión
+            </div>
+            <p>7 de los 13 lineamientos ya estaban cubiertos por decisiones tomadas desde el inicio del proyecto. De los 6 restantes, 3 son tareas puntuales y concretas (validador de contraseña, deshabilitar <code>/docs</code> en producción, rol de base de datos de mínimo privilegio) que se pueden hacer en cualquier momento antes del cierre, y 3 son de proceso/revisión (OWASP, arquitectura, assessment de riesgo) que se absorben en la tarea ya existente "Revisión de seguridad general" de la Fase 13, ahora con alcance ampliado.</p>
           </div>
         </div>
       </section>
