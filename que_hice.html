@@ -353,7 +353,12 @@
       <a class="toc-link" data-goto="f2-t11"><span class="n">11</span>CRUD Gastos/Fondos/Caja/Presupuestos/Facturas<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f2-t12"><span class="n">12</span>Endpoint de reportes financieros<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f2-t13"><span class="n">13</span>financiero.html + pestaña Gastos<span class="estado-mini done"></span></a>
-      <a class="toc-link" data-goto="f2-t14"><span class="n">14</span>Pestaña Expensas + Mi cuenta<span class="estado-mini pend"></span></a>
+      <a class="toc-link" data-goto="f2-t14"><span class="n">14</span>Pestaña Expensas + Mi cuenta<span class="estado-mini done"></span></a>
+    </div>
+
+    <div class="toc-group">
+      <span class="toc-group-title" data-goto="fase-x-divider">Fase X — Solicitud de Facultad</span>
+      <a class="toc-link" data-goto="fx-t1"><span class="n">1</span>Verificación de los 6 requisitos mínimos<span class="estado-mini pend"></span></a>
     </div>
 
     <div class="toc-progress">
@@ -2515,7 +2520,7 @@ test_detalle_no_crece_con_la_cantidad_de_pisos                       PASSED</div
         <div class="slide-inner">
           <div class="divider-num">02</div>
           <h2>Fase 2 — Gestión financiera básica</h2>
-          <div class="fase-frac-grande" id="fase2-frac">13 / 18 aprobadas</div>
+          <div class="fase-frac-grande" id="fase2-frac">14 / 18 aprobadas</div>
           <p class="divider-desc">Corresponde al Documento General, sección 6; Documento Técnico, sección 8. El módulo más sensible: de acá sale directamente el dato de morosidad que colorea de amarillo/rojo un departamento en el Dashboard Visual (Fase 5).</p>
         </div>
       </section>
@@ -3148,7 +3153,7 @@ tests/test_modelo_pago.py (+3 de estado) .... [8 passed]
           <div class="tarea-head">
             <span class="tarea-num">Tarea 14</span>
             <h3>Frontend: pestaña "Expensas" — generación/detalle (Administrador) y "Mi cuenta" (Propietario/Inquilino)</h3>
-            <span class="status pend"><i class="dot"></i>Implementado — pendiente de tu revisión</span>
+            <span class="status done"><i class="dot"></i>Hecho — aprobado</span>
           </div>
           <p class="lede">Segundo botón del <code>.view-switch</code> de <code>financiero.html</code>: el Administrador genera una expensa (año/mes) y ve el detalle completo (apertura por rubro + monto por unidad). Y, por primera vez, Propietario e Inquilino tienen ALGO real que ver: "Mi cuenta", sus propias unidades con el estado de cada expensa — sin cargar pago todavía, eso es la próxima tarea.</p>
 
@@ -3174,6 +3179,52 @@ tests/test_modelo_pago.py (+3 de estado) .... [8 passed]
           </ul>
           <div class="code-block">tests/test_financiero_expensas_listado.py ..... [5 passed]
 <span class="cm"># suite completa del backend: 217 passed (212 + 5 nuevos)</span></div>
+        </div>
+      </section>
+
+      <section class="slide slide-divider" id="fase-x-divider" data-crumb="Fase X — Solicitud de Facultad">
+        <div class="slide-inner">
+          <div class="divider-num">X</div>
+          <h2>Fase X — Solicitud de Facultad</h2>
+          <div class="fase-frac-grande" id="fasex-frac">0 / 6 verificados</div>
+          <p class="divider-desc">No es una fase de desarrollo — es el checklist de los 6 requisitos mínimos que pide la facultad, verificado contra todo lo ya construido en el proyecto. Se agrega tal cual la pidió el usuario, con el nombre literal, para dejar claro que es un requisito externo, no una etapa funcional del producto.</p>
+        </div>
+      </section>
+
+      <section class="slide tarea" id="fx-t1" data-crumb="Fase X · Verificación">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Verificación</span>
+            <h3>Los 6 requisitos mínimos de la facultad, contra lo ya construido</h3>
+            <span class="status pend"><i class="dot"></i>Analizado — pendiente de tu revisión</span>
+          </div>
+          <p class="lede">El usuario pidió confirmar si el proyecto ya cumple 6 requisitos mínimos exigidos por la facultad, o si hace falta sumar trabajo nuevo. Se revisó cada punto contra el código real (no de memoria) antes de responder.</p>
+
+          <h4>1. Sistema de procesamiento transaccional + repositorio en base de datos relacional</h4>
+          <p><span class="status done" style="display:inline-flex;margin-bottom:6px;">Ya cumplido</span><br> El backend completo (FastAPI + SQLAlchemy) opera con transacciones reales — <code>db.commit()</code> / <code>db.rollback()</code> explícitos, por ejemplo en <code>generar_expensa_mensual</code> (Fase 2, Tarea 8): si el prorrateo falla a mitad de camino, se hace rollback y no queda nada a medio crear. Repositorio: SQLite en desarrollo, <strong>PostgreSQL (Supabase) en producción</strong> — ambas relacionales.</p>
+
+          <h4>2. Herramienta de mapeo objeto-relacional (ORM)</h4>
+          <p><span class="status done" style="display:inline-flex;margin-bottom:6px;">Ya cumplido</span><br> SQLAlchemy, usado en el 100% de los modelos y consultas desde la Fase 0 — nunca SQL crudo, salvo la migración puntual de <code>core/migraciones.py</code> (Fase 2, Tarea 7), que también usa el compilador de DDL de SQLAlchemy, no strings armados a mano.</p>
+
+          <h4>3. Diseño web adaptable (RWD)</h4>
+          <p><span class="status done" style="display:inline-flex;margin-bottom:6px;">Ya cumplido</span><br> Mobile-first real en toda la skill <code>premium-uiux</code> (dos quiebres: 640px y 1024px, nunca dos maquetados separados) — verificado con Playwright en cada pantalla nueva a lo largo de todo el proyecto, sin overflow horizontal en 360-390px.</p>
+
+          <h4>4. API de autenticación</h4>
+          <p><span class="status done" style="display:inline-flex;margin-bottom:6px;">Ya cumplido</span><br> <code>POST /api/auth/login</code> (Fase 1, Tarea 5) — JWT de corta duración, contraseñas hasheadas con <code>bcrypt</code>, nunca texto plano. Cada endpoint protegido depende de <code>obtener_usuario_actual</code>, que decodifica el token en cada request.</p>
+
+          <h4>5. Otras APIs (se sugiere geolocalización)</h4>
+          <p><span class="status done" style="display:inline-flex;margin-bottom:6px;">Ya cumplido</span><br> <code>assets/js/mapa.js</code> (Fase 1, Tarea 14 — alta de edificio): geocodifica dirección + CP contra la <strong>API de Nominatim</strong> (OpenStreetMap) y muestra el resultado en un mapa real con <strong>Leaflet</strong>. En uso hoy en <code>edificios.html</code>.</p>
+
+          <h4>6. Cumplimiento de lineamientos de seguridad informática de la facultad</h4>
+          <p><span class="status pend" style="display:inline-flex;margin-bottom:6px;">A la espera</span><br> El enunciado dice explícitamente "que serán brindados oportunamente" — no existen todavía los lineamientos concretos, así que no se puede evaluar cumplimiento de algo que no está definido. Base de seguridad ya construida mientras tanto: JWT + contraseñas hasheadas, RBAC en cada endpoint, validación de entrada con Pydantic, sin secretos en el código, HTTPS en producción. Se retoma en tareas concretas en cuanto la facultad entregue los lineamientos — hoy es un placeholder a propósito.</p>
+
+          <div class="explicacion">
+            <div class="explicacion-titulo">
+              <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              Conclusión
+            </div>
+            <p>5 de los 6 requisitos ya estaban cumplidos por decisiones tomadas desde el inicio del proyecto (Documento Técnico, secciones 2.1-2.2 y 4) — no hizo falta agregar nada nuevo al código. El único punto abierto (lineamientos de seguridad) no depende del proyecto sino de un insumo externo todavía no entregado.</p>
+          </div>
         </div>
       </section>
 

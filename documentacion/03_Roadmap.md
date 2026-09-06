@@ -582,4 +582,28 @@ Corresponde al Documento Técnico, sección 1.3.1 (migración Tailwind CDN → C
 
 ---
 
-*Fin del Roadmap (14 fases, Fase 0 a Fase 13). Cada tarea marcada `- [ ]` se implementa una por vez, en el orden lógica → backend → frontend, siguiendo el orden de este documento salvo que surja una razón puntual para alterarlo — en cuyo caso esa razón se documenta acá mismo antes de saltear el orden.*
+## Fase X — Solicitud de Facultad
+
+No es una fase de desarrollo más (no sigue el orden lógica → backend → frontend, ni se hace tarea por tarea en secuencia): es el **checklist de los requisitos mínimos que pide la facultad** para el proyecto, verificado contra todo lo ya construido. Se agrega tal cual la pidió el usuario, con el nombre literal — no "Fase 14", a propósito, para que quede claro que es un requisito externo al diseño del producto, no una etapa funcional.
+
+- [ ] **1. Sistema de procesamiento transaccional + repositorio de información en una base de datos relacional.**
+  **Ya cumplido.** El backend completo (FastAPI + SQLAlchemy) opera con transacciones reales — `db.commit()` / `db.rollback()` explícitos, por ejemplo en `generar_expensa_mensual` (Fase 2, Tarea 8): si el prorrateo falla a mitad de camino, se hace rollback y no queda nada a medio crear. Repositorio: SQLite en desarrollo, **PostgreSQL (Supabase) en producción** — ambas relacionales, PostgreSQL es la que normalmente se trabaja en la carrera.
+
+- [ ] **2. Herramienta de mapeo objeto-relacional (ORM).**
+  **Ya cumplido.** SQLAlchemy, usado en el 100% de los modelos y consultas del proyecto desde la Fase 0 — nunca SQL crudo salvo la migración puntual de `core/migraciones.py` (Fase 2, Tarea 7), y ahí también se usa el compilador de DDL de SQLAlchemy, no strings armados a mano.
+
+- [ ] **3. Diseño web adaptable (RWD) — tablets, smartphones, portátiles.**
+  **Ya cumplido.** Mobile-first real en toda la skill `premium-uiux` (dos quiebres: 640px y 1024px, nunca dos maquetados separados) — verificado con Playwright en cada pantalla nueva a lo largo de todo el proyecto (sin overflow horizontal en 360-390px, layout reorganizado en tablet/desktop). No es una promesa de diseño: cada tarea de frontend de este Roadmap lo comprobó antes de darse por terminada.
+
+- [ ] **4. API de autenticación.**
+  **Ya cumplido.** `POST /api/auth/login` (Fase 1, Tarea 5) — JWT de corta duración (`python-jose`), contraseñas hasheadas con `bcrypt` (`passlib`), nunca texto plano ni en la base ni en logs. `GET /api/auth/me` para que el frontend recupere la sesión. Cada endpoint protegido depende de `obtener_usuario_actual`, que decodifica el token en cada request.
+
+- [ ] **5. Otras APIs (se sugiere geolocalización).**
+  **Ya cumplido.** `assets/js/mapa.js` (Fase 1, Tarea 14 — alta de edificio): geocodifica dirección + CP contra la **API de Nominatim** (OpenStreetMap, gratuita, sin API key) y muestra el resultado en un mapa real con **Leaflet**. Se usa hoy en `edificios.html` al dar de alta un edificio nuevo.
+
+- [ ] **6. Cumplimiento de los lineamientos de seguridad informática de la facultad.**
+  **No evaluable todavía** — el enunciado dice explícitamente "que serán brindados oportunamente": no existen todavía los lineamientos concretos contra los cuales verificar cumplimiento, así que no se puede marcar ni como hecho ni como pendiente real, solo como **a la espera**. Mientras tanto, la base de seguridad ya construida a lo largo del proyecto (y que se va a repasar formalmente en la Fase 13, "Revisión de seguridad general"): JWT + contraseñas hasheadas, RBAC en cada endpoint (`services/autorizacion.py`, Fase 1), validación de entrada con Pydantic en todos los `Entrada`, ningún secreto en el código (`.env`/variables de entorno de Vercel), HTTPS en producción (Vercel). En cuanto la facultad entregue los lineamientos puntuales, esta tarea se abre en tareas concretas — hoy es un placeholder a propósito, no una tarea vacía.
+
+---
+
+*Fin del Roadmap (14 fases de desarrollo, Fase 0 a Fase 13, más la Fase X de requisitos de facultad). Cada tarea marcada `- [ ]` se implementa una por vez, en el orden lógica → backend → frontend, siguiendo el orden de este documento salvo que surja una razón puntual para alterarlo — en cuyo caso esa razón se documenta acá mismo antes de saltear el orden.*
