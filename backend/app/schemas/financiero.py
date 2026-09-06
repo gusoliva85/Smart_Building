@@ -119,6 +119,36 @@ class DeudorSalida(BaseModel):
     expensas_impagas: list[ExpensaImpagaSalida]
 
 
+class RecaudadoPeriodoSalida(BaseModel):
+    """Un período (expensa) del edificio: cuánto se esperaba cobrar
+    (`Expensa.total`) contra cuánto se cobró de verdad (`Pago`
+    `confirmado`, nunca `pendiente`)."""
+
+    anio: int
+    mes: int
+    esperado: float
+    recaudado: float
+
+
+class GastoPorRubroPeriodoSalida(BaseModel):
+    rubro: str
+    anio: int
+    mes: int
+    monto: float
+
+
+class ReporteFinancieroSalida(BaseModel):
+    """`GET /api/edificios/{id}/reportes/financiero` — Documento Técnico,
+    sección 8: la data cruda para Analítica (Fase 6), consolidando en un
+    solo lugar lo que ya calculan otros endpoints de esta fase (nunca
+    recalculado desde cero)."""
+
+    recaudado_vs_esperado: list[RecaudadoPeriodoSalida]
+    gastos_por_rubro: list[GastoPorRubroPeriodoSalida]
+    deuda_total_actual: float
+    cantidad_deudores: int
+
+
 class PagoEstadoEntrada(BaseModel):
     """Un Administrador solo puede llevar un pago a `confirmado` o
     `rechazado` — nunca de vuelta a `pendiente` a mano (ese es el estado

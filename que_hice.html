@@ -350,7 +350,8 @@
       <a class="toc-link" data-goto="f2-t8"><span class="n">8</span>Generación de expensa mensual<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f2-t9"><span class="n">9</span>Pagos, medio de pago y conciliación<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f2-t10"><span class="n">10</span>Cálculo de deudores<span class="estado-mini done"></span></a>
-      <a class="toc-link" data-goto="f2-t11"><span class="n">11</span>CRUD Gastos/Fondos/Caja/Presupuestos/Facturas<span class="estado-mini pend"></span></a>
+      <a class="toc-link" data-goto="f2-t11"><span class="n">11</span>CRUD Gastos/Fondos/Caja/Presupuestos/Facturas<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f2-t12"><span class="n">12</span>Endpoint de reportes financieros<span class="estado-mini pend"></span></a>
     </div>
 
     <div class="toc-progress">
@@ -2512,7 +2513,7 @@ test_detalle_no_crece_con_la_cantidad_de_pisos                       PASSED</div
         <div class="slide-inner">
           <div class="divider-num">02</div>
           <h2>Fase 2 — Gestión financiera básica</h2>
-          <div class="fase-frac-grande" id="fase2-frac">10 / 18 aprobadas</div>
+          <div class="fase-frac-grande" id="fase2-frac">11 / 18 aprobadas</div>
           <p class="divider-desc">Corresponde al Documento General, sección 6; Documento Técnico, sección 8. El módulo más sensible: de acá sale directamente el dato de morosidad que colorea de amarillo/rojo un departamento en el Dashboard Visual (Fase 5).</p>
         </div>
       </section>
@@ -3033,7 +3034,7 @@ tests/test_modelo_pago.py (+3 de estado) .... [8 passed]
           <div class="tarea-head">
             <span class="tarea-num">Tarea 11</span>
             <h3>Backend: endpoints CRUD de Gastos, Fondos, Caja, Presupuestos y Facturas</h3>
-            <span class="status pend"><i class="dot"></i>Implementado — pendiente de tu revisión</span>
+            <span class="status done"><i class="dot"></i>Hecho — aprobado</span>
           </div>
           <p class="lede">15 endpoints nuevos, todos anidados bajo <code>/api/edificios/{id}/...</code> y admin-only (mismo criterio que <code>generar_expensa_mensual</code>) — a diferencia de medio de pago/mis-departamentos/pagos (Tarea 9), esto es información de gestión interna, no algo que un residente cargue o necesite ver directo. Tarea más "de plomería" que de diseño: reutiliza modelos ya investigados y aprobados en tareas anteriores (2, 5, 6), sin decisiones de dominio nuevas.</p>
 
@@ -3062,6 +3063,37 @@ tests/test_modelo_pago.py (+3 de estado) .... [8 passed]
           <div class="code-block">tests/test_financiero_crud.py ................. [17 passed]
 <span class="cm"># suite completa del backend: 207 passed (190 + 17 nuevos)</span></div>
           <p>Verificado también contra la base real de desarrollo, con el edificio real que ya tenía 3 gastos cargados (Tarea 7): <code>GET /edificios/7/gastos</code> los listó correctamente; se creó un Fondo de Reserva real con un ingreso de $80.000 y el saldo calculado dio exacto; se creó un presupuesto real, naciendo <code>pendiente</code> como se esperaba.</p>
+        </div>
+      </section>
+
+      <section class="slide tarea" id="f2-t12" data-crumb="Fase 2 · Tarea 12">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 12</span>
+            <h3>Backend: endpoint de reportes financieros</h3>
+            <span class="status pend"><i class="dot"></i>Implementado — pendiente de tu revisión</span>
+          </div>
+          <p class="lede"><code>GET /api/edificios/{id}/reportes/financiero</code> — Documento Técnico, sección 8: consolida recaudado vs. esperado, evolución de gastos por rubro y morosidad en un solo endpoint, la data cruda para Analítica (Fase 6). Tal como se anotó en la revisión completa de la Fase 2 (tarea anterior): <strong>ninguna de las tres piezas se recalcula desde cero</strong>, todas reutilizan lo ya construido y probado.</p>
+
+          <div class="explicacion">
+            <div class="explicacion-titulo">
+              <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              De dónde sale cada pieza
+            </div>
+            <p><strong>Recaudado vs. esperado</strong>: por cada <code>Expensa</code> del edificio, <code>esperado = Expensa.total</code>, <code>recaudado</code> = suma de sus <code>Pago</code> <code>confirmado</code> (nunca <code>pendiente</code> — mismo criterio de conciliación de la Tarea 9). <strong>Evolución de gastos por rubro</strong>: los <code>Gasto</code> del edificio, agrupados por rubro y por mes/año de su <code>fecha</code>. <strong>Morosidad</strong>: se factorizó <code>_calcular_deudores()</code> desde <code>listar_deudores</code> (antes toda la lógica vivía adentro del endpoint) para que este reporte llame a la misma función ya probada en la Tarea 10, en vez de reimplementar el cálculo de meses de atraso una segunda vez.</p>
+          </div>
+
+          <h4>Verificación: 5 tests nuevos (212 en total) + flujo real completo</h4>
+          <ul>
+            <li>Reporte vacío (sin ninguna expensa generada): las tres listas vacías, deuda y cantidad de deudores en 0.</li>
+            <li>Recaudado vs. esperado con un pago parcial confirmado y uno pendiente: el pendiente correctamente NO se suma al recaudado.</li>
+            <li>Gastos por rubro: dos gastos del mismo rubro y mes se suman en una sola fila; un rubro/mes distinto queda aparte.</li>
+            <li>Morosidad: el resultado coincide exacto con lo que devuelve <code>/deudores</code> por separado — misma función, mismo número.</li>
+            <li>Propietario (no admin): 403.</li>
+          </ul>
+          <div class="code-block">tests/test_financiero_reportes.py ..... [5 passed]
+<span class="cm"># suite completa del backend: 212 passed (207 + 5 nuevos)</span></div>
+          <p>Verificado también contra la base real de desarrollo, con el edificio real ya usado en toda la fase (Torre Cierre Fase 1): <code>esperado: 157.432,87</code> / <code>recaudado: 13.118,88</code> (el único pago confirmado hasta ahora), los 3 gastos reales agrupados correctamente por rubro, <code>deuda_total_actual: 144.313,99</code> (exactamente <code>esperado - recaudado</code>) y <code>cantidad_deudores: 11</code> — coincidiendo con lo ya validado en la Tarea 10.</p>
         </div>
       </section>
 

@@ -177,7 +177,7 @@ Corresponde al Documento General, sección 6; Documento Técnico, sección 8. De
 - [x] **Backend: cálculo de deudores.**
   `GET /api/edificios/{id}/deudores` (vista calculada, no tabla propia — Documento Técnico 5.2): antigüedad de deuda en meses por departamento. Este es el dato que va a alimentar `deudaSeverity()` en la Fase 5.
 
-- [ ] **Backend: endpoints CRUD de Gastos, Fondos, Caja, Presupuestos, Facturas.**
+- [x] **Backend: endpoints CRUD de Gastos, Fondos, Caja, Presupuestos, Facturas.**
   Todos anidados bajo edificio.
 
 - [ ] **Backend: endpoint de reportes financieros.**

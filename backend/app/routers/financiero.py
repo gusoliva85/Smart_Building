@@ -37,12 +37,15 @@ from app.schemas.financiero import (
     ExpensaGeneracionEntrada,
     ExpensaImpagaSalida,
     ExpensaSalida,
+    GastoPorRubroPeriodoSalida,
     MedioPagoSalida,
     MiDepartamentoSalida,
     MiExpensaSalida,
     PagoEntrada,
     PagoEstadoEntrada,
     PagoSalida,
+    RecaudadoPeriodoSalida,
+    ReporteFinancieroSalida,
 )
 from app.schemas.fondo import (
     CajaConfiguracion,
@@ -160,28 +163,22 @@ def _saldo(expensa_departamento: ExpensaDepartamento) -> float:
     return round(float(expensa_departamento.monto) - _pagado_confirmado(expensa_departamento), 2)
 
 
-@router.get("/{edificio_id}/deudores", response_model=list[DeudorSalida])
-def listar_deudores(
-    hoy: date | None = None,
-    edificio: Edificio = Depends(requerir_admin_del_edificio),
-    db: Session = Depends(obtener_db),
-):
+def _calcular_deudores(db: Session, edificio_id: int, hoy: date | None = None) -> list[DeudorSalida]:
     """Documento Técnico 5.2: vista CALCULADA, no una tabla propia — se
     recorren los `ExpensaDepartamento` de todo el edificio y se descarta
     todo lo que ya está saldado. `meses_atraso` cuenta desde el período
     más viejo con saldo pendiente hasta hoy, sin contar el mes de la
     propia expensa (la del mes corriente todavía no está "atrasada",
     aunque tenga saldo) — así 1 mes vencido da amarillo, más de 1 da
-    rojo (Documento General 6.3). `hoy` es un parámetro de test/depuración
-    (por defecto la fecha real) para no depender de la fecha del sistema
-    en los tests."""
+    rojo (Documento General 6.3). Factorizada de `listar_deudores` para
+    que `reportes/financiero` reutilice el mismo cálculo, no lo repita."""
     hoy = hoy or date.today()
     mes_actual_absoluto = hoy.year * 12 + hoy.month
 
     departamentos = (
         db.query(Departamento)
         .join(Piso, Piso.id == Departamento.piso_id)
-        .filter(Piso.edificio_id == edificio.id)
+        .filter(Piso.edificio_id == edificio_id)
         .all()
     )
 
@@ -213,6 +210,17 @@ def listar_deudores(
         ))
 
     return sorted(deudores, key=lambda d: d.meses_atraso, reverse=True)
+
+
+@router.get("/{edificio_id}/deudores", response_model=list[DeudorSalida])
+def listar_deudores(
+    hoy: date | None = None,
+    edificio: Edificio = Depends(requerir_admin_del_edificio),
+    db: Session = Depends(obtener_db),
+):
+    """`hoy` es un parámetro de test/depuración (por defecto la fecha
+    real) para no depender de la fecha del sistema en los tests."""
+    return _calcular_deudores(db, edificio.id, hoy)
 
 
 @router_pagos.get("/mis-departamentos", response_model=list[MiDepartamentoSalida])
@@ -595,4 +603,44 @@ def listar_facturas(
         .filter(Gasto.edificio_id == edificio.id)
         .order_by(Factura.creado_en.desc())
         .all()
+    )
+
+
+@router.get("/{edificio_id}/reportes/financiero", response_model=ReporteFinancieroSalida)
+def obtener_reporte_financiero(
+    edificio: Edificio = Depends(requerir_admin_del_edificio),
+    db: Session = Depends(obtener_db),
+):
+    """Documento Técnico, sección 8: consolida en un solo endpoint la data
+    cruda para Analítica (Fase 6) — recaudado vs. esperado, morosidad,
+    evolución de gastos por rubro. Ninguna de las tres se recalcula desde
+    cero: reutiliza `Expensa`/`Pago` (Tareas 3-4, 8-9), `Gasto` (Tarea 2,
+    11) y `_calcular_deudores()` (Tarea 10) tal cual ya están probados."""
+    expensas = db.query(Expensa).filter(Expensa.edificio_id == edificio.id).order_by(Expensa.anio, Expensa.mes).all()
+    recaudado_vs_esperado = [
+        RecaudadoPeriodoSalida(
+            anio=expensa.anio,
+            mes=expensa.mes,
+            esperado=float(expensa.total),
+            recaudado=round(sum(float(p.monto) for p in expensa.pagos if p.estado == "confirmado"), 2),
+        )
+        for expensa in expensas
+    ]
+
+    gastos = db.query(Gasto).filter(Gasto.edificio_id == edificio.id).all()
+    totales_por_rubro_periodo = defaultdict(float)
+    for gasto in gastos:
+        totales_por_rubro_periodo[(gasto.rubro, gasto.fecha.year, gasto.fecha.month)] += float(gasto.monto)
+    gastos_por_rubro = [
+        GastoPorRubroPeriodoSalida(rubro=rubro, anio=anio, mes=mes, monto=round(monto, 2))
+        for (rubro, anio, mes), monto in sorted(totales_por_rubro_periodo.items(), key=lambda item: (item[0][1], item[0][2], item[0][0]))
+    ]
+
+    deudores = _calcular_deudores(db, edificio.id)
+
+    return ReporteFinancieroSalida(
+        recaudado_vs_esperado=recaudado_vs_esperado,
+        gastos_por_rubro=gastos_por_rubro,
+        deuda_total_actual=round(sum(d.deuda_total for d in deudores), 2),
+        cantidad_deudores=len(deudores),
     )
