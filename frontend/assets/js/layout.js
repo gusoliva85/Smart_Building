@@ -15,11 +15,15 @@ const ICONOS_SIDEBAR = {
 // Accesos habilitados por rol. Se completa a medida que existen más
 // pantallas — nunca se linkea a un archivo que todavía no existe.
 //
-// admin_consorcio suma su primer acceso acá (Financiero, Fase 2 Tarea 13)
-// — hasta ahora tenía el sidebar vacío porque ninguna pantalla propia
+// admin_consorcio sumó su primer acceso en la Tarea 13 (Financiero) —
+// hasta entonces tenía el sidebar vacío porque ninguna pantalla propia
 // existía todavía. Sigue sin "Edificios": el backend ya le permite
 // configurar el suyo (Fase 1), pero esa pantalla es tarea aparte, no se
 // adelanta acá solo porque el permiso ya esté.
+//
+// propietario/inquilino suman el suyo acá (Tarea 14, pestaña Expensas):
+// mismo financiero.html, pero financiero.js les muestra "Mi cuenta" en
+// vez del listado de edificios — nunca navegan la gestión del edificio.
 const ACCESOS_POR_ROL = {
   admin_general: [
     { href: 'edificios.html', texto: 'Edificios', icono: 'edificios' },
@@ -27,6 +31,12 @@ const ACCESOS_POR_ROL = {
     { href: 'financiero.html', texto: 'Financiero', icono: 'financiero' },
   ],
   admin_consorcio: [
+    { href: 'financiero.html', texto: 'Financiero', icono: 'financiero' },
+  ],
+  propietario: [
+    { href: 'financiero.html', texto: 'Financiero', icono: 'financiero' },
+  ],
+  inquilino: [
     { href: 'financiero.html', texto: 'Financiero', icono: 'financiero' },
   ],
 };

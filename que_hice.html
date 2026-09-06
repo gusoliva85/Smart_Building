@@ -352,7 +352,8 @@
       <a class="toc-link" data-goto="f2-t10"><span class="n">10</span>Cálculo de deudores<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f2-t11"><span class="n">11</span>CRUD Gastos/Fondos/Caja/Presupuestos/Facturas<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f2-t12"><span class="n">12</span>Endpoint de reportes financieros<span class="estado-mini done"></span></a>
-      <a class="toc-link" data-goto="f2-t13"><span class="n">13</span>financiero.html + pestaña Gastos<span class="estado-mini pend"></span></a>
+      <a class="toc-link" data-goto="f2-t13"><span class="n">13</span>financiero.html + pestaña Gastos<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f2-t14"><span class="n">14</span>Pestaña Expensas + Mi cuenta<span class="estado-mini pend"></span></a>
     </div>
 
     <div class="toc-progress">
@@ -2514,7 +2515,7 @@ test_detalle_no_crece_con_la_cantidad_de_pisos                       PASSED</div
         <div class="slide-inner">
           <div class="divider-num">02</div>
           <h2>Fase 2 — Gestión financiera básica</h2>
-          <div class="fase-frac-grande" id="fase2-frac">12 / 18 aprobadas</div>
+          <div class="fase-frac-grande" id="fase2-frac">13 / 18 aprobadas</div>
           <p class="divider-desc">Corresponde al Documento General, sección 6; Documento Técnico, sección 8. El módulo más sensible: de acá sale directamente el dato de morosidad que colorea de amarillo/rojo un departamento en el Dashboard Visual (Fase 5).</p>
         </div>
       </section>
@@ -3103,7 +3104,7 @@ tests/test_modelo_pago.py (+3 de estado) .... [8 passed]
           <div class="tarea-head">
             <span class="tarea-num">Tarea 13</span>
             <h3>Frontend: <code>financiero.html</code> — cascarón con pestañas y pestaña "Gastos"</h3>
-            <span class="status pend"><i class="dot"></i>Implementado — pendiente de tu revisión</span>
+            <span class="status done"><i class="dot"></i>Hecho — aprobado</span>
           </div>
           <p class="lede">Primera pantalla nueva de la Fase 2 — mismo esqueleto que <code>edificios.html</code> (listado de edificios → detalle con <code>.view-switch</code>), con la primera pestaña funcional: alta y listado de gastos, con filtro por año/mes. A propósito, un solo botón en el <code>.view-switch</code> por ahora — Expensas/Pagos/Deudores/Fondos·Caja·Presupuestos·Facturas se suman en sus propias tareas, nunca como pestañas deshabilitadas esperando su turno.</p>
 
@@ -3139,6 +3140,40 @@ tests/test_modelo_pago.py (+3 de estado) .... [8 passed]
             <li>Responsive: sin overflow horizontal en mobile (390px). Verificado también en tema oscuro — todo con tokens, sin colores sueltos (salvo el chevron del select, documentado como excepción técnica reconocida).</li>
             <li>Cero errores de consola en todo el recorrido.</li>
           </ul>
+        </div>
+      </section>
+
+      <section class="slide tarea" id="f2-t14" data-crumb="Fase 2 · Tarea 14">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 14</span>
+            <h3>Frontend: pestaña "Expensas" — generación/detalle (Administrador) y "Mi cuenta" (Propietario/Inquilino)</h3>
+            <span class="status pend"><i class="dot"></i>Implementado — pendiente de tu revisión</span>
+          </div>
+          <p class="lede">Segundo botón del <code>.view-switch</code> de <code>financiero.html</code>: el Administrador genera una expensa (año/mes) y ve el detalle completo (apertura por rubro + monto por unidad). Y, por primera vez, Propietario e Inquilino tienen ALGO real que ver: "Mi cuenta", sus propias unidades con el estado de cada expensa — sin cargar pago todavía, eso es la próxima tarea.</p>
+
+          <div class="explicacion">
+            <div class="explicacion-titulo">
+              <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              Un hueco de backend que apareció al construir el frontend
+            </div>
+            <p>La Tarea 8 solo había construido <code>POST /api/edificios/{id}/expensas</code> (generar) — nunca un <code>GET</code> para volver a verlas. Se sumaron <code>GET /api/edificios/{id}/expensas</code> (listado) y <code>GET .../expensas/{id}</code> (detalle), reutilizando el mismo <code>ExpensaSalida</code> ya probado. De paso, <code>ExpensaDepartamentoSalida</code> suma <code>identificador</code> (una <code>@property</code> en el modelo que resuelve <code>self.departamento.identificador</code>) — sin esto, el detalle solo podía mostrar "Departamento 54", nunca "1A".</p>
+          </div>
+
+          <h4>"Mi cuenta": mismo archivo, rama de rol distinta — no un archivo nuevo</h4>
+          <p>Documento Técnico 4.1: un archivo por dominio, no uno por rol. <code>financiero.js</code> ahora rutea por rol al arrancar: Administrador ve el listado de edificios de siempre; Propietario/Inquilino ven directo "Mi cuenta" (<code>GET /api/mis-departamentos</code>, ya construido en la Tarea 9) — nunca el listado de edificios ni nada ajeno. Es el primer acceso real de estos dos roles a cualquier pantalla del sistema. Consistente con la decisión ya registrada en la revisión de la Fase 2: Inquilino ve esto igual que Propietario, a propósito, hasta que la Fase 11 construya las excepciones.</p>
+          <p>Cada expensa impaga muestra el saldo en rojo; una expensa saldada muestra <code>rol-badge</code> "Al día" — <strong>a propósito no el semáforo</strong> (<code>--ok</code> verde): esa regla de color es específicamente el trabajo de <code>deudaSeverity()</code> en la Fase 5, no algo que esta pantalla se adelante a decidir.</p>
+
+          <h4>Verificación: 5 tests nuevos de backend (217 en total) + flujo real completo</h4>
+          <ul>
+            <li>Backend: listado vacío sin expensas; listado ordenado de más reciente a más vieja; detalle con <code>identificador</code> correcto; expensa de otro edificio devuelve 404; Propietario no puede listar (403).</li>
+            <li>Frontend, Administrador: pestaña Expensas del edificio real (Torre Cierre Fase 1) lista "Agosto 2026 · $157.432,87"; el detalle muestra los 3 rubros y los 12 departamentos con sus montos exactos, ya validados en tareas anteriores.</li>
+            <li>Frontend, Propietario real (con 3 unidades en 2 edificios distintos): "Mi cuenta" muestra las 3, la única con expensa generada aparece "Al día" (por el pago confirmado en la Tarea 9) y las otras dos "Todavía no tenés expensas generadas."</li>
+            <li>Frontend, Inquilino real: sidebar con "Financiero", ve "Mi cuenta" igual que un Propietario.</li>
+            <li>Cero errores de consola en todo el recorrido.</li>
+          </ul>
+          <div class="code-block">tests/test_financiero_expensas_listado.py ..... [5 passed]
+<span class="cm"># suite completa del backend: 217 passed (212 + 5 nuevos)</span></div>
         </div>
       </section>
 

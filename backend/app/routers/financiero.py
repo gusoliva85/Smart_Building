@@ -129,6 +129,35 @@ def generar_expensa_mensual(
     return expensa
 
 
+@router.get("/{edificio_id}/expensas", response_model=list[ExpensaSalida])
+def listar_expensas(
+    edificio: Edificio = Depends(requerir_admin_del_edificio),
+    db: Session = Depends(obtener_db),
+):
+    """Faltaba desde la Tarea 8 (solo existía el `POST` de generación) —
+    apareció el hueco recién al construir la pestaña "Expensas" del
+    frontend: sin esto, un Administrador podía generar una expensa pero
+    nunca volver a verla."""
+    return (
+        db.query(Expensa)
+        .filter(Expensa.edificio_id == edificio.id)
+        .order_by(Expensa.anio.desc(), Expensa.mes.desc())
+        .all()
+    )
+
+
+@router.get("/{edificio_id}/expensas/{expensa_id}", response_model=ExpensaSalida)
+def obtener_expensa(
+    expensa_id: int,
+    edificio: Edificio = Depends(requerir_admin_del_edificio),
+    db: Session = Depends(obtener_db),
+):
+    expensa = db.get(Expensa, expensa_id)
+    if not expensa or expensa.edificio_id != edificio.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Expensa no encontrada en este edificio")
+    return expensa
+
+
 @router.get("/{edificio_id}/medio-pago", response_model=MedioPagoSalida)
 def obtener_medio_pago(
     edificio_id: int,

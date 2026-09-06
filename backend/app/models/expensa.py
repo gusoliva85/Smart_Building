@@ -81,3 +81,10 @@ class ExpensaDepartamento(Base):
 
     expensa = relationship("Expensa", back_populates="por_departamento")
     departamento = relationship("Departamento", backref="expensas_departamento")
+
+    @property
+    def identificador(self) -> str:
+        """Conveniencia de solo lectura para el schema de salida — evita
+        que el frontend tenga que resolver "a qué depto corresponde este
+        ID" con una consulta aparte."""
+        return self.departamento.identificador

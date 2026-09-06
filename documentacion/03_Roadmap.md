@@ -183,7 +183,7 @@ Corresponde al Documento General, sección 6; Documento Técnico, sección 8. De
 - [x] **Backend: endpoint de reportes financieros.**
   `GET /api/edificios/{id}/reportes/financiero`: recaudado vs. esperado, morosidad, evolución de gastos por rubro — la data cruda para Analítica (Fase 6). *(Ajuste tras revisar toda la Fase 2 ya construida: gran parte de esta data ya existe, esta tarea consolida en un solo endpoint, no recalcula de cero — morosidad sale de `/deudores` (Tarea 10), evolución de gastos por rubro de `/gastos` con el filtro de período ya soportado (Tarea 11), y recaudado vs. esperado de `Expensa.total` contra la suma de `Pago` `confirmado` por período (Tareas 8-9).)*
 
-- [ ] **Frontend: `financiero.html` — cascarón con pestañas (`.view-switch`) y pestaña "Gastos".**
+- [x] **Frontend: `financiero.html` — cascarón con pestañas (`.view-switch`) y pestaña "Gastos".**
   Se crea la página con el selector segmentado que va a organizar todo el módulo (Gastos/Expensas/Pagos/Deudores/Fondos·Caja·Presupuestos·Facturas — Documento Técnico, sección 4.1), con la primera pestaña funcional: carga y listado de gastos, filtro por rubro y rango de fechas. *(Nota: es una pantalla de gestión — Administrador General/de Consorcio — ya con el endpoint real detrás desde la Tarea 11, `GET/POST /api/edificios/{id}/gastos` con filtro `?anio=&mes=`.)*
 
 - [ ] **Frontend: pestaña "Expensas".**

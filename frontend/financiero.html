@@ -66,9 +66,20 @@
       </div>
     </header>
 
-    <!-- Se muestra solo si el rol logueado no gestiona ningún edificio -->
+    <!-- Se muestra solo si el rol logueado no encaja en ninguna vista de abajo -->
     <section class="shell panel-centrado" id="vista-no-autorizado" style="display:none; padding:22px 24px;">
-      <p style="margin:0; font-size:13px; color:var(--ink-2);">Esta pantalla es solo para Administrador General o Administrador de Consorcio.</p>
+      <p style="margin:0; font-size:13px; color:var(--ink-2);">Esta pantalla todavía no tiene nada para tu rol.</p>
+    </section>
+
+    <!-- Propietario/Inquilino: sus propias unidades y expensas —
+         GET /api/mis-departamentos, nunca el edificio completo. Carga de
+         pago todavía no (esa es la próxima tarea, "pestaña Pagos"). -->
+    <section class="shell panel-centrado" id="vista-mi-cuenta" style="display:none; max-width:760px; padding:22px 24px;">
+      <div style="margin-bottom:16px;">
+        <h1 style="margin:0; font-size:18px;">Mi cuenta</h1>
+        <p style="margin:2px 0 0; font-size:12.5px; color:var(--ink-3);">Tus unidades y el estado de tus expensas.</p>
+      </div>
+      <div id="lista-mis-departamentos"><!-- generado por JS --></div>
     </section>
 
     <!-- Listado de edificios — mismo patrón que edificios.html. Cada fila
@@ -91,11 +102,11 @@
         </a>
         <h1 id="detalle-titulo" style="margin:0; font-size:19px;">—</h1>
         <p id="detalle-subtitulo" style="margin:2px 0 16px; font-size:12.5px; color:var(--ink-3);">—</p>
-        <!-- Un solo botón por ahora a propósito: Expensas/Pagos/Deudores/
-             Fondos·Caja·Presupuestos·Facturas se suman en sus propias
-             tareas del Roadmap, no se dejan acá deshabilitadas. -->
+        <!-- Pagos/Deudores/Fondos·Caja·Presupuestos·Facturas se suman en
+             sus propias tareas del Roadmap, no se dejan acá deshabilitadas. -->
         <div class="view-switch" id="detalle-view-switch" role="tablist">
           <button class="active" data-view="gastos" type="button">Gastos</button>
+          <button data-view="expensas" type="button">Expensas</button>
         </div>
       </div>
 
@@ -118,6 +129,13 @@
 
         <div id="resumen-gastos" style="margin-bottom:12px; font-size:12.5px; color:var(--ink-3);"><!-- generado por JS --></div>
         <div id="lista-gastos"><!-- filas generadas por JS --></div>
+      </div>
+
+      <div id="panel-expensas" style="display:none; padding:16px 24px 26px;">
+        <div style="display:flex; align-items:center; justify-content:flex-end; margin-bottom:14px;">
+          <button type="button" class="boton-primario" id="boton-generar-expensa" style="width:auto; padding:9px 16px;">+ Generar expensa</button>
+        </div>
+        <div id="lista-expensas"><!-- filas generadas por JS --></div>
       </div>
     </section>
   </div>
@@ -157,6 +175,53 @@
         <button type="submit" class="boton-primario" id="boton-gasto-guardar">Crear gasto</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- Modal: generar expensa mensual -->
+<div class="modal-backdrop" id="modal-generar-expensa">
+  <div class="modal modal-formulario shell">
+    <button type="button" class="modal-close" id="modal-generar-expensa-cerrar" aria-label="Cerrar">✕</button>
+    <h3>Generar expensa</h3>
+    <span class="modal-formulario-sub">Toma los gastos cargados de ese período y los prorratea según el coeficiente de cada unidad.</span>
+    <div class="mensaje-error" id="mensaje-error-generar-expensa" style="display:none;">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+      <span id="mensaje-error-generar-expensa-texto"></span>
+    </div>
+    <form id="form-generar-expensa" autocomplete="off">
+      <div class="form-grid-2">
+        <div class="campo">
+          <label for="campo-expensa-anio">Año</label>
+          <input type="number" id="campo-expensa-anio" min="2000" max="2100" required>
+        </div>
+        <div class="campo">
+          <label for="campo-expensa-mes">Mes</label>
+          <select id="campo-expensa-mes" required>
+            <option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option>
+            <option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option>
+            <option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option>
+            <option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-formulario-acciones">
+        <button type="button" class="boton-primario" id="boton-generar-expensa-cancelar" style="background:var(--glass-content-bg); color:var(--ink-2); box-shadow:inset 0 0 0 1px var(--line);">Cancelar</button>
+        <button type="submit" class="boton-primario" id="boton-generar-expensa-guardar">Generar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: detalle de una expensa ya generada (solo lectura) -->
+<div class="modal-backdrop" id="modal-detalle-expensa">
+  <div class="modal modal-formulario shell">
+    <button type="button" class="modal-close" id="modal-detalle-expensa-cerrar" aria-label="Cerrar">✕</button>
+    <h3 id="detalle-expensa-titulo">—</h3>
+    <span class="modal-formulario-sub" id="detalle-expensa-total">—</span>
+    <h4 style="margin:16px 0 8px; font-size:12.5px; color:var(--ink-3);">Apertura por rubro</h4>
+    <div id="detalle-expensa-rubros" class="detail-item content-glass"><!-- generado por JS --></div>
+    <h4 style="margin:16px 0 8px; font-size:12.5px; color:var(--ink-3);">Por departamento</h4>
+    <div id="detalle-expensa-departamentos" class="detail-item content-glass"><!-- generado por JS --></div>
   </div>
 </div>
 

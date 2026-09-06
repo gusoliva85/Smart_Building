@@ -23,6 +23,7 @@ class ExpensaDepartamentoSalida(BaseModel):
 
     id: int
     departamento_id: int
+    identificador: str
     monto: float
 
 
