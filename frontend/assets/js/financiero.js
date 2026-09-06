@@ -3,11 +3,13 @@
 // Dos audiencias en el mismo archivo (Documento Técnico 4.1: un archivo
 // por dominio, no uno por rol): Administrador General/de Consorcio ve el
 // listado de edificios y, dentro de cada uno, las pestañas de gestión
-// (Gastos, Expensas — el resto se suma en sus propias tareas del
+// (Gastos, Expensas, Pagos — el resto se suma en sus propias tareas del
 // Roadmap). Propietario/Inquilino ve directo "Mi cuenta": sus propias
 // unidades y el estado de sus expensas (GET /api/mis-departamentos, sin
-// elegir edificio ni navegar nada ajeno) — cargar un pago todavía no,
-// esa es la próxima tarea ("pestaña Pagos").
+// elegir edificio ni navegar nada ajeno), y desde ahí puede cargar su
+// propio pago contra una expensa con saldo (Tarea 15, "pestaña Pagos") —
+// nace `pendiente` hasta que un Administrador lo concilia en su propia
+// pestaña Pagos.
 document.addEventListener('DOMContentLoaded', async () => {
   const usuario = await window.Layout.montar('financiero.html');
   if (!usuario) return; // montarLayout ya mandó al login si hacía falta
@@ -48,6 +50,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (usuario.rol === 'propietario' || usuario.rol === 'inquilino') {
     mostrarSolo(vistaMiCuenta);
     await cargarMiCuenta();
+    configurarModalPago();
   } else if (usuario.rol === 'admin_general' || usuario.rol === 'admin_consorcio') {
     const idParam = new URLSearchParams(location.search).get('id');
     if (idParam) {
@@ -89,18 +92,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         ${depto.expensas.length === 0
           ? '<p style="font-size:12px;color:var(--ink-3);margin:0;">Todavía no tenés expensas generadas.</p>'
           : depto.expensas.map((exp) => `
-              <div class="fila-lista" style="padding:8px 0; border-top:1px solid var(--line-2);">
-                <div>
-                  <b style="font-size:13px;">${NOMBRE_MES[exp.mes]} ${exp.anio}</b>
-                  <div style="font-size:11px;color:var(--ink-3);">${window.Moneda.formatear(exp.monto)} total</div>
+              <div style="padding:8px 0; border-top:1px solid var(--line-2);">
+                <div class="fila-lista">
+                  <div>
+                    <b style="font-size:13px;">${NOMBRE_MES[exp.mes]} ${exp.anio}</b>
+                    <div style="font-size:11px;color:var(--ink-3);">${window.Moneda.formatear(exp.monto)} total</div>
+                  </div>
+                  <div class="fila-lista-acciones">
+                    ${exp.saldo <= 0.01
+                      ? '<span class="rol-badge">Al día</span>'
+                      : `<span style="font-size:13px; font-weight:700; color:var(--crit); font-family:Outfit, sans-serif;">${window.Moneda.formatear(exp.saldo)}</span>
+                         <button type="button" class="boton-chico boton-cargar-pago" data-departamento-id="${depto.departamento_id}" data-edificio-id="${depto.edificio_id}" data-expensa-id="${exp.expensa_id}" data-periodo="${NOMBRE_MES[exp.mes]} ${exp.anio}" data-saldo="${exp.saldo}">Pagar</button>`}
+                  </div>
                 </div>
-                <div class="fila-lista-acciones">
-                  ${exp.saldo <= 0.01
-                    ? '<span class="rol-badge">Al día</span>'
-                    : `<span style="font-size:13px; font-weight:700; color:var(--crit); font-family:Outfit, sans-serif;">${window.Moneda.formatear(exp.saldo)}</span>`}
-                </div>
+                ${exp.pendiente_de_confirmacion > 0.01
+                  ? `<p style="font-size:11px;color:var(--ink-3);margin:4px 0 0;">Cargaste ${window.Moneda.formatear(exp.pendiente_de_confirmacion)} — pendiente de confirmación del administrador.</p>`
+                  : ''}
               </div>`).join('')}
       </div>`).join('');
+
+    contenedor.querySelectorAll('.boton-cargar-pago').forEach((boton) => {
+      boton.addEventListener('click', () => abrirModalPago(boton.dataset));
+    });
   }
 
   // ---------------------------------------------------------------
@@ -159,29 +172,35 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('filtro-anio').addEventListener('change', cargarGastos);
     document.getElementById('filtro-mes').addEventListener('change', cargarGastos);
 
+    document.getElementById('filtro-estado-pago').addEventListener('change', cargarPagos);
+
     configurarViewSwitchDetalle();
     await cargarGastos();
     configurarModalGasto();
     configurarModalGenerarExpensa();
     configurarModalDetalleExpensa();
+    configurarAccionesPago();
   }
 
   function configurarViewSwitchDetalle() {
     const switchEl = document.getElementById('detalle-view-switch');
-    const panelGastos = document.getElementById('panel-gastos');
-    const panelExpensas = document.getElementById('panel-expensas');
-    let expensasCargadas = false;
+    const paneles = {
+      gastos: document.getElementById('panel-gastos'),
+      expensas: document.getElementById('panel-expensas'),
+      pagos: document.getElementById('panel-pagos'),
+    };
+    const cargadores = { expensas: cargarExpensas, pagos: cargarPagos };
+    const yaCargado = { gastos: true, expensas: false, pagos: false };
 
     switchEl.querySelectorAll('button').forEach((boton) => {
       boton.addEventListener('click', async () => {
         switchEl.querySelectorAll('button').forEach((b) => b.classList.remove('active'));
         boton.classList.add('active');
-        const esGastos = boton.dataset.view === 'gastos';
-        panelGastos.style.display = esGastos ? 'block' : 'none';
-        panelExpensas.style.display = esGastos ? 'none' : 'block';
-        if (!esGastos && !expensasCargadas) {
-          expensasCargadas = true;
-          await cargarExpensas();
+        const vista = boton.dataset.view;
+        Object.keys(paneles).forEach((v) => { paneles[v].style.display = v === vista ? 'block' : 'none'; });
+        if (!yaCargado[vista]) {
+          yaCargado[vista] = true;
+          await cargadores[vista]();
         }
       });
     });
@@ -415,5 +434,184 @@ document.addEventListener('DOMContentLoaded', async () => {
           <span style="font-size:12.5px; font-weight:700; font-family:Outfit, sans-serif;">${window.Moneda.formatear(d.monto)}</span>
         </div>`)
       .join('');
+  }
+
+  // --------------------------- Pestaña Pagos (Administrador) ---------------------------
+  // Cola de conciliación (Documento General 6.2): un pago cargado por el
+  // propio residente nace `pendiente` acá hasta que un Administrador lo
+  // confirma o rechaza contra el movimiento bancario real.
+  async function cargarPagos() {
+    const contenedor = document.getElementById('lista-pagos');
+    contenedor.innerHTML = `<p style="font-size:12.5px;color:var(--ink-3);padding:10px 0;">${window.Cargando.html()}</p>`;
+    document.getElementById('mensaje-error-conciliar').style.display = 'none';
+
+    const estado = document.getElementById('filtro-estado-pago').value;
+    const query = estado ? `?estado=${estado}` : '';
+
+    let pagos;
+    try {
+      pagos = await window.Api.get(`/edificios/${edificioId}/pagos${query}`);
+    } catch (error) {
+      contenedor.innerHTML = `<p style="font-size:12.5px;color:var(--crit);padding:10px 0;">${error.message}</p>`;
+      return;
+    }
+
+    renderListaPagos(pagos);
+  }
+
+  function renderListaPagos(pagos) {
+    const contenedor = document.getElementById('lista-pagos');
+    document.getElementById('resumen-pagos').textContent = pagos.length
+      ? `${pagos.length} pago${pagos.length === 1 ? '' : 's'}`
+      : '';
+
+    if (pagos.length === 0) {
+      contenedor.innerHTML = '<p style="font-size:12.5px;color:var(--ink-3);padding:10px 0;">No hay pagos para este filtro.</p>';
+      return;
+    }
+
+    contenedor.innerHTML = pagos
+      .map((p) => `
+        <div class="detail-item content-glass fila-lista" style="margin-bottom:10px;">
+          <div>
+            <b style="font-size:13.5px;">${p.identificador} · ${NOMBRE_MES[p.mes]} ${p.anio}</b>
+            <div style="font-size:11.5px;color:var(--ink-3);">${formatearFecha(p.fecha)} · ${p.medio_pago}${p.comprobante_url ? ` · <a href="${p.comprobante_url}" target="_blank" rel="noopener" style="color:inherit;">comprobante</a>` : ''}</div>
+          </div>
+          <div class="fila-lista-acciones">
+            <span style="font-size:13.5px; font-weight:700; font-family:Outfit, sans-serif;">${window.Moneda.formatear(p.monto)}</span>
+            ${p.estado === 'pendiente'
+              ? `<button type="button" class="boton-chico boton-conciliar" data-id="${p.id}" data-estado="confirmado">Confirmar</button>
+                 <button type="button" class="boton-chico boton-chico-critico boton-conciliar" data-id="${p.id}" data-estado="rechazado">Rechazar</button>`
+              : p.estado === 'confirmado'
+                ? '<span class="rol-badge">Confirmado</span>'
+                : '<span style="font-size:12px; font-weight:700; color:var(--crit);">Rechazado</span>'}
+          </div>
+        </div>`)
+      .join('');
+  }
+
+  function configurarAccionesPago() {
+    document.getElementById('lista-pagos').addEventListener('click', async (evento) => {
+      const boton = evento.target.closest('.boton-conciliar');
+      if (!boton) return;
+      const mensajeError = document.getElementById('mensaje-error-conciliar');
+      mensajeError.style.display = 'none';
+      document.querySelectorAll('.boton-conciliar').forEach((b) => { b.disabled = true; });
+      try {
+        await window.Api.patch(`/pagos/${boton.dataset.id}/estado`, { estado: boton.dataset.estado });
+        await cargarPagos();
+      } catch (error) {
+        document.getElementById('mensaje-error-conciliar-texto').textContent = error.message;
+        mensajeError.style.display = 'flex';
+        document.querySelectorAll('.boton-conciliar').forEach((b) => { b.disabled = false; });
+      }
+    });
+  }
+
+  // --------------------- Modal "Cargar pago" (Propietario/Inquilino) ---------------------
+  function configurarModalPago() {
+    const modal = document.getElementById('modal-pago');
+    const form = document.getElementById('form-pago');
+    const mensajeError = document.getElementById('mensaje-error-pago');
+    const mensajeErrorTexto = document.getElementById('mensaje-error-pago-texto');
+    const campoMonto = document.getElementById('campo-pago-monto');
+    const avisoParcial = document.getElementById('aviso-pago-parcial');
+
+    window.Formularios.habilitarEnterComoTab(form);
+
+    function actualizarAvisoParcial() {
+      const saldo = Number(form.dataset.saldo);
+      const monto = Number(campoMonto.value);
+      if (monto > 0 && monto < saldo) {
+        avisoParcial.textContent = `Es un pago parcial — te va a quedar un saldo de ${window.Moneda.formatear(saldo - monto)}.`;
+        avisoParcial.style.display = 'block';
+      } else {
+        avisoParcial.style.display = 'none';
+      }
+    }
+    campoMonto.addEventListener('input', actualizarAvisoParcial);
+
+    function cerrar() {
+      modal.classList.remove('open');
+    }
+    document.getElementById('modal-pago-cerrar').addEventListener('click', cerrar);
+    document.getElementById('boton-pago-cancelar').addEventListener('click', cerrar);
+
+    form.addEventListener('submit', async (evento) => {
+      evento.preventDefault();
+      mensajeError.style.display = 'none';
+      try {
+        await window.Api.post('/pagos', {
+          departamento_id: Number(form.dataset.departamentoId),
+          expensa_id: Number(form.dataset.expensaId),
+          monto: Number(campoMonto.value),
+          fecha: document.getElementById('campo-pago-fecha').value,
+          medio_pago: document.getElementById('campo-pago-medio').value.trim(),
+          comprobante_url: document.getElementById('campo-pago-comprobante').value.trim() || null,
+        });
+        cerrar();
+        await cargarMiCuenta();
+      } catch (error) {
+        mensajeErrorTexto.textContent = error.message;
+        mensajeError.style.display = 'flex';
+      }
+    });
+  }
+
+  async function abrirModalPago(datos) {
+    const modal = document.getElementById('modal-pago');
+    const form = document.getElementById('form-pago');
+    form.reset();
+    document.getElementById('mensaje-error-pago').style.display = 'none';
+    document.getElementById('aviso-pago-parcial').style.display = 'none';
+    form.dataset.departamentoId = datos.departamentoId;
+    form.dataset.expensaId = datos.expensaId;
+    form.dataset.saldo = datos.saldo;
+    document.getElementById('modal-pago-sub').textContent = `${datos.periodo} — saldo pendiente ${window.Moneda.formatear(Number(datos.saldo))}`;
+    document.getElementById('campo-pago-monto').value = datos.saldo;
+    document.getElementById('campo-pago-monto').max = datos.saldo;
+    document.getElementById('campo-pago-fecha').value = new Date().toISOString().slice(0, 10);
+    modal.classList.add('open');
+
+    const contenedorMedioPago = document.getElementById('medio-pago-datos');
+    contenedorMedioPago.innerHTML = `<p style="font-size:12px;color:var(--ink-3);margin:0;">${window.Cargando.html()}</p>`;
+    try {
+      const medioPago = await window.Api.get(`/edificios/${datos.edificioId}/medio-pago`);
+      contenedorMedioPago.innerHTML = renderMedioPago(medioPago);
+      configurarBotonesCopiar(contenedorMedioPago, medioPago);
+    } catch (error) {
+      contenedorMedioPago.innerHTML = `<p style="font-size:12px;color:var(--crit);margin:0;">${error.message}</p>`;
+    }
+  }
+
+  function renderMedioPago(medioPago) {
+    if (!medioPago.cbu && !medioPago.alias_cbu) {
+      return '<p style="font-size:12px;color:var(--ink-3);margin:0;">El edificio todavía no cargó un CBU ni un alias — consultá directamente con la administración para transferir.</p>';
+    }
+    return `
+      ${medioPago.cbu ? `
+        <div class="dato-copiable">
+          <div>
+            <div class="dato-copiable-label">CBU</div>
+            <div class="dato-copiable-valor">${medioPago.cbu}</div>
+          </div>
+          <button type="button" class="icon-btn icon-btn-sm" data-copiar="cbu" aria-label="Copiar CBU">${window.Copiar.ICONO_COPIAR}</button>
+        </div>` : ''}
+      ${medioPago.alias_cbu ? `
+        <div class="dato-copiable">
+          <div>
+            <div class="dato-copiable-label">Alias</div>
+            <div class="dato-copiable-valor">${medioPago.alias_cbu}</div>
+          </div>
+          <button type="button" class="icon-btn icon-btn-sm" data-copiar="alias" aria-label="Copiar alias">${window.Copiar.ICONO_COPIAR}</button>
+        </div>` : ''}
+      <p style="font-size:11px;color:var(--ink-3);margin:8px 0 0;">Transferí desde tu banco o billetera virtual y cargá el pago acá — nace pendiente hasta que la administración lo confirme.</p>`;
+  }
+
+  function configurarBotonesCopiar(contenedor, medioPago) {
+    contenedor.querySelectorAll('[data-copiar]').forEach((boton) => {
+      const valor = boton.dataset.copiar === 'cbu' ? medioPago.cbu : medioPago.alias_cbu;
+      boton.addEventListener('click', () => window.Copiar.alPortapapeles(boton, valor));
+    });
   }
 });

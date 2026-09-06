@@ -354,6 +354,7 @@
       <a class="toc-link" data-goto="f2-t12"><span class="n">12</span>Endpoint de reportes financieros<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f2-t13"><span class="n">13</span>financiero.html + pestaña Gastos<span class="estado-mini done"></span></a>
       <a class="toc-link" data-goto="f2-t14"><span class="n">14</span>Pestaña Expensas + Mi cuenta<span class="estado-mini done"></span></a>
+      <a class="toc-link" data-goto="f2-t15"><span class="n">15</span>Pestaña Pagos: cargar y conciliar<span class="estado-mini done"></span></a>
     </div>
 
     <div class="toc-group">
@@ -2522,7 +2523,7 @@ test_detalle_no_crece_con_la_cantidad_de_pisos                       PASSED</div
         <div class="slide-inner">
           <div class="divider-num">02</div>
           <h2>Fase 2 — Gestión financiera básica</h2>
-          <div class="fase-frac-grande" id="fase2-frac">14 / 18 aprobadas</div>
+          <div class="fase-frac-grande" id="fase2-frac">15 / 18 aprobadas</div>
           <p class="divider-desc">Corresponde al Documento General, sección 6; Documento Técnico, sección 8. El módulo más sensible: de acá sale directamente el dato de morosidad que colorea de amarillo/rojo un departamento en el Dashboard Visual (Fase 5).</p>
         </div>
       </section>
@@ -3181,6 +3182,54 @@ tests/test_modelo_pago.py (+3 de estado) .... [8 passed]
           </ul>
           <div class="code-block">tests/test_financiero_expensas_listado.py ..... [5 passed]
 <span class="cm"># suite completa del backend: 217 passed (212 + 5 nuevos)</span></div>
+        </div>
+      </section>
+
+      <section class="slide tarea" id="f2-t15" data-crumb="Fase 2 · Tarea 15">
+        <div class="slide-inner">
+          <div class="tarea-head">
+            <span class="tarea-num">Tarea 15</span>
+            <h3>Frontend: pestaña "Pagos" — cargar (residente) y conciliar (Administrador)</h3>
+            <span class="status done"><i class="dot"></i>Hecho — aprobado</span>
+          </div>
+          <p class="lede">Tercer botón del <code>.view-switch</code> de <code>financiero.html</code> del lado Administrador, y el primer botón de acción real en "Mi cuenta" del lado Propietario/Inquilino: cierra el circuito completo generar expensa → pagar → conciliar que las Tareas 8-9 habían dejado listo solo en el backend.</p>
+
+          <div class="explicacion">
+            <div class="explicacion-titulo">
+              <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              Un hueco de backend que apareció al construir el frontend (otra vez)
+            </div>
+            <p>La Tarea 9 solo había construido el alta (<code>POST /api/pagos</code>) y el cambio de estado puntual (<code>PATCH /api/pagos/{id}/estado</code>) — nunca un <code>GET</code> para que el Administrador vea la cola de pagos a conciliar. Se sumó <code>GET /api/edificios/{id}/pagos</code> (con filtro opcional <code>?estado=</code>), devolviendo ya resuelto el identificador de la unidad y el período de la expensa. De paso, <code>MiExpensaSalida</code> suma <code>pendiente_de_confirmacion</code> — sin este dato, el residente que ya cargó un pago no tenía forma de saber que se guardó: el <code>saldo</code> real no baja hasta que se concilia, a propósito, así que hacía falta un número aparte.</p>
+          </div>
+
+          <h4>Propietario/Inquilino: "Pagar" abre CBU/alias + formulario, sin QR</h4>
+          <p>Cada expensa con saldo en "Mi cuenta" suma un botón <b>Pagar</b>. El modal muestra el CBU y el alias del edificio con un botón de copiar cada uno (<code>assets/js/copiar.js</code>, nuevo — feedback visual inmediato: el ícono cambia a un check por 1.5s) y el formulario de carga. Si el monto que se escribe es menor al saldo, aparece un aviso in-line ("Es un pago parcial — te va a quedar un saldo de $X") — es la "confirmación de saldo pendiente si es parcial" que pide el Roadmap, resuelta sin un <code>confirm()</code> del navegador (el proyecto no usa esos diálogos en ningún lado). El pago nace <code>pendiente</code>; el saldo no cambia todavía, pero ahora aparece la nota "Cargaste $X — pendiente de confirmación del administrador."</p>
+
+          <div class="code-block"><span class="cm">// financiero.js — aviso de pago parcial, sin bloquear el submit</span>
+function actualizarAvisoParcial() {
+  const saldo = Number(form.dataset.saldo);
+  const monto = Number(campoMonto.value);
+  if (monto > 0 && monto < saldo) {
+    avisoParcial.textContent = `Es un pago parcial — te va a quedar un saldo de ${window.Moneda.formatear(saldo - monto)}.`;
+    avisoParcial.style.display = 'block';
+  } else {
+    avisoParcial.style.display = 'none';
+  }
+}</div>
+
+          <h4>Administrador: cola de conciliación con filtro por estado</h4>
+          <p>Pestaña "Pagos" del edificio: filtro (<code>.campo-select-chico</code>) Pendientes/Confirmados/Rechazados/Todos, y por cada pago pendiente, dos botones nuevos en la skill — <code>.boton-chico</code> ("Confirmar") y <code>.boton-chico-critico</code> ("Rechazar"), pensados para reutilizarse tal cual en el futuro flujo de aprobar/rechazar un <code>Presupuesto</code>. Un pago ya conciliado muestra <code>rol-badge</code> "Confirmado" o texto crítico "Rechazado" — nunca el <code>.pill</code> del semáforo, que es exclusivo del estado real del edificio (Documento Técnico 1.2.1), no de un flujo administrativo como este.</p>
+
+          <h4>Verificación: 6 tests nuevos de backend (223 en total) + Playwright de punta a punta</h4>
+          <ul>
+            <li>Backend: <code>pendiente_de_confirmacion</code> sube al cargar un pago y vuelve a 0 al confirmarlo; <code>GET /pagos</code> lista solo lo del edificio correcto, filtra por estado, 403 para no-admin, 400 con un estado inválido.</li>
+            <li>Frontend, Propietario real (Torre Cierre Fase 1): cargó un pago parcial de $2.000 sobre un saldo de $5.195,26 → vio el aviso correcto ("te va a quedar un saldo de $3.195,26"); completó el pago real → "Mi cuenta" mostró la nota de pendiente de confirmación, el saldo no bajó.</li>
+            <li>Copiar CBU: click en el botón → <code>navigator.clipboard.readText()</code> devolvió el CBU exacto mostrado en pantalla, el ícono cambió a check ("Copiado").</li>
+            <li>Frontend, Administrador: la cola mostró la fila pendiente correcta (unidad, período, monto, medio de pago); "Confirmar" la sacó del filtro "Pendientes" y la hizo aparecer en "Confirmados" con el <code>rol-badge</code>.</li>
+            <li>Mobile (375px) + tema oscuro en las tres pantallas (Mi cuenta, modal de pago, cola de conciliación): sin overflow, contraste correcto, cero errores de consola.</li>
+          </ul>
+          <div class="code-block">tests/test_financiero_pagos.py .................... [20 passed]
+<span class="cm"># suite completa del backend: 223 passed (217 + 6 nuevos)</span></div>
         </div>
       </section>
 

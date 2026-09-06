@@ -53,7 +53,11 @@ class MedioPagoSalida(BaseModel):
 class MiExpensaSalida(BaseModel):
     """Una expensa puntual vista desde la unidad — Documento General 6.2,
     "estado de cuenta por unidad". `saldo` descuenta solo los `Pago` ya
-    `confirmado`s, nunca los `pendiente` (todavía no verificados)."""
+    `confirmado`s, nunca los `pendiente` (todavía no verificados).
+    `pendiente_de_confirmacion` es la suma de los `Pago` que el propio
+    residente ya cargó y todavía esperan que un Administrador los
+    concilie — sin este dato, el frontend no tiene forma de avisarle que
+    su pago ya está cargado (el `saldo` no baja todavía, a propósito)."""
 
     expensa_id: int
     anio: int
@@ -61,6 +65,7 @@ class MiExpensaSalida(BaseModel):
     monto: float
     pagado_confirmado: float
     saldo: float
+    pendiente_de_confirmacion: float
 
 
 class MiDepartamentoSalida(BaseModel):
@@ -91,6 +96,27 @@ class PagoSalida(BaseModel):
     id: int
     departamento_id: int
     expensa_id: int
+    monto: float
+    fecha: date
+    medio_pago: str
+    comprobante_url: str | None
+    estado: str
+    creado_en: datetime
+
+
+class PagoListadoSalida(BaseModel):
+    """Fila de la cola de conciliación (Administrador) — `GET
+    /api/edificios/{id}/pagos`. Mismos datos que `PagoSalida`, con el
+    identificador de la unidad y el período de la expensa ya resueltos
+    para no obligar al frontend a pedir cada departamento/expensa por
+    separado en una lista que puede tener varias filas."""
+
+    id: int
+    departamento_id: int
+    identificador: str
+    expensa_id: int
+    anio: int
+    mes: int
     monto: float
     fecha: date
     medio_pago: str

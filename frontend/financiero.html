@@ -102,11 +102,12 @@
         </a>
         <h1 id="detalle-titulo" style="margin:0; font-size:19px;">—</h1>
         <p id="detalle-subtitulo" style="margin:2px 0 16px; font-size:12.5px; color:var(--ink-3);">—</p>
-        <!-- Pagos/Deudores/Fondos·Caja·Presupuestos·Facturas se suman en
-             sus propias tareas del Roadmap, no se dejan acá deshabilitadas. -->
+        <!-- Deudores/Fondos·Caja·Presupuestos·Facturas se suman en sus
+             propias tareas del Roadmap, no se dejan acá deshabilitadas. -->
         <div class="view-switch" id="detalle-view-switch" role="tablist">
           <button class="active" data-view="gastos" type="button">Gastos</button>
           <button data-view="expensas" type="button">Expensas</button>
+          <button data-view="pagos" type="button">Pagos</button>
         </div>
       </div>
 
@@ -136,6 +137,27 @@
           <button type="button" class="boton-primario" id="boton-generar-expensa" style="width:auto; padding:9px 16px;">+ Generar expensa</button>
         </div>
         <div id="lista-expensas"><!-- filas generadas por JS --></div>
+      </div>
+
+      <!-- Cola de conciliación (Documento General 6.2): un pago cargado
+           por el propio residente nace `pendiente` y queda acá hasta que
+           un Administrador lo confirma o rechaza contra el movimiento
+           bancario real — nunca se acredita solo. -->
+      <div id="panel-pagos" style="display:none; padding:16px 24px 26px;">
+        <div style="display:flex; align-items:center; justify-content:flex-end; margin-bottom:14px;">
+          <select id="filtro-estado-pago" class="campo-select-chico" aria-label="Filtrar por estado">
+            <option value="pendiente">Pendientes de conciliar</option>
+            <option value="confirmado">Confirmados</option>
+            <option value="rechazado">Rechazados</option>
+            <option value="">Todos</option>
+          </select>
+        </div>
+        <div class="mensaje-error" id="mensaje-error-conciliar" style="display:none;">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+          <span id="mensaje-error-conciliar-texto"></span>
+        </div>
+        <div id="resumen-pagos" style="margin-bottom:12px; font-size:12.5px; color:var(--ink-3);"><!-- generado por JS --></div>
+        <div id="lista-pagos"><!-- filas generadas por JS --></div>
       </div>
     </section>
   </div>
@@ -225,6 +247,51 @@
   </div>
 </div>
 
+<!-- Modal: cargar pago (Propietario/Inquilino) — el CBU/alias del edificio
+     se muestra para transferir por fuera de la plataforma (sin QR,
+     decisión final del usuario: se copia cada dato por separado), y el
+     pago que se registra acá nace "pendiente" hasta que un Administrador
+     lo concilie. -->
+<div class="modal-backdrop" id="modal-pago">
+  <div class="modal modal-formulario shell">
+    <button type="button" class="modal-close" id="modal-pago-cerrar" aria-label="Cerrar">✕</button>
+    <h3>Cargar pago</h3>
+    <span class="modal-formulario-sub" id="modal-pago-sub">—</span>
+
+    <div id="medio-pago-datos" class="detail-item content-glass" style="margin:14px 0;"><!-- generado por JS --></div>
+
+    <div class="mensaje-error" id="mensaje-error-pago" style="display:none;">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+      <span id="mensaje-error-pago-texto"></span>
+    </div>
+    <form id="form-pago" autocomplete="off">
+      <div class="form-grid-2">
+        <div class="campo">
+          <label for="campo-pago-monto">Monto</label>
+          <input type="number" id="campo-pago-monto" min="0.01" step="0.01" required>
+        </div>
+        <div class="campo">
+          <label for="campo-pago-fecha">Fecha</label>
+          <input type="date" id="campo-pago-fecha" required>
+        </div>
+      </div>
+      <p id="aviso-pago-parcial" style="display:none; font-size:11.5px; color:var(--ink-3); margin:-8px 0 14px;"><!-- generado por JS --></p>
+      <div class="campo">
+        <label for="campo-pago-medio">Medio de pago</label>
+        <input type="text" id="campo-pago-medio" required placeholder="Ej.: Transferencia, efectivo...">
+      </div>
+      <div class="campo">
+        <label for="campo-pago-comprobante">Comprobante (opcional)</label>
+        <input type="text" id="campo-pago-comprobante" placeholder="Link al comprobante">
+      </div>
+      <div class="modal-formulario-acciones">
+        <button type="button" class="boton-primario" id="boton-pago-cancelar" style="background:var(--glass-content-bg); color:var(--ink-2); box-shadow:inset 0 0 0 1px var(--line);">Cancelar</button>
+        <button type="submit" class="boton-primario" id="boton-pago-guardar">Registrar pago</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script src="assets/js/config.js"></script>
 <script src="assets/js/api.js"></script>
 <script src="assets/js/theme.js"></script>
@@ -233,6 +300,7 @@
 <script src="assets/js/view-switch.js"></script>
 <script src="assets/js/cargando.js"></script>
 <script src="assets/js/moneda.js"></script>
+<script src="assets/js/copiar.js"></script>
 <script src="assets/js/financiero.js"></script>
 </body>
 </html>

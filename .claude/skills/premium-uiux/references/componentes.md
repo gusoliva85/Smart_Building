@@ -767,3 +767,32 @@ Para filtros en línea junto a otros controles (año/mes en un listado, por ejem
 ```
 
 **Excepción reconocida a la regla de "nunca un color fijo suelto":** el chevron del `<select>` es un SVG embebido como `data:` URI en `background-image` — no puede leer variables CSS (`var(--ink-3)`), así que su `stroke` queda en un gris neutro fijo (`#888`). Es una limitación técnica real de la propiedad `background-image`, no una excepción de comodidad — se probó que ese gris puntual queda legible tanto en tema claro como oscuro (a diferencia de un color con licencia de marca o de semáforo, que si necesitan variar si o si entre temas). Cualquier otro color de la regla — fondo, borde, texto — sigue token normal.
+
+## Botón chico de acción en una fila (`.boton-chico`)
+
+Para una acción que aparece junto a otras dentro de una fila de listado (ej. "Confirmar"/"Rechazar" en la cola de conciliación de pagos) — mismo lenguaje visual que `.boton-primario` pero de ancho natural, para que quepan dos o más en la misma fila sin ocupar todo el ancho:
+
+```html
+<button type="button" class="boton-chico">Confirmar</button>
+<button type="button" class="boton-chico boton-chico-critico">Rechazar</button>
+```
+
+La variante `-critico` es la acción negativa/de rechazo — mismo tratamiento de color que `.mensaje-error`/`.pill.crit` (`color-mix` sobre `--crit`), nunca un rojo de librería suelto. Pensado para reutilizarse tal cual en el próximo flujo parecido (aprobar/rechazar un `Presupuesto`, Fase 2).
+
+## Dato copiable (`.dato-copiable` + `assets/js/copiar.js`)
+
+Para un dato que el usuario necesita copiar y pegar en otro lado — el caso de origen es el CBU/alias del edificio al cargar un pago (sin QR, decisión final del usuario, ver `Pagos_y_Conciliacion.md`): etiqueta chica arriba, valor destacado abajo, botón de copiar (`.icon-btn.icon-btn-sm`) siempre a la derecha, dentro de un `.detail-item.content-glass`:
+
+```html
+<div class="detail-item content-glass">
+  <div class="dato-copiable">
+    <div>
+      <div class="dato-copiable-label">CBU</div>
+      <div class="dato-copiable-valor">0170099220000001234567</div>
+    </div>
+    <button type="button" class="icon-btn icon-btn-sm" aria-label="Copiar CBU">...</button>
+  </div>
+</div>
+```
+
+`assets/js/copiar.js` (`window.Copiar.alPortapapeles(boton, texto)`) hace el `navigator.clipboard.writeText` y da feedback inmediato: el ícono cambia a un check por 1.5s y el `aria-label` pasa a "Copiado" — heurística "visibilidad del estado del sistema", el usuario nunca se queda sin saber si el click copió algo de verdad. Si el navegador no da permiso de portapapeles, el botón simplemente no da feedback — no rompe el resto del flujo.

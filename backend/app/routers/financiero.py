@@ -43,6 +43,7 @@ from app.schemas.financiero import (
     MiExpensaSalida,
     PagoEntrada,
     PagoEstadoEntrada,
+    PagoListadoSalida,
     PagoSalida,
     RecaudadoPeriodoSalida,
     ReporteFinancieroSalida,
@@ -192,6 +193,17 @@ def _saldo(expensa_departamento: ExpensaDepartamento) -> float:
     return round(float(expensa_departamento.monto) - _pagado_confirmado(expensa_departamento), 2)
 
 
+def _pendiente_de_confirmacion(expensa_departamento: ExpensaDepartamento) -> float:
+    """Lo que el residente ya cargó y todavía espera conciliación — nunca
+    se mezcla con `_saldo` (ese solo mira lo `confirmado`): son dos
+    números que el frontend muestra por separado, uno como deuda real y
+    el otro como "ya lo cargaste, esperá al administrador"."""
+    return round(sum(
+        float(p.monto) for p in expensa_departamento.expensa.pagos
+        if p.departamento_id == expensa_departamento.departamento_id and p.estado == "pendiente"
+    ), 2)
+
+
 def _calcular_deudores(db: Session, edificio_id: int, hoy: date | None = None) -> list[DeudorSalida]:
     """Documento Técnico 5.2: vista CALCULADA, no una tabla propia — se
     recorren los `ExpensaDepartamento` de todo el edificio y se descarta
@@ -252,6 +264,52 @@ def listar_deudores(
     return _calcular_deudores(db, edificio.id, hoy)
 
 
+ESTADOS_PAGO_VALIDOS = ("pendiente", "confirmado", "rechazado")
+
+
+@router.get("/{edificio_id}/pagos", response_model=list[PagoListadoSalida])
+def listar_pagos(
+    estado: str | None = None,
+    edificio: Edificio = Depends(requerir_admin_del_edificio),
+    db: Session = Depends(obtener_db),
+):
+    """Cola de conciliación del edificio (Documento General 6.2) — solo
+    Administrador, igual que el resto de este router salvo
+    medio-pago/mis-departamentos/pagos. Sin `estado` devuelve todo el
+    historial, más nuevo primero; `?estado=pendiente` es el filtro que
+    usa el frontend para la cola propiamente dicha."""
+    if estado is not None and estado not in ESTADOS_PAGO_VALIDOS:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"estado debe ser uno de: {ESTADOS_PAGO_VALIDOS}")
+
+    consulta = (
+        db.query(Pago)
+        .join(Departamento, Departamento.id == Pago.departamento_id)
+        .join(Piso, Piso.id == Departamento.piso_id)
+        .filter(Piso.edificio_id == edificio.id)
+    )
+    if estado:
+        consulta = consulta.filter(Pago.estado == estado)
+    pagos = consulta.order_by(Pago.creado_en.desc()).all()
+
+    return [
+        PagoListadoSalida(
+            id=p.id,
+            departamento_id=p.departamento_id,
+            identificador=p.departamento.identificador,
+            expensa_id=p.expensa_id,
+            anio=p.expensa.anio,
+            mes=p.expensa.mes,
+            monto=float(p.monto),
+            fecha=p.fecha,
+            medio_pago=p.medio_pago,
+            comprobante_url=p.comprobante_url,
+            estado=p.estado,
+            creado_en=p.creado_en,
+        )
+        for p in pagos
+    ]
+
+
 @router_pagos.get("/mis-departamentos", response_model=list[MiDepartamentoSalida])
 def listar_mis_departamentos(
     db: Session = Depends(obtener_db),
@@ -278,6 +336,7 @@ def listar_mis_departamentos(
                 monto=float(ed.monto),
                 pagado_confirmado=_pagado_confirmado(ed),
                 saldo=_saldo(ed),
+                pendiente_de_confirmacion=_pendiente_de_confirmacion(ed),
             )
             for ed in depto.expensas_departamento
         ]

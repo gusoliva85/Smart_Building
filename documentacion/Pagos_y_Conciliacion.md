@@ -89,3 +89,11 @@ El pedido es "esto se hace por usuario, no hace falta elegir el piso" — cierto
 ---
 
 *Última actualización: se saca el QR de conveniencia — CBU/alias se copian por separado, decisión final del usuario — 2026-09-05. Este documento se actualiza antes que el código cada vez que el criterio de pagos/conciliación cambie.*
+
+## 7. Frontend (Tarea 15 de la Fase 2) — cierra el circuito descripto arriba
+
+Todo lo de la sección 5 ya estaba en el backend desde la Tarea 9; esta tarea es la pantalla real. `GET /api/edificios/{id}/pagos` (nuevo, admin-only) se sumó para poder listar la cola de conciliación — la Tarea 9 nunca lo había construido, solo el alta y el cambio de estado puntual.
+
+- **Propietario/Inquilino** ("Mi cuenta"): cada expensa con saldo muestra un botón "Pagar" que abre el CBU/alias del edificio (botón de copiar cada uno, sin QR) y un formulario de pago. Si el monto ingresado es menor al saldo, un aviso in-line confirma que va a quedar un saldo pendiente — la "confirmación de saldo pendiente si es parcial" que pide el Roadmap, sin bloquear con un `confirm()` del navegador (el proyecto no usa esos diálogos en ningún lado). Después de cargarlo, el saldo real no baja (sigue así hasta que se concilie) pero aparece una nota "pendiente de confirmación" — sin esto el usuario no tendría forma de saber que su carga sí se guardó.
+- **Administrador** (pestaña "Pagos" del edificio): cola de conciliación con filtro por estado, `Confirmar`/`Rechazar` por fila. Nuevos componentes reutilizables sumados a la skill: `.boton-chico`/`.boton-chico-critico` (pensados también para el futuro flujo de aprobar/rechazar un `Presupuesto`) y `.dato-copiable` + `assets/js/copiar.js` (CBU/alias, reutilizable para cualquier otro dato copiable).
+- Verificado con Playwright contra el backend real: alta de pago, copiar CBU al portapapeles con feedback visual, aviso de pago parcial, conciliación (confirmar y filtrar), mobile + modo oscuro — cero errores de consola.

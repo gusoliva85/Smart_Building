@@ -269,3 +269,81 @@ def test_estado_invalido_en_el_patch_devuelve_422(entorno):
 
     r = cliente.patch(f"/api/pagos/{pago['id']}/estado", json={"estado": "pendiente"}, headers=entorno["headers_admin"])
     assert r.status_code == 422
+
+
+# --------------------- pendiente_de_confirmacion (mis-departamentos) ---------------------
+
+def test_pago_recien_cargado_aparece_como_pendiente_de_confirmacion(entorno):
+    cliente = entorno["cliente"]
+    expensa_id = _expensa_id_de(entorno, entorno["depto_prop_id"])
+    cliente.post(
+        "/api/pagos",
+        json={"departamento_id": entorno["depto_prop_id"], "expensa_id": expensa_id, "monto": 25000, "fecha": "2026-08-15", "medio_pago": "transferencia"},
+        headers=entorno["headers_prop"],
+    )
+    expensa = cliente.get("/api/mis-departamentos", headers=entorno["headers_prop"]).json()[0]["expensas"][0]
+    assert expensa["pendiente_de_confirmacion"] == 25000
+    assert expensa["saldo"] == 60000  # el saldo real no baja hasta que se concilie
+
+
+def test_pendiente_de_confirmacion_vuelve_a_cero_al_confirmar(entorno):
+    cliente = entorno["cliente"]
+    expensa_id = _expensa_id_de(entorno, entorno["depto_prop_id"])
+    pago = cliente.post(
+        "/api/pagos",
+        json={"departamento_id": entorno["depto_prop_id"], "expensa_id": expensa_id, "monto": 60000, "fecha": "2026-08-15", "medio_pago": "transferencia"},
+        headers=entorno["headers_prop"],
+    ).json()
+    cliente.patch(f"/api/pagos/{pago['id']}/estado", json={"estado": "confirmado"}, headers=entorno["headers_admin"])
+
+    expensa = cliente.get("/api/mis-departamentos", headers=entorno["headers_prop"]).json()[0]["expensas"][0]
+    assert expensa["pendiente_de_confirmacion"] == 0
+    assert expensa["saldo"] == 0
+
+
+# ------------------------------- listar pagos (cola de conciliación) -------------------------------
+
+def test_admin_lista_los_pagos_del_edificio(entorno):
+    cliente = entorno["cliente"]
+    expensa_id = _expensa_id_de(entorno, entorno["depto_prop_id"])
+    cliente.post(
+        "/api/pagos",
+        json={"departamento_id": entorno["depto_prop_id"], "expensa_id": expensa_id, "monto": 60000, "fecha": "2026-08-15", "medio_pago": "transferencia"},
+        headers=entorno["headers_prop"],
+    )
+
+    r = cliente.get(f"/api/edificios/{entorno['edificio_id']}/pagos", headers=entorno["headers_admin"])
+    assert r.status_code == 200
+    cuerpo = r.json()
+    assert len(cuerpo) == 1
+    assert cuerpo[0]["estado"] == "pendiente"
+    assert cuerpo[0]["identificador"]  # viene resuelto, no solo el id
+    assert cuerpo[0]["anio"] == 2026 and cuerpo[0]["mes"] == 8
+
+
+def test_listar_pagos_filtra_por_estado(entorno):
+    cliente = entorno["cliente"]
+    expensa_id = _expensa_id_de(entorno, entorno["depto_prop_id"])
+    pago = cliente.post(
+        "/api/pagos",
+        json={"departamento_id": entorno["depto_prop_id"], "expensa_id": expensa_id, "monto": 60000, "fecha": "2026-08-15", "medio_pago": "transferencia"},
+        headers=entorno["headers_prop"],
+    ).json()
+    cliente.patch(f"/api/pagos/{pago['id']}/estado", json={"estado": "confirmado"}, headers=entorno["headers_admin"])
+
+    pendientes = cliente.get(f"/api/edificios/{entorno['edificio_id']}/pagos?estado=pendiente", headers=entorno["headers_admin"]).json()
+    confirmados = cliente.get(f"/api/edificios/{entorno['edificio_id']}/pagos?estado=confirmado", headers=entorno["headers_admin"]).json()
+    assert pendientes == []
+    assert len(confirmados) == 1
+
+
+def test_listar_pagos_no_admin_devuelve_403(entorno):
+    cliente = entorno["cliente"]
+    r = cliente.get(f"/api/edificios/{entorno['edificio_id']}/pagos", headers=entorno["headers_prop"])
+    assert r.status_code == 403
+
+
+def test_listar_pagos_estado_invalido_devuelve_400(entorno):
+    cliente = entorno["cliente"]
+    r = cliente.get(f"/api/edificios/{entorno['edificio_id']}/pagos?estado=no-existe", headers=entorno["headers_admin"])
+    assert r.status_code == 400
