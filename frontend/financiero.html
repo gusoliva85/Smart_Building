@@ -102,12 +102,13 @@
         </a>
         <h1 id="detalle-titulo" style="margin:0; font-size:19px;">—</h1>
         <p id="detalle-subtitulo" style="margin:2px 0 16px; font-size:12.5px; color:var(--ink-3);">—</p>
-        <!-- Deudores/Fondos·Caja·Presupuestos·Facturas se suman en sus
-             propias tareas del Roadmap, no se dejan acá deshabilitadas. -->
+        <!-- Fondos·Caja·Presupuestos·Facturas se suma en su propia tarea
+             del Roadmap, no se deja acá deshabilitada. -->
         <div class="view-switch" id="detalle-view-switch" role="tablist">
           <button class="active" data-view="gastos" type="button">Gastos</button>
           <button data-view="expensas" type="button">Expensas</button>
           <button data-view="pagos" type="button">Pagos</button>
+          <button data-view="deudores" type="button">Deudores</button>
         </div>
       </div>
 
@@ -158,6 +159,15 @@
         </div>
         <div id="resumen-pagos" style="margin-bottom:12px; font-size:12.5px; color:var(--ink-3);"><!-- generado por JS --></div>
         <div id="lista-pagos"><!-- filas generadas por JS --></div>
+      </div>
+
+      <!-- Deudores (Documento Técnico 5.2): vista calculada, no una tabla
+           propia — ordenada de más a menos atrasado, siempre solo lectura
+           (la única acción para saldar una deuda es conciliar el pago en
+           la pestaña Pagos). -->
+      <div id="panel-deudores" style="display:none; padding:16px 24px 26px;">
+        <div id="resumen-deudores" style="margin-bottom:12px; font-size:12.5px; color:var(--ink-3);"><!-- generado por JS --></div>
+        <div id="lista-deudores"><!-- filas generadas por JS --></div>
       </div>
     </section>
   </div>
@@ -244,6 +254,19 @@
     <div id="detalle-expensa-rubros" class="detail-item content-glass"><!-- generado por JS --></div>
     <h4 style="margin:16px 0 8px; font-size:12.5px; color:var(--ink-3);">Por departamento</h4>
     <div id="detalle-expensa-departamentos" class="detail-item content-glass"><!-- generado por JS --></div>
+  </div>
+</div>
+
+<!-- Modal: detalle de un deudor — apertura de las expensas impagas que
+     componen la deuda total (solo lectura, misma idea que el detalle de
+     una expensa). -->
+<div class="modal-backdrop" id="modal-detalle-deudor">
+  <div class="modal modal-formulario shell">
+    <button type="button" class="modal-close" id="modal-detalle-deudor-cerrar" aria-label="Cerrar">✕</button>
+    <h3 id="detalle-deudor-titulo">—</h3>
+    <span class="modal-formulario-sub" id="detalle-deudor-resumen">—</span>
+    <h4 style="margin:16px 0 8px; font-size:12.5px; color:var(--ink-3);">Expensas impagas</h4>
+    <div id="detalle-deudor-expensas" class="detail-item content-glass"><!-- generado por JS --></div>
   </div>
 </div>
 

@@ -43,6 +43,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // dead zone), el mismo bug ya visto en edificios.js (Fase 1).
   let edificioId;
   let gastosCache = []; // último listado sin filtrar, para poblar el select de años
+  let deudoresCache = []; // último listado de deudores, para abrir el detalle sin volver a pedirlo
 
   // ---------------------------------------------------------------
   // Ruteo por rol
@@ -180,6 +181,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     configurarModalGenerarExpensa();
     configurarModalDetalleExpensa();
     configurarAccionesPago();
+    configurarModalDetalleDeudor();
   }
 
   function configurarViewSwitchDetalle() {
@@ -188,9 +190,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       gastos: document.getElementById('panel-gastos'),
       expensas: document.getElementById('panel-expensas'),
       pagos: document.getElementById('panel-pagos'),
+      deudores: document.getElementById('panel-deudores'),
     };
-    const cargadores = { expensas: cargarExpensas, pagos: cargarPagos };
-    const yaCargado = { gastos: true, expensas: false, pagos: false };
+    const cargadores = { expensas: cargarExpensas, pagos: cargarPagos, deudores: cargarDeudores };
+    const yaCargado = { gastos: true, expensas: false, pagos: false, deudores: false };
 
     switchEl.querySelectorAll('button').forEach((boton) => {
       boton.addEventListener('click', async () => {
@@ -613,5 +616,82 @@ document.addEventListener('DOMContentLoaded', async () => {
       const valor = boton.dataset.copiar === 'cbu' ? medioPago.cbu : medioPago.alias_cbu;
       boton.addEventListener('click', () => window.Copiar.alPortapapeles(boton, valor));
     });
+  }
+
+  // --------------------------- Pestaña Deudores (Administrador) ---------------------------
+  // Documento Técnico 5.2: vista calculada, nunca una tabla propia — el
+  // backend ya la devuelve ordenada de más a menos atrasado. Solo lectura:
+  // la única acción para saldar una deuda es conciliar el pago en la
+  // pestaña Pagos, no algo que se haga desde acá.
+  async function cargarDeudores() {
+    const contenedor = document.getElementById('lista-deudores');
+    contenedor.innerHTML = `<p style="font-size:12.5px;color:var(--ink-3);padding:10px 0;">${window.Cargando.html()}</p>`;
+
+    let deudores;
+    try {
+      deudores = await window.Api.get(`/edificios/${edificioId}/deudores`);
+    } catch (error) {
+      contenedor.innerHTML = `<p style="font-size:12.5px;color:var(--crit);padding:10px 0;">${error.message}</p>`;
+      return;
+    }
+
+    deudoresCache = deudores;
+    renderListaDeudores(deudores);
+  }
+
+  function renderListaDeudores(deudores) {
+    const contenedor = document.getElementById('lista-deudores');
+    const resumen = document.getElementById('resumen-deudores');
+
+    if (deudores.length === 0) {
+      resumen.textContent = '';
+      contenedor.innerHTML = '<p style="font-size:12.5px;color:var(--ink-3);padding:10px 0;">Sin deudores — todas las expensas generadas están saldadas.</p>';
+      return;
+    }
+
+    const deudaTotal = deudores.reduce((suma, d) => suma + d.deuda_total, 0);
+    resumen.textContent = `${deudores.length} departamento${deudores.length === 1 ? '' : 's'} con deuda · ${window.Moneda.formatear(deudaTotal)} en total`;
+
+    contenedor.innerHTML = deudores
+      .map((d) => `
+        <button type="button" class="detail-item content-glass fila-lista boton-ver-deudor" data-id="${d.departamento_id}" style="width:100%; text-align:left; border:0; cursor:pointer; font:inherit; color:inherit;">
+          <div>
+            <b style="font-size:13.5px;">${d.identificador}</b>
+            <div style="font-size:11.5px;color:var(--ink-3);">${d.meses_atraso} mes${d.meses_atraso === 1 ? '' : 'es'} de atraso · ${d.expensas_impagas.length} expensa${d.expensas_impagas.length === 1 ? '' : 's'} impaga${d.expensas_impagas.length === 1 ? '' : 's'}</div>
+          </div>
+          <div class="fila-lista-acciones">
+            <span style="font-size:13.5px; font-weight:700; color:var(--crit); font-family:Outfit, sans-serif;">${window.Moneda.formatear(d.deuda_total)}</span>
+          </div>
+        </button>`)
+      .join('');
+
+    contenedor.querySelectorAll('.boton-ver-deudor').forEach((boton) => {
+      boton.addEventListener('click', () => mostrarDetalleDeudor(Number(boton.dataset.id)));
+    });
+  }
+
+  function configurarModalDetalleDeudor() {
+    document.getElementById('modal-detalle-deudor-cerrar').addEventListener('click', () => {
+      document.getElementById('modal-detalle-deudor').classList.remove('open');
+    });
+  }
+
+  function mostrarDetalleDeudor(departamentoId) {
+    const deudor = deudoresCache.find((d) => d.departamento_id === departamentoId);
+    if (!deudor) return;
+
+    document.getElementById('detalle-deudor-titulo').textContent = deudor.identificador;
+    document.getElementById('detalle-deudor-resumen').textContent =
+      `${window.Moneda.formatear(deudor.deuda_total)} de deuda · ${deudor.meses_atraso} mes${deudor.meses_atraso === 1 ? '' : 'es'} de atraso`;
+
+    document.getElementById('detalle-deudor-expensas').innerHTML = deudor.expensas_impagas
+      .map((e) => `
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 0;">
+          <span style="font-size:12.5px;">${NOMBRE_MES[e.mes]} ${e.anio}</span>
+          <span style="font-size:12.5px; font-weight:700; color:var(--crit); font-family:Outfit, sans-serif;">${window.Moneda.formatear(e.saldo)}</span>
+        </div>`)
+      .join('');
+
+    document.getElementById('modal-detalle-deudor').classList.add('open');
   }
 });
