@@ -59,9 +59,37 @@ class DepartamentoSalida(BaseModel):
     id: int
     identificador: str
     m2: float | None
+    coeficiente: float | None
     ocupado: bool
     propietario_id: int | None
     inquilino_id: int | None
+
+
+class DepartamentoCoeficienteEntrada(BaseModel):
+    """`PATCH /api/edificios/departamentos/{id}/coeficiente` — edición
+    manual de a un departamento por vez, siempre disponible incluso
+    después de un autocompletado (Prorrateo.md: "el coeficiente en sí
+    queda como el dato real, editable a mano después"). El rango real
+    (>0 y <=100) ya lo exige el CHECK de la base; acá se valida antes,
+    en el borde de la API, para devolver un mensaje claro."""
+
+    coeficiente: float = Field(gt=0, le=100)
+
+
+class CoeficientesAutoEntrada(BaseModel):
+    """`POST /api/edificios/{id}/coeficientes/auto` — completa el
+    coeficiente de TODOS los departamentos del edificio de una vez, con
+    uno de los dos atajos que ya define `services/finanzas.py` desde la
+    Tarea 1 de la Fase 2 (nunca un tercer criterio inventado acá)."""
+
+    criterio: str
+
+    @field_validator("criterio")
+    @classmethod
+    def _validar_criterio(cls, valor):
+        if valor not in ("partes_iguales", "por_m2"):
+            raise ValueError("criterio debe ser 'partes_iguales' o 'por_m2'")
+        return valor
 
 
 class PisoSalida(BaseModel):

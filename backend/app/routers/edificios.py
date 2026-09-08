@@ -28,7 +28,9 @@ from app.models.usuario import Usuario
 from app.schemas.edificio import (
     CocheraEntrada,
     CocheraSalida,
+    CoeficientesAutoEntrada,
     DepartamentoAsignacion,
+    DepartamentoCoeficienteEntrada,
     DepartamentoEntrada,
     DepartamentoSalida,
     EdificioConfiguracion,
@@ -41,6 +43,7 @@ from app.schemas.edificio import (
     PisoSalida,
 )
 from app.services.edificios import generar_estructura_vacia
+from app.services.finanzas import calcular_partes_iguales, calcular_por_metros_cuadrados
 
 router = APIRouter(prefix="/api/edificios", tags=["edificios"])
 
@@ -292,6 +295,74 @@ def asignar_departamento(
     db.commit()
     db.refresh(depto)
     return depto
+
+
+@router.patch("/departamentos/{departamento_id}/coeficiente", response_model=DepartamentoSalida)
+def actualizar_coeficiente_departamento(
+    departamento_id: int,
+    datos: DepartamentoCoeficienteEntrada,
+    db: Session = Depends(obtener_db),
+    actual: UsuarioAutenticado = Depends(obtener_usuario_actual),
+):
+    """Edición manual de UN departamento por vez — el dato real de
+    prorrateo (Documento General 6.1, investigado en `Prorrateo.md`),
+    siempre editable a mano aunque el edificio ya se haya completado con
+    `/coeficientes/auto`. No valida que el edificio entero siga sumando
+    100% acá mismo: eso lo hace `calcular_prorrateo_periodo()` recién al
+    generar la expensa, con el edificio completo a la vista — corregir un
+    departamento suelto legítimamente puede dejar la suma momentáneamente
+    distinta de 100 mientras se corrigen los demás."""
+    depto = db.get(Departamento, departamento_id)
+    if not depto:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Departamento no encontrado")
+
+    requerir_admin_del_edificio(edificio_id=depto.piso.edificio_id, db=db, actual=actual)
+
+    depto.coeficiente = datos.coeficiente
+    db.commit()
+    db.refresh(depto)
+    return depto
+
+
+@router.post("/{edificio_id}/coeficientes/auto", response_model=list[DepartamentoSalida])
+def autocompletar_coeficientes(
+    datos: CoeficientesAutoEntrada,
+    edificio: Edificio = Depends(requerir_admin_del_edificio),
+    db: Session = Depends(obtener_db),
+):
+    """Completa el coeficiente de TODOS los departamentos del edificio de
+    una sola vez, con uno de los dos atajos reales (Prorrateo.md): partes
+    iguales, o proporcional a los m² cargados. Pisa cualquier coeficiente
+    que ya existiera — es un punto de partida a corregir a mano después
+    (`PATCH .../coeficiente`), no algo para usar edificio por edificio sin
+    mirar el resultado."""
+    departamentos = (
+        db.query(Departamento)
+        .join(Piso, Piso.id == Departamento.piso_id)
+        .filter(Piso.edificio_id == edificio.id)
+        .order_by(Departamento.id)
+        .all()
+    )
+    if not departamentos:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El edificio no tiene departamentos")
+
+    if datos.criterio == "partes_iguales":
+        coeficientes = calcular_partes_iguales(len(departamentos))
+    else:
+        sin_m2 = [d.identificador for d in departamentos if not d.m2]
+        if sin_m2:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Faltan m² cargados para prorratear por metros cuadrados: {', '.join(sin_m2)}",
+            )
+        coeficientes = calcular_por_metros_cuadrados([float(d.m2) for d in departamentos])
+
+    for depto, coeficiente in zip(departamentos, coeficientes):
+        depto.coeficiente = coeficiente
+    db.commit()
+    for depto in departamentos:
+        db.refresh(depto)
+    return departamentos
 
 
 # ------------------------------ Cocheras ------------------------------

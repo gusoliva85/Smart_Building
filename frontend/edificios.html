@@ -181,9 +181,11 @@
       <div id="panel-datos-generales" style="padding:20px 24px 26px;"><!-- generado por JS --></div>
 
       <div id="panel-estructura" style="display:none; padding:6px 24px 26px;">
-        <div style="display:flex; gap:8px; margin:14px 0; flex-wrap:wrap;">
+        <div style="display:flex; gap:8px; margin:14px 0; flex-wrap:wrap; align-items:center;">
           <button type="button" class="chip-link" id="boton-nuevo-piso">+ Piso</button>
           <button type="button" class="chip-link" id="boton-nuevo-departamento">+ Departamento</button>
+          <button type="button" class="chip-link" id="boton-coeficientes-auto">Autocompletar coeficientes</button>
+          <span id="resumen-coeficientes" style="font-size:11.5px; color:var(--ink-3); margin-left:auto;"><!-- generado por JS --></span>
         </div>
         <div id="lista-pisos"><!-- generado por JS --></div>
 
@@ -279,6 +281,59 @@
       <div class="modal-formulario-acciones">
         <button type="button" class="boton-primario" id="boton-asignacion-cancelar" style="background:var(--glass-content-bg); color:var(--ink-2); box-shadow:inset 0 0 0 1px var(--line);">Cancelar</button>
         <button type="submit" class="boton-primario" id="boton-asignacion-guardar">Guardar asignación</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: coeficiente de UN departamento (edición manual, siempre
+     disponible aunque el edificio ya se haya autocompletado). -->
+<div class="modal-backdrop" id="modal-coeficiente">
+  <div class="modal modal-formulario shell">
+    <button type="button" class="modal-close" id="modal-coeficiente-cerrar" aria-label="Cerrar">✕</button>
+    <h3>Coeficiente</h3>
+    <span class="modal-formulario-sub" id="modal-coeficiente-sub">—</span>
+    <div class="mensaje-error" id="mensaje-error-coeficiente" style="display:none;">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+      <span id="mensaje-error-coeficiente-texto"></span>
+    </div>
+    <form id="form-coeficiente" autocomplete="off">
+      <div class="campo">
+        <label for="campo-coeficiente-valor">Coeficiente (%)</label>
+        <input type="number" id="campo-coeficiente-valor" min="0.001" max="100" step="0.001" required placeholder="Ej.: 8.333">
+      </div>
+      <div class="modal-formulario-acciones">
+        <button type="button" class="boton-primario" id="boton-coeficiente-cancelar" style="background:var(--glass-content-bg); color:var(--ink-2); box-shadow:inset 0 0 0 1px var(--line);">Cancelar</button>
+        <button type="submit" class="boton-primario" id="boton-coeficiente-guardar">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: autocompletar el coeficiente de TODOS los departamentos del
+     edificio de una vez — atajo real de Prorrateo.md, nunca el criterio
+     final (pisa lo que haya, se corrige a mano después con el modal de
+     arriba). -->
+<div class="modal-backdrop" id="modal-coeficientes-auto">
+  <div class="modal modal-formulario shell">
+    <button type="button" class="modal-close" id="modal-coeficientes-auto-cerrar" aria-label="Cerrar">✕</button>
+    <h3>Autocompletar coeficientes</h3>
+    <span class="modal-formulario-sub">Pisa el coeficiente de TODOS los departamentos del edificio — es un punto de partida, editable a mano después.</span>
+    <div class="mensaje-error" id="mensaje-error-coeficientes-auto" style="display:none;">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+      <span id="mensaje-error-coeficientes-auto-texto"></span>
+    </div>
+    <form id="form-coeficientes-auto" autocomplete="off">
+      <div class="campo">
+        <label for="campo-coeficientes-auto-criterio">Criterio</label>
+        <select id="campo-coeficientes-auto-criterio">
+          <option value="partes_iguales">Partes iguales</option>
+          <option value="por_m2">Proporcional a los m² (necesita m² cargados en cada unidad)</option>
+        </select>
+      </div>
+      <div class="modal-formulario-acciones">
+        <button type="button" class="boton-primario" id="boton-coeficientes-auto-cancelar" style="background:var(--glass-content-bg); color:var(--ink-2); box-shadow:inset 0 0 0 1px var(--line);">Cancelar</button>
+        <button type="submit" class="boton-primario" id="boton-coeficientes-auto-guardar">Autocompletar</button>
       </div>
     </form>
   </div>

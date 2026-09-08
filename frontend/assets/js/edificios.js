@@ -158,6 +158,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const pisos = [...edificioActual.pisos].sort((a, b) => a.orden - b.orden);
     if (pisos.length === 0) {
       contenedor.innerHTML = '<p style="font-size:12.5px;color:var(--ink-3);">Sin pisos todavía.</p>';
+      document.getElementById('resumen-coeficientes').textContent = '';
       return;
     }
     contenedor.innerHTML = pisos
@@ -175,6 +176,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     contenedor.querySelectorAll('.boton-asignar').forEach((boton) => {
       boton.addEventListener('click', () => abrirModalAsignacion(boton.dataset.id));
     });
+    contenedor.querySelectorAll('.boton-coeficiente').forEach((boton) => {
+      boton.addEventListener('click', () => abrirModalCoeficiente(boton.dataset.id));
+    });
+
+    // Suma de coeficientes cargados — para que el Administrador vea de un
+    // vistazo si el edificio ya está en condiciones de generar una
+    // expensa (tiene que dar 100%) sin tener que sumarlo a mano.
+    const todosLosDeptos = pisos.flatMap((p) => p.departamentos);
+    const conCoeficiente = todosLosDeptos.filter((d) => d.coeficiente !== null);
+    const suma = conCoeficiente.reduce((acc, d) => acc + d.coeficiente, 0);
+    document.getElementById('resumen-coeficientes').textContent = conCoeficiente.length === 0
+      ? 'Sin coeficientes cargados todavía'
+      : `Coeficientes: ${conCoeficiente.length}/${todosLosDeptos.length} unidades · suma ${suma.toFixed(2)}%${conCoeficiente.length === todosLosDeptos.length && Math.abs(suma - 100) < 0.01 ? ' ✓' : ''}`;
   }
 
   function filaDepartamento(d) {
@@ -187,10 +201,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       <div class="fila-lista${d.ocupado ? ' ocupado' : ''}" style="padding:8px 0; border-top:1px solid var(--line-2);">
         <div>
           <b style="font-size:13px;">${d.identificador}</b>
-          <div style="font-size:11px;color:var(--ink-3);">${d.m2 ? d.m2 + ' m² · ' : ''}${partes.length ? partes.join(' · ') : 'Sin asignar'}</div>
+          <div style="font-size:11px;color:var(--ink-3);">${d.m2 ? d.m2 + ' m² · ' : ''}${d.coeficiente !== null ? 'Coef.: ' + d.coeficiente + '% · ' : ''}${partes.length ? partes.join(' · ') : 'Sin asignar'}</div>
         </div>
         <div class="fila-lista-acciones">
           ${d.ocupado ? '<span class="rol-badge">Ocupado</span>' : '<span style="font-size:11px;color:var(--ink-3);">Vacío</span>'}
+          <button type="button" class="chip-link boton-coeficiente" data-id="${d.id}">${d.coeficiente !== null ? 'Editar coef.' : 'Coeficiente'}</button>
           <button type="button" class="chip-link boton-asignar" data-id="${d.id}">Asignar</button>
         </div>
       </div>`;
@@ -375,6 +390,83 @@ document.addEventListener('DOMContentLoaded', async () => {
     } finally {
       boton.disabled = false;
       boton.textContent = 'Guardar asignación';
+    }
+  });
+
+  // ---------------------------------------------------------------
+  // Modal: coeficiente de un departamento (edición manual)
+  // ---------------------------------------------------------------
+  const modalCoeficiente = document.getElementById('modal-coeficiente');
+  const formCoeficiente = document.getElementById('form-coeficiente');
+  let departamentoCoeficienteId = null;
+
+  function abrirModalCoeficiente(departamentoId) {
+    const todosLosDeptos = edificioActual.pisos.flatMap((p) => p.departamentos);
+    const depto = todosLosDeptos.find((d) => String(d.id) === String(departamentoId));
+    if (!depto) return;
+    departamentoCoeficienteId = depto.id;
+    document.getElementById('modal-coeficiente-sub').textContent = `Departamento "${depto.identificador}"`;
+    document.getElementById('campo-coeficiente-valor').value = depto.coeficiente ?? '';
+    document.getElementById('mensaje-error-coeficiente').style.display = 'none';
+    modalCoeficiente.classList.add('open');
+  }
+  function cerrarModalCoeficiente() { modalCoeficiente.classList.remove('open'); }
+  document.getElementById('modal-coeficiente-cerrar').addEventListener('click', cerrarModalCoeficiente);
+  document.getElementById('boton-coeficiente-cancelar').addEventListener('click', cerrarModalCoeficiente);
+
+  formCoeficiente.addEventListener('submit', async (evento) => {
+    evento.preventDefault();
+    const mensajeError = document.getElementById('mensaje-error-coeficiente');
+    const boton = document.getElementById('boton-coeficiente-guardar');
+    mensajeError.style.display = 'none';
+    boton.disabled = true;
+    boton.textContent = 'Guardando…';
+    try {
+      await window.Api.patch(`/edificios/departamentos/${departamentoCoeficienteId}/coeficiente`, {
+        coeficiente: Number(document.getElementById('campo-coeficiente-valor').value),
+      });
+      cerrarModalCoeficiente();
+      await recargarEstructura();
+    } catch (error) {
+      document.getElementById('mensaje-error-coeficiente-texto').textContent = error.message;
+      mensajeError.style.display = 'flex';
+    } finally {
+      boton.disabled = false;
+      boton.textContent = 'Guardar';
+    }
+  });
+
+  // ---------------------------------------------------------------
+  // Modal: autocompletar coeficientes de TODO el edificio
+  // ---------------------------------------------------------------
+  const modalCoeficientesAuto = document.getElementById('modal-coeficientes-auto');
+  document.getElementById('boton-coeficientes-auto').addEventListener('click', () => {
+    document.getElementById('mensaje-error-coeficientes-auto').style.display = 'none';
+    modalCoeficientesAuto.classList.add('open');
+  });
+  function cerrarModalCoeficientesAuto() { modalCoeficientesAuto.classList.remove('open'); }
+  document.getElementById('modal-coeficientes-auto-cerrar').addEventListener('click', cerrarModalCoeficientesAuto);
+  document.getElementById('boton-coeficientes-auto-cancelar').addEventListener('click', cerrarModalCoeficientesAuto);
+
+  document.getElementById('form-coeficientes-auto').addEventListener('submit', async (evento) => {
+    evento.preventDefault();
+    const mensajeError = document.getElementById('mensaje-error-coeficientes-auto');
+    const boton = document.getElementById('boton-coeficientes-auto-guardar');
+    mensajeError.style.display = 'none';
+    boton.disabled = true;
+    boton.textContent = 'Autocompletando…';
+    try {
+      await window.Api.post(`/edificios/${edificioActual.id}/coeficientes/auto`, {
+        criterio: document.getElementById('campo-coeficientes-auto-criterio').value,
+      });
+      cerrarModalCoeficientesAuto();
+      await recargarEstructura();
+    } catch (error) {
+      document.getElementById('mensaje-error-coeficientes-auto-texto').textContent = error.message;
+      mensajeError.style.display = 'flex';
+    } finally {
+      boton.disabled = false;
+      boton.textContent = 'Autocompletar';
     }
   });
 

@@ -44,11 +44,15 @@ def test_partes_iguales_4_unidades():
 
 
 def test_partes_iguales_3_unidades_no_divide_exacto():
-    # 100/3 = 33.333... — el resultado tiene que sumar EXACTO 100, no 99.99
+    # 100/3 = 33.333... — el resultado tiene que sumar EXACTO 100, no 99.99.
+    # 3 decimales, no 4: tiene que coincidir con la precisión real de
+    # Departamento.coeficiente (Numeric(6,3)) — redondear a más decimales
+    # de los que la columna guarda rompía la suma recién al persistir
+    # (bug real, encontrado autocompletando un edificio de 28 unidades).
     coeficientes = calcular_partes_iguales(3)
     assert sum(coeficientes) == 100.0
-    assert coeficientes[0] == coeficientes[1] == 33.3333
-    assert coeficientes[2] == 33.3334  # la última se lleva el resto exacto
+    assert coeficientes[0] == coeficientes[1] == 33.333
+    assert coeficientes[2] == 33.334  # la última se lleva el resto exacto
 
 
 def test_partes_iguales_una_sola_unidad():

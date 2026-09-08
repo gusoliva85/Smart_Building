@@ -318,3 +318,133 @@ def test_configurar_edificio_inexistente_devuelve_404(contexto):
     token = _token(cliente, "admin@test.com")
     respuesta = cliente.patch("/api/edificios/9999", json={"dias_vencimiento_expensas": 5}, headers=_headers(token))
     assert respuesta.status_code == 404
+
+
+# ----------------------- coeficiente (manual y autocompletado) -----------------------
+
+def test_departamento_nace_sin_coeficiente(contexto):
+    cliente, ids = contexto
+    token = _token(cliente, "admin@test.com")
+    respuesta = cliente.get(f"/api/edificios/{ids['edificio_id']}", headers=_headers(token))
+    depto = respuesta.json()["pisos"][0]["departamentos"][0]
+    assert depto["coeficiente"] is None
+
+
+def test_actualizar_coeficiente_de_un_departamento(contexto):
+    cliente, ids = contexto
+    token = _token(cliente, "admin@test.com")
+    respuesta = cliente.patch(
+        f"/api/edificios/departamentos/{ids['departamento_id']}/coeficiente",
+        json={"coeficiente": 33.5},
+        headers=_headers(token),
+    )
+    assert respuesta.status_code == 200
+    assert respuesta.json()["coeficiente"] == 33.5
+
+
+def test_coeficiente_fuera_de_rango_devuelve_422(contexto):
+    cliente, ids = contexto
+    token = _token(cliente, "admin@test.com")
+    respuesta = cliente.patch(
+        f"/api/edificios/departamentos/{ids['departamento_id']}/coeficiente",
+        json={"coeficiente": 150},
+        headers=_headers(token),
+    )
+    assert respuesta.status_code == 422
+
+
+def test_admin_consorcio_ajeno_no_puede_tocar_el_coeficiente(contexto):
+    cliente, ids = contexto
+    token = _token(cliente, "cami@test.com")  # otro_admin_consorcio, no administra este edificio
+    respuesta = cliente.patch(
+        f"/api/edificios/departamentos/{ids['departamento_id']}/coeficiente",
+        json={"coeficiente": 50},
+        headers=_headers(token),
+    )
+    assert respuesta.status_code == 403
+
+
+def test_autocompletar_partes_iguales(contexto):
+    cliente, ids = contexto
+    token = _token(cliente, "admin@test.com")
+    _crear_segundo_departamento(cliente, token, ids)  # ahora el edificio tiene 2 departamentos
+
+    respuesta = cliente.post(
+        f"/api/edificios/{ids['edificio_id']}/coeficientes/auto",
+        json={"criterio": "partes_iguales"},
+        headers=_headers(token),
+    )
+    assert respuesta.status_code == 200
+    coeficientes = [d["coeficiente"] for d in respuesta.json()]
+    assert sum(coeficientes) == 100.0
+    assert coeficientes == [50.0, 50.0]
+
+
+def test_autocompletar_por_m2_sin_m2_cargados_devuelve_400(contexto):
+    cliente, ids = contexto
+    token = _token(cliente, "admin@test.com")
+    _crear_segundo_departamento(cliente, token, ids)  # sin m² — la 1A tampoco tiene
+
+    respuesta = cliente.post(
+        f"/api/edificios/{ids['edificio_id']}/coeficientes/auto",
+        json={"criterio": "por_m2"},
+        headers=_headers(token),
+    )
+    assert respuesta.status_code == 400
+    assert "1A" in respuesta.json()["detail"]
+
+
+def test_autocompletar_partes_iguales_con_division_no_exacta_suma_100(contexto):
+    # Bug real encontrado al autocompletar un edificio de 28 unidades: el
+    # servicio calculaba con 4 decimales, pero Departamento.coeficiente
+    # solo guarda 3 (Numeric(6,3)) — al persistir, cada valor se truncaba
+    # y la suma dejaba de dar 100% justo después de guardar. Con 3
+    # departamentos (100/3 no divide exacto) ya alcanza para reproducirlo.
+    cliente, ids = contexto
+    token = _token(cliente, "admin@test.com")
+    _crear_segundo_departamento(cliente, token, ids)
+    cliente.post(
+        f"/api/edificios/{ids['edificio_id']}/departamentos",
+        json={"piso_id": ids["piso_id"], "identificador": "1C"},
+        headers=_headers(token),
+    )
+
+    respuesta = cliente.post(
+        f"/api/edificios/{ids['edificio_id']}/coeficientes/auto",
+        json={"criterio": "partes_iguales"},
+        headers=_headers(token),
+    )
+    coeficientes_guardados = [d["coeficiente"] for d in respuesta.json()]
+    # Los valores ya vienen de vuelta desde la base (tras el commit) — si
+    # la precisión no coincide con la columna, la suma real (no la que
+    # calculó la función en memoria) es la que se rompe.
+    assert sum(coeficientes_guardados) == 100.0
+
+
+def test_autocompletar_criterio_invalido_devuelve_422(contexto):
+    cliente, ids = contexto
+    token = _token(cliente, "admin@test.com")
+    respuesta = cliente.post(
+        f"/api/edificios/{ids['edificio_id']}/coeficientes/auto",
+        json={"criterio": "por_antiguedad"},
+        headers=_headers(token),
+    )
+    assert respuesta.status_code == 422
+
+
+def test_autocompletar_pisa_un_coeficiente_ya_cargado(contexto):
+    cliente, ids = contexto
+    token = _token(cliente, "admin@test.com")
+    _crear_segundo_departamento(cliente, token, ids)
+    cliente.patch(
+        f"/api/edificios/departamentos/{ids['departamento_id']}/coeficiente",
+        json={"coeficiente": 90},
+        headers=_headers(token),
+    )
+    respuesta = cliente.post(
+        f"/api/edificios/{ids['edificio_id']}/coeficientes/auto",
+        json={"criterio": "partes_iguales"},
+        headers=_headers(token),
+    )
+    coeficientes = {d["id"]: d["coeficiente"] for d in respuesta.json()}
+    assert coeficientes[ids["departamento_id"]] == 50.0  # el 90 manual se pisó

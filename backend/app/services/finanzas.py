@@ -51,16 +51,27 @@ def validar_coeficientes(coeficientes: list[float]) -> None:
         raise ValueError(f"Los coeficientes suman {suma}%, tienen que sumar 100%")
 
 
+# Precisión real de `Departamento.coeficiente` (`Numeric(6, 3)`, models/edificio.py)
+# — estos atajos tienen que redondear a la MISMA cantidad de decimales que
+# la base va a guardar de verdad. Redondear acá a más decimales que los que
+# la columna admite (bug real, encontrado al autocompletar 28 unidades:
+# cada valor se guardaba con 4 decimales calculados pero la base lo
+# truncaba a 3, y la suma dejaba de dar 100% justo después de guardar) haría
+# que "la última se lleva el resto exacto" sea exacto en Python pero deje de
+# serlo en cuanto SQLite trunca el cuarto decimal al persistir.
+DECIMALES_COEFICIENTE = 3
+
+
 def calcular_partes_iguales(cantidad_unidades: int) -> list[float]:
     """Atajo para completar el coeficiente la primera vez — reparte 100%
     en partes iguales. La última unidad recibe el resto exacto (no su
     parte redondeada) para que la suma dé justo 100, nunca una
-    aproximación con error de redondeo."""
+    aproximación con error de redondeo — ver `DECIMALES_COEFICIENTE`."""
     if cantidad_unidades < 1:
         raise ValueError("cantidad_unidades tiene que ser al menos 1")
-    parte = round(100 / cantidad_unidades, 4)
+    parte = round(100 / cantidad_unidades, DECIMALES_COEFICIENTE)
     coeficientes = [parte] * (cantidad_unidades - 1)
-    coeficientes.append(round(100 - sum(coeficientes), 4))
+    coeficientes.append(round(100 - sum(coeficientes), DECIMALES_COEFICIENTE))
     return coeficientes
 
 
@@ -74,8 +85,8 @@ def calcular_por_metros_cuadrados(metros_cuadrados: list[float]) -> list[float]:
     if any(m2 <= 0 for m2 in metros_cuadrados):
         raise ValueError("Todas las unidades necesitan m² cargados y mayores a 0 para este atajo")
     total_m2 = sum(metros_cuadrados)
-    coeficientes = [round(m2 / total_m2 * 100, 4) for m2 in metros_cuadrados[:-1]]
-    coeficientes.append(round(100 - sum(coeficientes), 4))
+    coeficientes = [round(m2 / total_m2 * 100, DECIMALES_COEFICIENTE) for m2 in metros_cuadrados[:-1]]
+    coeficientes.append(round(100 - sum(coeficientes), DECIMALES_COEFICIENTE))
     return coeficientes
 
 

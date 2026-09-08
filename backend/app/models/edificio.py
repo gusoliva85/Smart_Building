@@ -92,14 +92,17 @@ class Departamento(Base):
     General, sección 5.1), todavía no tienen a nadie asignado.
 
     `coeficiente` (%) es el dato real de prorrateo (Documento General
-    6.1, investigado en `documentacion/Prorrateo.md`) — nace en `NULL`
-    (la estructura se genera antes de que exista el reglamento cargado
-    en el sistema) y se completa después desde una pantalla de
-    Configuración, todavía no construida. El `CheckConstraint` va pegado
-    a la columna (no en `__table_args__`) a propósito: es la única forma
-    en que `agregar_columnas_faltantes` (`core/migraciones.py`) puede
-    sumarlo con un `ALTER TABLE` real a la tabla `departamentos`, que ya
-    tiene filas reales."""
+    6.1, investigado en `documentacion/investigaciones/Prorrateo.md`) —
+    nace en `NULL` (la estructura se genera antes de que exista el
+    reglamento cargado en el sistema) y se completa después desde
+    `edificios.html` (pestaña Estructura): a mano por departamento
+    (`PATCH .../departamentos/{id}/coeficiente`) o de una sola vez con
+    un atajo — partes iguales o por m² (`POST .../{id}/coeficientes/auto`,
+    reutilizando `services/finanzas.py`, ya probado desde la Fase 2). El
+    `CheckConstraint` va pegado a la columna (no en `__table_args__`) a
+    propósito: es la única forma en que `agregar_columnas_faltantes`
+    (`core/migraciones.py`) puede sumarlo con un `ALTER TABLE` real a la
+    tabla `departamentos`, que ya tiene filas reales."""
 
     __tablename__ = "departamentos"
 

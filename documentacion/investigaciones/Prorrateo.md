@@ -79,7 +79,7 @@ Verificado con 18 tests (`backend/tests/test_servicio_finanzas.py`), incluyendo 
 
 ## 5. Lo que falta (próximas tareas de la Fase 2)
 
-- Pantalla de Configuración donde Administrador General/de Consorcio vean y editen los coeficientes por unidad — hoy el `coeficiente` solo se puede cargar directo en la base o vía script, no hay UI todavía.
+- ~~Pantalla de Configuración donde Administrador General/de Consorcio vean y editen los coeficientes por unidad~~ — **resuelto el 2026-09-08**, ver sección 7.
 - (Más adelante, fuera de esta fase) excepción de prorrateo por rubro.
 
 ## 6. Cómo se persiste el monto por departamento (Tarea 8: generación de expensa mensual)
@@ -106,6 +106,17 @@ Sources:
 
 `Base.metadata.create_all()` (lo único que este proyecto usa para el esquema, sin Alembic) crea tablas que no existen, pero **no les agrega columnas nuevas a tablas que ya existen**. Hasta esta tarea nunca hizo falta nada más porque cada modelo nuevo fue siempre una tabla nueva — `coeficiente` es la primera columna que se suma a una tabla vieja con datos reales. Se resolvió con un helper mínimo (`agregar_columnas_faltantes`, ver `que_hice.html`) que compara columnas del modelo contra la tabla real y agrega solo las que faltan, con `ALTER TABLE`. Detalle importante encontrado al escribir sus tests: el `CheckConstraint` de `coeficiente` tiene que declararse pegado a la columna (no en `__table_args__`), porque solo así viaja en el propio `ADD COLUMN` — la única forma en que SQLite acepta un `CHECK` agregado después de crear la tabla.
 
+## 7. La pantalla de Configuración de coeficientes — construida (2026-09-08)
+
+Se descubrió al usar la app de verdad: el usuario intentó generar la expensa de un edificio de prueba distinto al que se venía usando en las demás tareas de la Fase 2 (ese sí tenía coeficientes, cargados a mano en la base durante el desarrollo) y recibió `"Hay departamentos sin coeficiente cargado: ..."`. La causa real no era un dato faltante puntual: **nunca existió ningún endpoint ni pantalla para cargar `coeficiente`** — la sección 5 de este documento ya lo marcaba como pendiente, pero quedó pendiente en silencio hasta que una prueba real lo encontró.
+
+**Resuelto:**
+- `PATCH /api/edificios/departamentos/{id}/coeficiente` — edición manual de un departamento por vez, siempre disponible (incluso después de autocompletar).
+- `POST /api/edificios/{id}/coeficientes/auto` — completa TODOS los departamentos del edificio de una vez, con los dos atajos ya anticipados en la sección 3 (partes iguales / por m²), reutilizando `calcular_partes_iguales()`/`calcular_por_metros_cuadrados()` de `services/finanzas.py` sin cambiarles la lógica.
+- Frontend: `edificios.html`, pestaña Estructura — cada departamento muestra su coeficiente y un botón para editarlo; un botón "Autocompletar coeficientes" arriba de la lista; un resumen en vivo ("Coeficientes: 28/28 unidades · suma 100.00% ✓") para que el Administrador vea de un vistazo si el edificio ya está en condiciones de generar una expensa, sin sumarlo a mano.
+
+**Bug real encontrado al verificar con un edificio de 28 unidades (no divide exacto):** `calcular_partes_iguales()`/`calcular_por_metros_cuadrados()` redondeaban a 4 decimales, pero `Departamento.coeficiente` es `Numeric(6,3)` — solo 3. Cada valor calculado se truncaba un decimal al guardarse, y la suma real en la base dejaba de dar 100% (99.989% en el caso de 28 unidades) aunque la función, en memoria, sí sumara exacto. El "la última unidad se lleva el resto exacto" que garantiza la suma perfecta solo funciona si el redondeo interno coincide con la precisión real de guardado — se corrigió pasando ambas funciones a 3 decimales (`DECIMALES_COEFICIENTE`), y se agregó un test de regresión que verifica la suma ya persistida (no la que devuelve la función en memoria) con una cantidad de unidades que no divide exacto.
+
 ---
 
-*Última actualización: decisión de persistir `ExpensaDepartamento` como foto fija (no recalculable) — 2026-09-04. Este documento se actualiza antes que el código cada vez que el criterio de prorrateo cambie.*
+*Última actualización: se construye la pantalla de Configuración de coeficientes (edición manual + autocompletado) y se corrige un bug real de precisión decimal en la persistencia — 2026-09-08. Este documento se actualiza antes que el código cada vez que el criterio de prorrateo cambie.*
