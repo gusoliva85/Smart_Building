@@ -213,19 +213,19 @@ Corresponde al Documento General, secciones 10 y 11; Documento Técnico, seccion
   Se fija el flujo (recibido → asignado → en curso → resuelto → cerrado) y el significado exacto de leve/medio/crítico (Documento General 11.3) antes de modelar — es lo que después determina amarillo vs. rojo en el Dashboard Visual. `services/reclamos.py`: `transicion_valida()` (tabla de transiciones válidas) y `color_por_prioridad()` (leve/medio → `warn`, crítico → `crit`, tal como fija Documento Técnico sección 13) — 10 tests nuevos. *(Decisión de diseño, no fijada explícitamente por el enunciado: se permite `resuelto → en_curso` como única excepción al flujo lineal — si quien reclamó confirma que el problema sigue, se reabre el mismo reclamo en vez de perder su historial de comentarios/fotos cargando uno nuevo. `cerrado` queda siempre terminal a propósito: la recurrencia ya la resuelve el Documento General 11.5 con un reclamo NUEVO, no reabriendo uno viejo.)*
 
 - [ ] **Backend: modelos `Reclamo` y `ReclamoComentario`.**
-  Unidad/espacio afectado, descripción, fotos, prioridad, estado, creado_por/cuándo; hilo de comentarios entre quien reclama y quien gestiona.
+  `edificio_id` (siempre), y el objetivo puntual — `departamento_id` opcional, `espacio_comun_id` opcional, o ninguno de los dos si es sobre el edificio en general (Documento General 11.1: "su unidad, un espacio común, o el edificio en general" son las 3 opciones reales, no solo unidad/espacio). Descripción, prioridad (`leve`/`medio`/`critico`, validada contra `services/reclamos.py::PRIORIDADES`), estado (`services/reclamos.py::ESTADOS`), creado_por/cuándo. `fotos`: lista de URLs sueltas, mismo criterio que `Pago.comprobante_url` — no hay ningún endpoint de carga de archivos real hasta la Gestión documental de la Fase 7 (y ni siquiera ahí: `Documento`, Fase 7, es para documentos del edificio, no para evidencia de reclamos/OT — esto sigue siendo texto/URL libre por ahora, en todo el proyecto). Hilo de comentarios (`ReclamoComentario`) entre quien reclama y quien gestiona.
 
 - [ ] **Backend: modelos `OrdenTrabajo` y `OtEvidencia`.**
-  Tipo (preventivo/correctivo/programado/emergencia), activo o espacio afectado, proveedor asignado, prioridad, estado, fechas de creación/inicio/cierre, costo, reclamo_id opcional (trazabilidad "quién lo pidió" → "qué se hizo"); evidencias fotográficas antes/después.
+  Tipo (preventivo/correctivo/programado/emergencia), espacio común afectado (`espacio_comun_id`, opcional — ya existe desde la Fase 1), prioridad, estado (`pendiente`/`en_curso`/`resuelta` — **flujo propio, distinto del de `Reclamo`**: Documento Técnico sección 12 fija solo estos 3 para la orden de trabajo, sin "asignado" ni "cerrado"; conviene sumar sus propias `ESTADOS_OT`/`transicion_valida_ot()` en `services/reclamos.py` junto a las de Reclamo, no reinterpretar las de Reclamo para esto), fechas de creación/inicio/cierre, costo, reclamo_id opcional (trazabilidad "quién lo pidió" → "qué se hizo"). **`activo_id` NO se crea en esta tarea** — `Activo` recién existe en la Fase 4 (inmediatamente después), así que no hay tabla real contra la cual declarar esa FK todavía; se suma con `core/migraciones.py` (mismo mecanismo ya usado para `Departamento.coeficiente`, Fase 2) apenas la Fase 4 cree `Activo` — ver la nota en esa fase. Asignación (decisión consultada con el usuario, 2026-09-09): `encargado_id` (FK real a `Usuario` con rol `encargado` — ese rol ya existe con login desde la Fase 1, se puede asignar de verdad) **y/o** `proveedor_id` (entero suelto, sin FK real — mismo criterio que `Gasto.proveedor_id`/`Presupuesto.proveedor_id` de la Fase 2, se conecta de verdad recién cuando exista el modelo `Proveedor` real de la Fase 7). `OtEvidencia`: URL de la foto (mismo criterio que arriba, sin upload real todavía), antes/después, subido_por, fecha.
 
 - [ ] **Backend: ciclo de vida del reclamo.**
-  Crear, comentar, cambiar de estado — siempre consultable por quien lo creó.
+  Crear, comentar, cambiar de estado usando `services/reclamos.py::transicion_valida()` — nunca una validación de transición repetida a mano acá. Reglas de quién puede qué: Administrador/Encargado del edificio mueven el flujo normal (recibido→asignado→en_curso→resuelto→cerrado); quien lo creó puede comentar en cualquier estado y es el único, además de Administrador/Encargado, habilitado para la excepción `resuelto→en_curso` (confirma que el problema sigue). Siempre consultable por quien lo creó, en cualquier estado.
 
 - [ ] **Backend: generación de orden de trabajo desde un reclamo.**
-  Endpoint que, dado un reclamo, genera su `OrdenTrabajo` vinculada; al cerrarse la orden, el reclamo pasa automáticamente a "resuelto".
+  Endpoint que, dado un reclamo, genera su `OrdenTrabajo` vinculada; cuando esa orden pasa a `resuelta` (su propio estado final, distinto del "cerrado" de `Reclamo` — ver nota de la Tarea 3), el reclamo pasa automáticamente a "resuelto" (vía `transicion_valida()` de `Reclamo`, mismo mecanismo que un cambio de estado manual — si el reclamo ya estaba en otro estado terminal por otra vía, no se fuerza la transición).
 
 - [ ] **Backend: gestión de órdenes de trabajo (incluidas las manuales).**
-  Crear sin reclamo previo, asignar/reasignar proveedor, cambiar estado, cargar evidencia y costo al cerrar.
+  Crear sin reclamo previo, asignar/reasignar un Encargado real o un `proveedor_id` suelto (ver nota de la tarea de modelos), cambiar estado (`pendiente`/`en_curso`/`resuelta`, propio de OT — ver nota de la tarea de modelos), cargar evidencia y costo al cerrar. Pasar a `en_curso` exige tener alguien asignado (Encargado o `proveedor_id` cargado) — nunca una orden "en curso" sin nadie real haciéndola.
 
 - [ ] **Backend: cálculo de tiempo de resolución.**
   Para reclamos y para órdenes de trabajo, por separado — alimenta el Dashboard General (Fase 6).
@@ -234,16 +234,16 @@ Corresponde al Documento General, secciones 10 y 11; Documento Técnico, seccion
   `services/severidad.py`: `reclamoSeverity()` y `otSeverity()` tal como quedaron documentados en la skill `premium-uiux` (`otSeverity()` solo puede devolver `ok` o `pend`, nunca `warn`/`crit`) — el dato exacto que va a consumir el Dashboard Visual en la Fase 5. Primer módulo con lógica de cálculo no trivial: suma su test con pytest en esta misma tarea (Documento Técnico, sección 20).
 
 - [ ] **Frontend: pantalla de creación de reclamo.**
-  Para Propietario/Inquilino: descripción, fotos, prioridad percibida con explicación breve de qué significa cada nivel.
+  Para Propietario/Inquilino: elegir el objetivo (su propia unidad — auto-seleccionada si tiene una sola, mismo criterio que Pagos en la Fase 2 —, un espacio común del edificio, o "todo el edificio"), descripción, foto (campo de URL/link por ahora, sin carga de archivo real — mismo criterio que el comprobante de un Pago), prioridad percibida con explicación breve de qué significa cada nivel (Documento General 11.3, texto ya definido en la Tarea 1).
 
 - [ ] **Frontend: pantalla de seguimiento de reclamos.**
-  Vista de quien lo creó (estado + comentarios) y vista de Administrador/Encargado (todos los reclamos del edificio, filtro por estado/prioridad, asignación).
+  Vista de quien lo creó (estado + comentarios + botón de reabrir si está "resuelto" y el problema sigue) y vista de Administrador/Encargado (todos los reclamos del edificio, filtro por estado/prioridad, cambio de estado, generar la orden de trabajo).
 
 - [ ] **Frontend: pantalla de órdenes de trabajo.**
-  Para Administrador/Encargado/Proveedor: listado, asignar proveedor, cambiar estado, cerrar con evidencia y costo.
+  Para Administrador/Encargado por ahora: listado, asignar un Encargado real (selector) o anotar un `proveedor_id` (campo numérico simple, sin selector — mismo criterio que otros campos "sin FK real hasta la Fase 7"), cambiar estado, cerrar con evidencia y costo. La vista de autogestión para el rol Proveedor (ver "sus" OT asignadas, `ALCANCE_OTS_ASIGNADAS` de la matriz de roles de la Fase 1) queda pendiente de la Fase 7: recién ahí existe un `Proveedor` real vinculado a un login, no antes.
 
 - [ ] **Prueba manual de punta a punta.**
-  Crear un reclamo crítico, generar su orden de trabajo, asignar un proveedor de prueba, cerrarla con evidencia y costo, confirmar que el reclamo pasa a "resuelto" solo y que el tiempo de resolución quedó calculado.
+  Crear un reclamo crítico, generar su orden de trabajo, asignarle un Encargado de prueba real, cerrarla con evidencia y costo, confirmar que el reclamo pasa a "resuelto" solo y que el tiempo de resolución quedó calculado. Probar además la excepción `resuelto → en_curso`: reabrir el reclamo ya resuelto y confirmar que vuelve a aparecer en el listado de gestión.
 
 ---
 
@@ -255,7 +255,7 @@ Corresponde al Documento General, sección 9; Documento Técnico, sección 11. J
   Verde si falta bastante para el próximo mantenimiento, amarillo si vence en ≤30 días, rojo si ya venció sin registrarse — se define antes de modelar porque el estado nunca se guarda a mano, siempre se calcula.
 
 - [ ] **Backend: modelo `Activo`.**
-  Tipo, código único (ej. `MAT-P3-01`), ubicación (piso o espacio común), fotos, proveedor responsable, garantía, manual (vínculo documental, se conecta en la Fase 7), próximo mantenimiento, costos acumulados (calculado).
+  Tipo, código único (ej. `MAT-P3-01`), ubicación (piso o espacio común), fotos (URL suelta, mismo criterio que el resto del proyecto — sin upload real todavía), proveedor responsable (`proveedor_id` suelto, sin FK real hasta la Fase 7 — igual que en `OrdenTrabajo`), garantía, manual (vínculo documental, se conecta en la Fase 7), próximo mantenimiento, costos acumulados (calculado). *(⚠️ Con `Activo` ya existiendo, sumar acá mismo — vía `core/migraciones.py`, el mecanismo ya usado para `Departamento.coeficiente` en la Fase 2 — la columna `activo_id` que `OrdenTrabajo` (Fase 3) dejó pendiente por no existir todavía esta tabla.)*
 
 - [ ] **Backend: modelo `ActivoFoto`.**
   Registro fotográfico de estado actual/instalación.
@@ -373,7 +373,7 @@ Corresponde al Documento General, secciones 7 y 8; Documento Técnico, secciones
 ### Proveedores
 
 - [ ] **Backend: modelo `Proveedor`.**
-  Nombre/razón social, contacto, exclusivo del consorcio vs. también atiende trabajos particulares — el dato diferencial del Documento General 8.1.
+  Nombre/razón social, contacto, exclusivo del consorcio vs. también atiende trabajos particulares — el dato diferencial del Documento General 8.1. *(⚠️ Acá se conectan de verdad los `proveedor_id` sueltos que quedaron sin FK real en fases anteriores: `Gasto`/`Presupuesto` (Fase 2) y `OrdenTrabajo` (Fase 3) — revisar esos tres puntos y sumar la FK real + los selectores en sus pantallas ya construidas, no solo en las nuevas de esta fase.)*
 
 - [ ] **Backend: modelos `Rubro` y `ProveedorRubro`.**
   Catálogo de rubros con relación N:N a proveedores.
