@@ -760,6 +760,24 @@ function formatearFecha(fechaISO) {
 }
 ```
 
+## Campo de monto editable, con separador de miles en vivo (`assets/js/monto-input.js`)
+
+Para cualquier `<input>` donde el usuario CARGA un monto (a diferencia de `moneda.js`, que es solo para MOSTRAR uno ya guardado) — pedido explícito del usuario tras usar "Nuevo gasto" y ver que el monto se tipeaba sin ningún separador. `<input type="number">` no sirve acá: ese tipo nativo no admite ningún separador de miles mientras se tipea (su value model es siempre un número sin agrupar) — hace falta `type="text"` con formateo propio:
+
+```html
+<input type="text" inputmode="decimal" id="campo-gasto-monto" required placeholder="0,00">
+```
+
+```js
+window.MontoInput.habilitar(document.getElementById('campo-gasto-monto')); // una vez, al configurar el modal
+// al leer el valor para mandarlo a la API:
+window.MontoInput.aNumero(input.value); // "1.234.567,89" -> 1234567.89
+// al precargar el campo (ej. abrir "Editar gasto" con datos ya guardados):
+input.value = window.MontoInput.formatearParaInput(gasto.monto); // 1234567.89 -> "1.234.567,89"
+```
+
+`inputmode="decimal"` mantiene el teclado numérico en mobile aunque el tipo real sea texto. El formateo reescribe el campo en cada tecleo (separador de miles `.` agregado solo, separador decimal `,` tal como lo escribe el usuario) y reposiciona el cursor según cuánto cambió el largo total — mismo truco que cualquier campo que se reformatea a sí mismo. Con esto ya no hace falta `required`/`min`/`step` de `type="number"`: el `required` sigue funcionando igual en `type="text"`, y un monto inválido (0, vacío) lo rechaza el backend con su mensaje de siempre en `.mensaje-error`.
+
 ## Select chico de filtro (`.campo-select-chico`)
 
 Para filtros en línea junto a otros controles (año/mes en un listado, por ejemplo) — mismo peso visual que `.chip-link` (píldora, vidrio, borde fino) pero es un `<select>` real, no un link. Distinto de `.campo select` (esa es de ancho completo, con label, para formularios de alta):

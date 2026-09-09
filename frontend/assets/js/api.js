@@ -57,7 +57,13 @@ async function apiFetch(ruta, opciones = {}) {
 
   if (!respuesta.ok) {
     const mensaje = (cuerpo && (cuerpo.detail || cuerpo.mensaje)) || `Error ${respuesta.status}`;
-    throw new Error(mensaje);
+    const error = new Error(mensaje);
+    // Código HTTP real, para las pocas pantallas que necesitan reaccionar
+    // distinto según el error (ej. 409 "necesita confirmación" vs. un 400
+    // cualquiera) en vez de solo mostrar error.message — no rompe nada
+    // existente, todo el resto del código sigue leyendo solo el mensaje.
+    error.status = respuesta.status;
+    throw error;
   }
 
   return cuerpo;

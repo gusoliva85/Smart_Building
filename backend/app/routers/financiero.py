@@ -84,7 +84,18 @@ def generar_expensa_mensual(
     una foto fija — ver `Prorrateo.md` sección 6) usando
     `calcular_prorrateo_periodo()`, ya probado en la tarea anterior. Todo
     en una sola transacción: si el prorrateo falla (coeficientes
-    incompletos, sin gastos cargados), no queda nada a medio crear."""
+    incompletos, sin gastos cargados), no queda nada a medio crear.
+
+    Regenerar un período ya emitido (pedido explícito del usuario: se
+    corrigen gastos o coeficientes después de generar y hay que volver a
+    liquidar) es una excepción DELIBERADA a la inmutabilidad de
+    `Prorrateo.md` sección 6 — solo se permite sobre la ÚLTIMA expensa del
+    edificio (nunca una intermedia, ya podría tener pagos y otros
+    períodos posteriores construidos sobre ella) y solo con
+    `confirmar_reemplazo=true`. Reutiliza el mismo `Expensa.id`: cualquier
+    `Pago` ya cargado contra esa expensa sigue apuntando a un registro
+    válido, con su saldo recalculado solo en cuanto se pisa el monto de
+    su `ExpensaDepartamento`."""
     try:
         montos_por_departamento = calcular_prorrateo_periodo(db, edificio.id, datos.anio, datos.mes)
     except ValueError as error:
@@ -103,22 +114,51 @@ def generar_expensa_mensual(
     for gasto in gastos_del_periodo:
         totales_por_rubro[gasto.rubro] += float(gasto.monto)
 
-    expensa = Expensa(
-        edificio_id=edificio.id,
-        anio=datos.anio,
-        mes=datos.mes,
-        total=round(sum(totales_por_rubro.values()), 2),
+    existente = (
+        db.query(Expensa)
+        .filter(Expensa.edificio_id == edificio.id, Expensa.anio == datos.anio, Expensa.mes == datos.mes)
+        .first()
     )
-    db.add(expensa)
-    try:
-        db.flush()  # asigna expensa.id sin cerrar la transacción, y dispara el UniqueConstraint de período si ya existe
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Ya existe una expensa generada para {datos.mes}/{datos.anio} en este edificio",
-        )
 
+    if existente:
+        ultima = (
+            db.query(Expensa)
+            .filter(Expensa.edificio_id == edificio.id)
+            .order_by(Expensa.anio.desc(), Expensa.mes.desc())
+            .first()
+        )
+        if ultima.id != existente.id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Ya existe una expensa generada para {datos.mes}/{datos.anio} en este edificio, "
+                    "y no es la última — no se puede regenerar (solo la más reciente admite esto)."
+                ),
+            )
+        if not datos.confirmar_reemplazo:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    f"Ya existe una expensa para {datos.mes}/{datos.anio} (la última generada de este edificio) "
+                    "— si seguís, se va a reemplazar el valor de la expensa existente por el nuevo cálculo."
+                ),
+            )
+        db.query(ExpensaDetalle).filter(ExpensaDetalle.expensa_id == existente.id).delete()
+        db.query(ExpensaDepartamento).filter(ExpensaDepartamento.expensa_id == existente.id).delete()
+        expensa = existente
+    else:
+        expensa = Expensa(edificio_id=edificio.id, anio=datos.anio, mes=datos.mes, total=1)  # placeholder, se pisa abajo
+        db.add(expensa)
+        try:
+            db.flush()  # asigna expensa.id sin cerrar la transacción; red de contención ante una carrera concurrente
+        except IntegrityError:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Ya existe una expensa generada para {datos.mes}/{datos.anio} en este edificio",
+            )
+
+    expensa.total = round(sum(totales_por_rubro.values()), 2)
     for rubro, monto in totales_por_rubro.items():
         db.add(ExpensaDetalle(expensa_id=expensa.id, rubro=rubro, monto=round(monto, 2)))
 

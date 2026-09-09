@@ -117,6 +117,16 @@ Se descubrió al usar la app de verdad: el usuario intentó generar la expensa d
 
 **Bug real encontrado al verificar con un edificio de 28 unidades (no divide exacto):** `calcular_partes_iguales()`/`calcular_por_metros_cuadrados()` redondeaban a 4 decimales, pero `Departamento.coeficiente` es `Numeric(6,3)` — solo 3. Cada valor calculado se truncaba un decimal al guardarse, y la suma real en la base dejaba de dar 100% (99.989% en el caso de 28 unidades) aunque la función, en memoria, sí sumara exacto. El "la última unidad se lleva el resto exacto" que garantiza la suma perfecta solo funciona si el redondeo interno coincide con la precisión real de guardado — se corrigió pasando ambas funciones a 3 decimales (`DECIMALES_COEFICIENTE`), y se agregó un test de regresión que verifica la suma ya persistida (no la que devuelve la función en memoria) con una cantidad de unidades que no divide exacto.
 
+## 8. Regenerar la última expensa — excepción deliberada a la foto fija (2026-09-09)
+
+La sección 6 fijó que `ExpensaDepartamento` es inmutable: una liquidación ya emitida nunca se recalcula. Pedido explícito del usuario: en la práctica, se corrige un gasto o un coeficiente DESPUÉS de generar la expensa del período (justo el caso de la sección 7 — coeficientes cargados mal la primera vez) y hay que volver a liquidar ese mismo período con el dato ya corregido, no solo el próximo.
+
+**Resuelto sin romper la regla general:** la excepción es acotada a propósito —
+
+- Solo la **última** expensa del edificio (por año/mes) admite reemplazo. Cualquier período anterior sigue 100% inmutable — ya puede tener pagos reales cargados, y períodos posteriores ya se construyeron asumiendo ese valor. La última es, por definición, la más reciente y la más probable de necesitar todavía una corrección.
+- Nunca en silencio: `POST /api/edificios/{id}/expensas` para un período que ya existe devuelve `409` con el aviso exacto de qué se va a reemplazar; recién con `confirmar_reemplazo: true` en el body se ejecuta. El frontend nunca usa un `confirm()` del navegador para esto — el segundo submit del mismo formulario, con el botón ya cambiado a "Confirmar y reemplazar", es la confirmación.
+- Reutiliza el mismo `Expensa.id`: solo se reemplazan sus `ExpensaDetalle`/`ExpensaDepartamento` (se borran e insertan de nuevo) y se actualiza `total`. Cualquier `Pago` ya cargado contra esa expensa sigue apuntando a un registro real — su `saldo` se recalcula solo, porque ya se computa en vivo contra el `ExpensaDepartamento.monto` vigente (`_saldo()`, `routers/financiero.py`), nunca contra un valor copiado aparte.
+
 ---
 
-*Última actualización: se construye la pantalla de Configuración de coeficientes (edición manual + autocompletado) y se corrige un bug real de precisión decimal en la persistencia — 2026-09-08. Este documento se actualiza antes que el código cada vez que el criterio de prorrateo cambie.*
+*Última actualización: excepción deliberada a la inmutabilidad — reemplazo confirmado de la última expensa del edificio — 2026-09-09. Este documento se actualiza antes que el código cada vez que el criterio de prorrateo cambie.*

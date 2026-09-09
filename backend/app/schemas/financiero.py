@@ -8,6 +8,11 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 class ExpensaGeneracionEntrada(BaseModel):
     anio: int = Field(ge=2000, le=2100)
     mes: int = Field(ge=1, le=12)
+    # Reemplazar la ÚLTIMA expensa generada del edificio (pedido explícito
+    # del usuario: corregir gastos/coeficientes después de generarla y
+    # tener que volver a emitirla) exige una confirmación explícita — sin
+    # esto, generar el mismo período dos veces devuelve 409 con el aviso.
+    confirmar_reemplazo: bool = False
 
 
 class ExpensaDetalleSalida(BaseModel):

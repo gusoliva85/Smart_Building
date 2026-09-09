@@ -318,6 +318,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const botonGuardar = document.getElementById('boton-gasto-guardar');
 
     window.Formularios.habilitarEnterComoTab(form);
+    window.MontoInput.habilitar(document.getElementById('campo-gasto-monto'));
 
     function abrir() {
       gastoEditandoId = null;
@@ -343,7 +344,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       mensajeError.style.display = 'none';
       const datos = {
         rubro: document.getElementById('campo-gasto-rubro').value.trim(),
-        monto: Number(document.getElementById('campo-gasto-monto').value),
+        monto: window.MontoInput.aNumero(document.getElementById('campo-gasto-monto').value),
         fecha: document.getElementById('campo-gasto-fecha').value,
         descripcion: document.getElementById('campo-gasto-descripcion').value.trim() || null,
       };
@@ -375,7 +376,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('boton-gasto-guardar').textContent = 'Guardar cambios';
     document.getElementById('mensaje-error-gasto').style.display = 'none';
     document.getElementById('campo-gasto-rubro').value = gasto.rubro;
-    document.getElementById('campo-gasto-monto').value = gasto.monto;
+    document.getElementById('campo-gasto-monto').value = window.MontoInput.formatearParaInput(gasto.monto);
     document.getElementById('campo-gasto-fecha').value = gasto.fecha;
     document.getElementById('campo-gasto-descripcion').value = gasto.descripcion || '';
     document.getElementById('modal-gasto').classList.add('open');
@@ -422,8 +423,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     const form = document.getElementById('form-generar-expensa');
     const mensajeError = document.getElementById('mensaje-error-generar-expensa');
     const mensajeErrorTexto = document.getElementById('mensaje-error-generar-expensa-texto');
+    const botonGuardar = document.getElementById('boton-generar-expensa-guardar');
+
+    // Generar un período que ya tiene expensa (solo la ÚLTIMA del
+    // edificio lo admite — el backend rechaza cualquier otra) no se
+    // bloquea de una: el primer submit vuelve con 409 y el aviso de qué
+    // se va a reemplazar; recién el SEGUNDO submit, con este flag en
+    // true, hace el reemplazo real. Nunca un confirm() del navegador —
+    // el proyecto no usa esos diálogos en ningún lado.
+    let pidiendoConfirmacion = false;
 
     window.Formularios.habilitarEnterComoTab(form);
+
+    function volverAModoNormal() {
+      pidiendoConfirmacion = false;
+      botonGuardar.textContent = 'Generar';
+    }
 
     function abrir() {
       form.reset();
@@ -431,15 +446,21 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('campo-expensa-anio').value = hoy.getFullYear();
       document.getElementById('campo-expensa-mes').value = hoy.getMonth() + 1;
       mensajeError.style.display = 'none';
+      volverAModoNormal();
       modal.classList.add('open');
     }
     function cerrar() {
       modal.classList.remove('open');
+      volverAModoNormal();
     }
 
     document.getElementById('boton-generar-expensa').addEventListener('click', abrir);
     document.getElementById('modal-generar-expensa-cerrar').addEventListener('click', cerrar);
     document.getElementById('boton-generar-expensa-cancelar').addEventListener('click', cerrar);
+    // Cambiar el período apunta a otra expensa distinta — la confirmación
+    // pedida era para EL PERÍODO DE ANTES, no para el que se elija ahora.
+    document.getElementById('campo-expensa-anio').addEventListener('input', volverAModoNormal);
+    document.getElementById('campo-expensa-mes').addEventListener('change', volverAModoNormal);
 
     form.addEventListener('submit', async (evento) => {
       evento.preventDefault();
@@ -448,12 +469,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         await window.Api.post(`/edificios/${edificioId}/expensas`, {
           anio: Number(document.getElementById('campo-expensa-anio').value),
           mes: Number(document.getElementById('campo-expensa-mes').value),
+          confirmar_reemplazo: pidiendoConfirmacion,
         });
         cerrar();
         await cargarExpensas();
       } catch (error) {
         mensajeErrorTexto.textContent = error.message;
         mensajeError.style.display = 'flex';
+        if (error.status === 409) {
+          pidiendoConfirmacion = true;
+          botonGuardar.textContent = 'Confirmar y reemplazar';
+        } else {
+          volverAModoNormal();
+        }
       }
     });
   }
