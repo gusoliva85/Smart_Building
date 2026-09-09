@@ -9,9 +9,12 @@ import pytest
 
 from app.services.reclamos import (
     ESTADOS,
+    ESTADOS_OT,
     PRIORIDADES,
+    TIPOS_OT,
     color_por_prioridad,
     transicion_valida,
+    transicion_valida_ot,
 )
 
 
@@ -73,3 +76,38 @@ def test_prioridad_invalida_lanza_error():
 def test_todas_las_prioridades_tienen_color_valido():
     for prioridad in PRIORIDADES:
         assert color_por_prioridad(prioridad) in ("warn", "crit")
+
+
+# --------------------------- transicion_valida_ot (Orden de Trabajo) ---------------------------
+
+def test_flujo_de_ot_es_lineal_y_valido():
+    assert transicion_valida_ot("pendiente", "en_curso")
+    assert transicion_valida_ot("en_curso", "resuelta")
+
+
+def test_ot_no_puede_saltear_pendiente_a_resuelta():
+    assert not transicion_valida_ot("pendiente", "resuelta")
+
+
+def test_ot_no_retrocede_nunca():
+    # A diferencia de Reclamo, la OT no tiene ninguna excepción de
+    # reapertura — es un registro de ejecución, no un hilo de seguimiento.
+    assert not transicion_valida_ot("en_curso", "pendiente")
+    assert not transicion_valida_ot("resuelta", "en_curso")
+
+
+def test_ot_resuelta_es_terminal():
+    for estado in ESTADOS_OT:
+        assert not transicion_valida_ot("resuelta", estado)
+
+
+def test_flujo_de_ot_es_distinto_del_de_reclamo():
+    # No comparten tabla de transiciones — "asignado" existe para
+    # Reclamo pero no tiene sentido en el flujo de OT.
+    assert "asignado" not in ESTADOS_OT
+    assert "cerrado" not in ESTADOS_OT
+    assert set(ESTADOS_OT) == {"pendiente", "en_curso", "resuelta"}
+
+
+def test_tipos_de_ot_son_los_del_documento_general():
+    assert set(TIPOS_OT) == {"preventivo", "correctivo", "programado", "emergencia"}

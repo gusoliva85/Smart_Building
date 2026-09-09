@@ -21,3 +21,4 @@ from app.models.pago import Pago  # noqa: F401
 from app.models.fondo import Caja, Fondo, MovimientoCaja, MovimientoFondo  # noqa: F401
 from app.models.presupuesto import Factura, Presupuesto  # noqa: F401
 from app.models.reclamo import Reclamo, ReclamoComentario, ReclamoFoto  # noqa: F401
+from app.models.ordentrabajo import OrdenTrabajo, OtEvidencia  # noqa: F401

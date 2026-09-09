@@ -1,11 +1,15 @@
 """Lógica del flujo de reclamos — Documento General, sección 11.4 (flujo de
-estados) y 11.3 (prioridad); Documento Técnico, sección 13.
+estados) y 11.3 (prioridad); Documento Técnico, sección 13. También el
+flujo (bien más simple, y DISTINTO) de las órdenes de trabajo — Documento
+General 10.2, Documento Técnico sección 12 — porque los dos dominios se
+implementan juntos en esta misma fase (un reclamo puede generar una OT) y
+comparten archivo de lógica, no porque sean el mismo flujo.
 
-Se fija ANTES de modelar `Reclamo`/`ReclamoComentario` (próxima tarea de
-esta fase) — mismo criterio que el resto del proyecto (roles en Fase 1,
-prorrateo en Fase 2): la regla de negocio se define y prueba en Python
-puro antes de tocar la base, para no terminar con la validación de
-transiciones repartida a mano en cada endpoint que cambie un estado.
+Se fija ANTES de modelar `Reclamo`/`ReclamoComentario`/`OrdenTrabajo` —
+mismo criterio que el resto del proyecto (roles en Fase 1, prorrateo en
+Fase 2): la regla de negocio se define y prueba en Python puro antes de
+tocar la base, para no terminar con la validación de transiciones
+repartida a mano en cada endpoint que cambie un estado.
 """
 
 PRIORIDADES = ("leve", "medio", "critico")
@@ -51,3 +55,31 @@ def color_por_prioridad(prioridad: str) -> str:
     if prioridad not in PRIORIDADES:
         raise ValueError(f"Prioridad inválida: {prioridad!r}. Válidas: {PRIORIDADES}")
     return "crit" if prioridad == "critico" else "warn"
+
+
+# ------------------------------------------------------------------
+# Órdenes de trabajo — Documento General 10.1 (tipos) y 10.2 (estado).
+# Flujo PROPIO, deliberadamente más simple que el de Reclamo y sin
+# ninguna excepción de reapertura: acá no hay "quien reportó" pidiendo
+# reabrir, es un registro de ejecución — si el trabajo resulta
+# incompleto, se genera una OT nueva, la vieja queda tal cual se cerró
+# (mismo criterio de "el antecedente no se reescribe" que ya rige a
+# Reclamo con su estado "cerrado").
+# ------------------------------------------------------------------
+
+TIPOS_OT = ("preventivo", "correctivo", "programado", "emergencia")
+
+ESTADOS_OT = ("pendiente", "en_curso", "resuelta")
+
+TRANSICIONES_VALIDAS_OT = {
+    "pendiente": ("en_curso",),
+    "en_curso": ("resuelta",),
+    "resuelta": (),
+}
+
+
+def transicion_valida_ot(estado_actual: str, estado_nuevo: str) -> bool:
+    """Misma forma que `transicion_valida()`, pero contra el flujo de OT
+    — nunca se reutiliza `TRANSICIONES_VALIDAS` (la de `Reclamo`) para
+    esto, son dos flujos distintos aunque compartan este archivo."""
+    return estado_nuevo in TRANSICIONES_VALIDAS_OT.get(estado_actual, ())
