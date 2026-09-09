@@ -822,3 +822,51 @@ Para un dato que el usuario necesita copiar y pegar en otro lado — el caso de 
 ```
 
 `assets/js/copiar.js` (`window.Copiar.alPortapapeles(boton, texto)`) hace el `navigator.clipboard.writeText` y da feedback inmediato: el ícono cambia a un check por 1.5s y el `aria-label` pasa a "Copiado" — heurística "visibilidad del estado del sistema", el usuario nunca se queda sin saber si el click copió algo de verdad. Si el navegador no da permiso de portapapeles, el botón simplemente no da feedback — no rompe el resto del flujo.
+
+## Mensaje de éxito (`.mensaje-exito`)
+
+Misma estructura que `.mensaje-error` (ícono + texto en una fila, `border-radius:var(--r-sm)`), tono `--ok` en vez de `--crit` — para confirmar que una acción se hizo bien, no solo para avisar que algo salió mal. Primer uso: "reclamo enviado" (Fase 3).
+
+```html
+<div class="mensaje-exito">
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+  <span>Reclamo enviado — el administrador o encargado del edificio lo va a revisar.</span>
+</div>
+```
+
+## Tarjeta de opción seleccionable con descripción (`.opcion-card`)
+
+Para elegir UNA entre pocas alternativas (2 a 4) donde cada una necesita una línea de texto explicativo — a diferencia de un `<select>` normal, que no tiene lugar para eso. Primer uso: prioridad de un reclamo (leve/medio/crítico, cada una con su explicación del Documento General 11.3) y el objetivo del reclamo (unidad propia/espacio común/edificio). Mismo mecanismo de selección que `.unit-card` del Dashboard Visual (`.selected` con outline), reutilizado acá fuera de ese contexto porque la mecánica es idéntica — se combina siempre con `.content-glass`, igual que `.unit-card`.
+
+```html
+<div class="opciones-grid opciones-grid-3">
+  <button type="button" class="opcion-card content-glass" data-valor="leve">
+    <span class="pill warn" style="margin-bottom:6px;">Leve</span>
+    <p>No compromete a nadie más que a quien reclama, no es urgente.</p>
+  </button>
+  <!-- ...una .opcion-card más por alternativa... -->
+</div>
+```
+
+```css
+.opcion-card{
+  display:block; width:100%; text-align:left; border:1px solid transparent;
+  font:inherit; color:inherit; cursor:pointer;
+}
+.opcion-card b{ display:block; font-size:13px; margin-bottom:3px; }
+.opcion-card p{ margin:0; font-size:11.5px; color:var(--ink-3); }
+.opcion-card.selected{ outline:2px solid var(--accent); outline-offset:1px; }
+.opciones-grid{ display:grid; grid-template-columns:1fr; gap:8px; }
+@media(min-width:560px){ .opciones-grid.opciones-grid-3{ grid-template-columns:repeat(3,1fr); } }
+```
+
+```js
+grid.querySelectorAll('.opcion-card').forEach((boton) => {
+  boton.addEventListener('click', () => {
+    valorElegido = boton.dataset.valor;
+    grid.querySelectorAll('.opcion-card').forEach((b) => b.classList.toggle('selected', b === boton));
+  });
+});
+```
+
+El texto de cada opción (`<b>`/`<p>`, o un `.pill` + `<p>` para agregar color de semáforo cuando corresponde, como en prioridad) queda a criterio de cada uso — la clase solo resuelve la mecánica de selección y el look de tarjeta, no el contenido.

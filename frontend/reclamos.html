@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Aplica el tema guardado ANTES de pintar nada — si esto fuera en
+     theme.js (al final del body) se vería un parpadeo de claro antes de
+     pasar a oscuro en cada página nueva. -->
+<script>try{if(localStorage.getItem('tema')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+<title>SMART Building — Reclamos</title>
+<link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/components.css">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="assets/js/tailwind-config.js"></script>
+</head>
+<body>
+
+<div class="layout-app">
+  <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+  <aside class="sidebar shell" id="sidebar">
+    <a class="sidebar-brand" href="dashboard.html" style="text-decoration:none; color:inherit;">
+      <span class="brand-mark" style="width:32px;height:32px;border-radius:10px;">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 21V6l8-3 8 3v15"/><path d="M9 21v-6h6v6"/><path d="M9 10h.01M15 10h.01M9 14h.01M15 14h.01"/>
+        </svg>
+      </span>
+      <b style="font-size:14px;">SMART <span class="aurora-text">Building</span></b>
+    </a>
+    <nav class="sidebar-nav" id="sidebar-nav"></nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="avatar" style="width:32px;height:32px;border-radius:10px;">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M4.5 20c1.4-3.6 4.4-5.5 7.5-5.5s6.1 1.9 7.5 5.5"/></svg>
+        </div>
+        <div>
+          <div class="nombre" id="sidebar-user-nombre">—</div>
+          <div class="rol" id="sidebar-user-rol">—</div>
+        </div>
+      </div>
+      <button type="button" class="boton-primario" id="boton-logout" style="background:var(--glass-content-bg); color:var(--ink-2); box-shadow:inset 0 0 0 1px var(--line); padding:9px;">Cerrar sesión</button>
+    </div>
+  </aside>
+
+  <div class="main-column">
+    <header class="topbar shell" style="margin-bottom:14px;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <button class="icon-btn hamburger-btn" id="menu-btn" aria-label="Abrir menú">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+        <b style="font-size:14.5px;">Reclamos</b>
+      </div>
+      <div class="topbar-actions">
+        <button class="icon-btn" aria-label="Cambiar tema" id="theme-toggle">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Se muestra solo si el rol logueado no encaja en ninguna vista de
+         abajo — Administrador/Encargado suman la suya en la próxima tarea
+         de esta fase ("seguimiento de reclamos"). -->
+    <section class="shell panel-centrado" id="vista-no-autorizado" style="display:none; padding:22px 24px;">
+      <p style="margin:0; font-size:13px; color:var(--ink-2);">Esta pantalla todavía no tiene nada para tu rol.</p>
+    </section>
+
+    <!-- Propietario/Inquilino: alta de un reclamo nuevo (Fase 3, "creación
+         de reclamo"). El seguimiento de lo ya cargado es la próxima tarea. -->
+    <section class="shell panel-centrado" id="vista-nuevo-reclamo" style="display:none; max-width:640px; padding:22px 24px;">
+      <div style="margin-bottom:16px;">
+        <h1 style="margin:0; font-size:18px;">Nuevo reclamo</h1>
+        <p style="margin:2px 0 0; font-size:12.5px; color:var(--ink-3);">Contanos qué pasa — el administrador o encargado del edificio lo va a revisar.</p>
+      </div>
+
+      <div class="mensaje-exito" id="mensaje-exito-reclamo" style="display:none;">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M20 6L9 17l-5-5"/></svg>
+        <span id="mensaje-exito-reclamo-texto"></span>
+      </div>
+      <div class="mensaje-error" id="mensaje-error-reclamo" style="display:none;">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+        <span id="mensaje-error-reclamo-texto"></span>
+      </div>
+
+      <!-- Se muestra en vez del formulario cuando el usuario no tiene
+           ninguna unidad asignada — sin eso no hay forma de saber a qué
+           edificio asociar el reclamo (mismo criterio que "Mi cuenta" en
+           financiero.html). -->
+      <p id="aviso-sin-unidades" style="display:none; font-size:12.5px; color:var(--ink-3);">Todavía no tenés ninguna unidad asignada — no podemos asociar tu reclamo a ningún edificio todavía.</p>
+
+      <form id="form-reclamo" autocomplete="off" style="display:none;">
+        <!-- Solo aparece si el usuario tiene MÁS de una unidad propia —
+             con una sola, el campo ni se muestra, se resuelve solo
+             (mismo criterio que la carga de un Pago, Fase 2). -->
+        <div class="campo" id="campo-unidad-propia-wrap" style="display:none;">
+          <label for="campo-unidad-propia">¿Sobre qué edificio es el reclamo?</label>
+          <select id="campo-unidad-propia"></select>
+        </div>
+
+        <div class="campo">
+          <label>¿Dónde es el problema?</label>
+          <div class="opciones-grid opciones-grid-3" id="objetivo-grid">
+            <button type="button" class="opcion-card content-glass" data-objetivo="unidad">
+              <b id="objetivo-unidad-titulo">Mi unidad</b>
+              <p>El problema es dentro de tu propia unidad.</p>
+            </button>
+            <button type="button" class="opcion-card content-glass" data-objetivo="espacio">
+              <b>Un espacio común</b>
+              <p>SUM, parrilla, ascensor, pasillo...</p>
+            </button>
+            <button type="button" class="opcion-card content-glass" data-objetivo="edificio">
+              <b>Todo el edificio</b>
+              <p>Algo que afecta al edificio en general.</p>
+            </button>
+          </div>
+        </div>
+
+        <div class="campo" id="campo-espacio-comun-wrap" style="display:none;">
+          <label for="campo-espacio-comun">Espacio común</label>
+          <select id="campo-espacio-comun"></select>
+        </div>
+
+        <div class="campo">
+          <label for="campo-reclamo-descripcion">Descripción</label>
+          <textarea id="campo-reclamo-descripcion" rows="4" required placeholder="Contanos qué está pasando, con el mayor detalle posible."></textarea>
+        </div>
+
+        <div class="campo">
+          <label>Prioridad</label>
+          <div class="opciones-grid opciones-grid-3" id="prioridad-grid">
+            <button type="button" class="opcion-card content-glass" data-prioridad="leve">
+              <span class="pill warn" style="margin-bottom:6px;">Leve</span>
+              <p>No compromete a nadie más que a quien reclama, no es urgente.</p>
+            </button>
+            <button type="button" class="opcion-card content-glass" data-prioridad="medio">
+              <span class="pill warn" style="margin-bottom:6px;">Medio</span>
+              <p>Empieza a afectar o podría afectar a otras unidades o al funcionamiento normal del edificio.</p>
+            </button>
+            <button type="button" class="opcion-card content-glass" data-prioridad="critico">
+              <span class="pill crit" style="margin-bottom:6px;">Crítico</span>
+              <p>Compromete la seguridad de los residentes o del edificio, requiere atención inmediata.</p>
+            </button>
+          </div>
+        </div>
+
+        <div class="campo">
+          <label>Fotos (opcional)</label>
+          <div id="fotos-lista"><!-- filas generadas por JS --></div>
+          <button type="button" class="chip-link" id="boton-agregar-foto" style="margin-top:4px;">+ Agregar foto</button>
+        </div>
+
+        <button type="submit" class="boton-primario" id="boton-reclamo-guardar" style="margin-top:6px;">Enviar reclamo</button>
+      </form>
+    </section>
+  </div>
+</div>
+
+<script src="assets/js/config.js"></script>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/theme.js"></script>
+<script src="assets/js/layout.js"></script>
+<script src="assets/js/formularios.js"></script>
+<script src="assets/js/cargando.js"></script>
+<script src="assets/js/reclamos.js"></script>
+</body>
+</html>

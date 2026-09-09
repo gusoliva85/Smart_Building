@@ -10,6 +10,7 @@ const ICONOS_SIDEBAR = {
   edificios: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V6l8-3 8 3v15"/><path d="M9 21v-6h6v6"/><path d="M9 10h.01M15 10h.01M9 14h.01M15 14h.01"/></svg>',
   usuarios: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>',
   financiero: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5c0-1.4 1.2-2.5 2.5-2.5s2.5 1 2.5 2.2c0 2.8-5 1.6-5 4.2 0 1.3 1.2 2.3 2.5 2.3s2.5-1 2.5-2.3"/></svg>',
+  reclamos: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.6L2.7 17a2 2 0 001.7 3h15.2a2 2 0 001.7-3L13.7 3.6a2 2 0 00-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>',
 };
 
 // Accesos habilitados por rol. Se completa a medida que existen más
@@ -24,6 +25,13 @@ const ICONOS_SIDEBAR = {
 // propietario/inquilino suman el suyo acá (Tarea 14, pestaña Expensas):
 // mismo financiero.html, pero financiero.js les muestra "Mi cuenta" en
 // vez del listado de edificios — nunca navegan la gestión del edificio.
+//
+// reclamos.html suma su primer acceso en la Fase 3 ("creación de
+// reclamo"), solo para propietario/inquilino — hoy la pantalla solo
+// tiene el formulario de alta. Administrador/Encargado suman su propio
+// acceso recién en la tarea de "seguimiento de reclamos", cuando el
+// mismo archivo gane la vista de gestión (mismo criterio de "un archivo
+// por dominio" que financiero.html, no una pantalla nueva por rol).
 const ACCESOS_POR_ROL = {
   admin_general: [
     { href: 'edificios.html', texto: 'Edificios', icono: 'edificios' },
@@ -35,9 +43,11 @@ const ACCESOS_POR_ROL = {
   ],
   propietario: [
     { href: 'financiero.html', texto: 'Financiero', icono: 'financiero' },
+    { href: 'reclamos.html', texto: 'Reclamos', icono: 'reclamos' },
   ],
   inquilino: [
     { href: 'financiero.html', texto: 'Financiero', icono: 'financiero' },
+    { href: 'reclamos.html', texto: 'Reclamos', icono: 'reclamos' },
   ],
 };
 

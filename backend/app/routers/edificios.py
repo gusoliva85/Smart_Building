@@ -21,7 +21,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
 
-from app.core.dependencies import UsuarioAutenticado, obtener_usuario_actual
+from app.core.dependencies import UsuarioAutenticado, obtener_usuario_actual, requerir_acceso_para_crear_reclamo
 from app.database import obtener_db
 from app.models.edificio import Cochera, Departamento, Edificio, EspacioComun, Piso
 from app.models.usuario import Usuario
@@ -401,8 +401,18 @@ def crear_cochera(
 # --------------------------- Espacios comunes ---------------------------
 
 @router.get("/{edificio_id}/espacios-comunes", response_model=list[EspacioComunSalida])
-def listar_espacios_comunes(edificio: Edificio = Depends(requerir_admin_del_edificio), db: Session = Depends(obtener_db)):
-    return db.query(EspacioComun).filter(EspacioComun.edificio_id == edificio.id).order_by(EspacioComun.nombre).all()
+def listar_espacios_comunes(
+    edificio_id: int,
+    db: Session = Depends(obtener_db),
+    actual: UsuarioAutenticado = Depends(requerir_acceso_para_crear_reclamo),
+):
+    """Solo LECTURA abierta a quien puede cargar un reclamo (gestión del
+    edificio, o cualquiera con una unidad propia ahí) — Fase 3, Tarea
+    "creación de reclamo": para reportar sobre "un espacio común" hace
+    falta poder ver la lista. Antes esto era `requerir_admin_del_edificio`
+    (sin querer bloqueaba a Propietario/Inquilino/Encargado); crear uno
+    nuevo sigue siendo exclusivo del administrador, ver el POST de abajo."""
+    return db.query(EspacioComun).filter(EspacioComun.edificio_id == edificio_id).order_by(EspacioComun.nombre).all()
 
 
 @router.post("/{edificio_id}/espacios-comunes", response_model=EspacioComunSalida, status_code=status.HTTP_201_CREATED)

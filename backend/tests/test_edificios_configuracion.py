@@ -302,6 +302,36 @@ def test_alta_y_listado_de_cochera_y_espacio_comun(contexto):
     assert len(cliente.get(f"/api/edificios/{ids['edificio_id']}/espacios-comunes", headers=_headers(token)).json()) == 1
 
 
+def test_propietario_con_unidad_puede_ver_espacios_comunes(contexto):
+    """Fase 3, "creación de reclamo": reportar sobre un espacio común
+    exige poder ver la lista — antes este GET era admin-only por error y
+    bloqueaba también a Encargado, sin querer (docstring del endpoint)."""
+    cliente, ids = contexto
+    token_admin = _token(cliente, "admin@test.com")
+    cliente.post(
+        f"/api/edificios/{ids['edificio_id']}/espacios-comunes",
+        json={"nombre": "SUM", "capacidad": 40},
+        headers=_headers(token_admin),
+    )
+    cliente.patch(
+        f"/api/edificios/departamentos/{ids['departamento_id']}/asignacion",
+        json={"propietario_id": ids["propietario_id"]},
+        headers=_headers(token_admin),
+    )
+
+    token_prop = _token(cliente, "prop@test.com")
+    r = cliente.get(f"/api/edificios/{ids['edificio_id']}/espacios-comunes", headers=_headers(token_prop))
+    assert r.status_code == 200
+    assert len(r.json()) == 1
+
+
+def test_propietario_ajeno_no_puede_ver_espacios_comunes(contexto):
+    cliente, ids = contexto
+    token_prop = _token(cliente, "prop@test.com")
+    r = cliente.get(f"/api/edificios/{ids['edificio_id']}/espacios-comunes", headers=_headers(token_prop))
+    assert r.status_code == 403
+
+
 def test_cochera_con_tipo_invalido_devuelve_422(contexto):
     cliente, ids = contexto
     token = _token(cliente, "admin@test.com")

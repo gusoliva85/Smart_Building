@@ -431,6 +431,34 @@ html[data-theme="dark"] .lobby{ background:linear-gradient(180deg, rgba(255,255,
   font-size:13px; font-weight:600; margin-bottom:14px;
 }
 
+/* Misma estructura que .mensaje-error, tono --ok en vez de --crit — primer
+   uso: confirmación de "reclamo enviado" (Fase 3). Mismo elemento HTML
+   (ícono + texto), solo cambia la clase y el color de fondo/texto. */
+.mensaje-exito{
+  display:flex; align-items:center; gap:8px; padding:10px 13px; border-radius:var(--r-sm);
+  background:color-mix(in srgb, var(--ok) 15%, var(--mix-tint));
+  color:color-mix(in srgb, var(--ok) 78%, var(--mix-ink));
+  font-size:13px; font-weight:600; margin-bottom:14px;
+}
+
+/* Tarjeta de opción seleccionable con descripción — para elegir UNA entre
+   pocas alternativas (2 a 4) donde cada una necesita una línea de texto
+   explicativo, no solo una etiqueta corta (a diferencia de un <select>
+   normal). Primer uso: prioridad del reclamo (leve/medio/crítico, cada
+   una con su explicación del Documento General 11.3) y el objetivo del
+   reclamo (unidad/espacio común/edificio). Mismo look que .unit-card del
+   Dashboard Visual (radio implícito vía .selected), reutilizado acá fuera
+   de ese contexto porque la mecánica de selección es idéntica. */
+.opcion-card{
+  display:block; width:100%; text-align:left; border:1px solid transparent;
+  font:inherit; color:inherit; cursor:pointer;
+}
+.opcion-card b{ display:block; font-size:13px; margin-bottom:3px; }
+.opcion-card p{ margin:0; font-size:11.5px; color:var(--ink-3); }
+.opcion-card.selected{ outline:2px solid var(--accent); outline-offset:1px; }
+.opciones-grid{ display:grid; grid-template-columns:1fr; gap:8px; }
+@media(min-width:560px){ .opciones-grid.opciones-grid-3{ grid-template-columns:repeat(3,1fr); } }
+
 /* Botón chico de acción dentro de una fila (ej. Confirmar/Rechazar en la
    cola de conciliación de pagos) — mismo lenguaje que .boton-primario
    pero compacto y de ancho natural, para poner más de uno por fila sin

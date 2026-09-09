@@ -139,7 +139,14 @@ def requerir_acceso_para_crear_reclamo(
     carga el reclamo") o quien lo gestiona (Administrador/Encargado —
     pueden notar algo y cargarlo sin esperar a que un residente lo haga).
     Superset de `requerir_gestion_reclamos_edificio`, reutilizada
-    directamente en vez de repetir su lógica."""
+    directamente en vez de repetir su lógica.
+
+    También reutilizada, sin cambios, por `routers/edificios.py::listar_espacios_comunes`
+    (Fase 3, "creación de reclamo"): el mismo grupo de gente que puede
+    cargar un reclamo es exactamente el que necesita poder VER la lista
+    de espacios comunes de un edificio (para reportar sobre uno) — antes
+    ese GET era admin-only por error, bloqueaba a Propietario/Inquilino/
+    Encargado."""
     try:
         return requerir_gestion_reclamos_edificio(edificio_id=edificio_id, db=db, actual=actual)
     except HTTPException:
