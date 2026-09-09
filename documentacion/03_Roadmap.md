@@ -209,8 +209,8 @@ Corresponde al Documento General, sección 6; Documento Técnico, sección 8. De
 
 Corresponde al Documento General, secciones 10 y 11; Documento Técnico, secciones 12 y 13. Se implementan juntas: un reclamo puede dar origen a una orden de trabajo.
 
-- [ ] **Lógica: flujo de estados de reclamo y niveles de prioridad.**
-  Se fija el flujo (recibido → asignado → en curso → resuelto → cerrado) y el significado exacto de leve/medio/crítico (Documento General 11.3) antes de modelar — es lo que después determina amarillo vs. rojo en el Dashboard Visual.
+- [x] **Lógica: flujo de estados de reclamo y niveles de prioridad.**
+  Se fija el flujo (recibido → asignado → en curso → resuelto → cerrado) y el significado exacto de leve/medio/crítico (Documento General 11.3) antes de modelar — es lo que después determina amarillo vs. rojo en el Dashboard Visual. `services/reclamos.py`: `transicion_valida()` (tabla de transiciones válidas) y `color_por_prioridad()` (leve/medio → `warn`, crítico → `crit`, tal como fija Documento Técnico sección 13) — 10 tests nuevos. *(Decisión de diseño, no fijada explícitamente por el enunciado: se permite `resuelto → en_curso` como única excepción al flujo lineal — si quien reclamó confirma que el problema sigue, se reabre el mismo reclamo en vez de perder su historial de comentarios/fotos cargando uno nuevo. `cerrado` queda siempre terminal a propósito: la recurrencia ya la resuelve el Documento General 11.5 con un reclamo NUEVO, no reabriendo uno viejo.)*
 
 - [ ] **Backend: modelos `Reclamo` y `ReclamoComentario`.**
   Unidad/espacio afectado, descripción, fotos, prioridad, estado, creado_por/cuándo; hilo de comentarios entre quien reclama y quien gestiona.
