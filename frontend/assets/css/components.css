@@ -550,6 +550,15 @@ html[data-theme="dark"] .lobby{ background:linear-gradient(180deg, rgba(255,255,
      blanco se mezcla con el negro y da un gris lavado en vez de blanco
      limpio. Se pisa con un fondo casi opaco, solo para esta combinación. */
   background:var(--glass-shell-fallback);
+  /* Hueco real, encontrado con contenido largo de verdad (el detalle de
+     una expensa con varios rubros y departamentos, en mobile): sin esto
+     un modal más alto que la pantalla no tenía forma de verse completo
+     ni de scrollear — quedaba cortado contra los bordes de la ventana.
+     Coincide con el padding de .modal-backdrop (20px arriba y abajo) para
+     que el modal nunca exceda el alto visible real. */
+  max-height:calc(100vh - 40px);
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
 }
 .modal-backdrop.open .modal{ transform:scale(1); }
 .modal-icono{

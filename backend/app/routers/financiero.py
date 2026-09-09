@@ -59,7 +59,7 @@ from app.schemas.fondo import (
     MovimientoFondoEntrada,
     MovimientoFondoSalida,
 )
-from app.schemas.gasto import GastoEntrada, GastoSalida
+from app.schemas.gasto import GastoEdicion, GastoEntrada, GastoSalida
 from app.schemas.presupuesto import (
     FacturaEntrada,
     FacturaSalida,
@@ -449,6 +449,29 @@ def listar_gastos(
     if mes is not None:
         consulta = consulta.filter(extract("month", Gasto.fecha) == mes)
     return consulta.order_by(Gasto.fecha.desc()).all()
+
+
+@router.patch("/{edificio_id}/gastos/{gasto_id}", response_model=GastoSalida)
+def editar_gasto(
+    gasto_id: int,
+    datos: GastoEdicion,
+    edificio: Edificio = Depends(requerir_admin_del_edificio),
+    db: Session = Depends(obtener_db),
+):
+    """Corregir un gasto ya cargado — pedido explícito del usuario tras
+    generar expensas reales y encontrar que no había forma de arreglar un
+    error de tipeo. No reabre ninguna expensa ya generada (ver
+    `GastoEdicion`): la próxima expensa del período sí va a reflejar el
+    gasto corregido, las ya emitidas quedan tal cual."""
+    gasto = db.get(Gasto, gasto_id)
+    if not gasto or gasto.edificio_id != edificio.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gasto no encontrado en este edificio")
+
+    for campo, valor in datos.model_dump(exclude_unset=True).items():
+        setattr(gasto, campo, valor)
+    db.commit()
+    db.refresh(gasto)
+    return gasto
 
 
 def _saldo_fondo(fondo: Fondo) -> float:

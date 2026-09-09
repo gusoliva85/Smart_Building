@@ -43,6 +43,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   // dead zone), el mismo bug ya visto en edificios.js (Fase 1).
   let edificioId;
   let gastosCache = []; // último listado sin filtrar, para poblar el select de años
+  let gastoEditandoId = null; // null en modo alta; el id del gasto cuando el modal está en modo edición
+  // Último listado de gastos renderizado (ya filtrado) — de acá sale el
+  // gasto completo al abrir el modal en modo edición, nunca de
+  // gastosCache (esa es siempre la versión SIN filtrar, para el select de
+  // años). Declarada ACÁ ARRIBA a propósito, mismo motivo que edificioId:
+  // el ruteo de más abajo ya puede terminar llamando a renderListaGastos()
+  // antes de que la ejecución llegue a esta línea si se declara más abajo
+  // (temporal dead zone) — el mismo bug ya visto en edificios.js y en el
+  // propio financiero.js (edificioId), otra vez.
+  let gastosListaActual = [];
   let deudoresCache = []; // último listado de deudores, para abrir el detalle sin volver a pedirlo
   let fondosCache = [];
   let fondoActualId = null; // fondo que tiene abierto su modal de detalle/movimientos
@@ -272,6 +282,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function renderListaGastos(gastos) {
+    gastosListaActual = gastos;
     const contenedor = document.getElementById('lista-gastos');
     if (gastos.length === 0) {
       contenedor.innerHTML = '<p style="font-size:12.5px;color:var(--ink-3);padding:10px 0;">Todavía no hay gastos cargados — usá "+ Nuevo gasto".</p>';
@@ -286,9 +297,15 @@ document.addEventListener('DOMContentLoaded', async () => {
           </div>
           <div class="fila-lista-acciones">
             <span style="font-size:13.5px; font-weight:700; font-family:Outfit, sans-serif;">${window.Moneda.formatear(g.monto)}</span>
+            <button type="button" class="icon-btn icon-btn-sm boton-editar-gasto" data-id="${g.id}" aria-label="Editar gasto">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            </button>
           </div>
         </div>`)
       .join('');
+    contenedor.querySelectorAll('.boton-editar-gasto').forEach((boton) => {
+      boton.addEventListener('click', () => abrirModalEdicionGasto(Number(boton.dataset.id)));
+    });
   }
 
   function configurarModalGasto() {
@@ -296,10 +313,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     const form = document.getElementById('form-gasto');
     const mensajeError = document.getElementById('mensaje-error-gasto');
     const mensajeErrorTexto = document.getElementById('mensaje-error-gasto-texto');
+    const titulo = document.getElementById('modal-gasto-titulo');
+    const sub = document.getElementById('modal-gasto-sub');
+    const botonGuardar = document.getElementById('boton-gasto-guardar');
 
     window.Formularios.habilitarEnterComoTab(form);
 
     function abrir() {
+      gastoEditandoId = null;
+      titulo.textContent = 'Nuevo gasto';
+      sub.textContent = 'Rubro, monto y fecha reales — es la base de la próxima liquidación de expensas.';
+      botonGuardar.textContent = 'Crear gasto';
       form.reset();
       document.getElementById('campo-gasto-fecha').value = new Date().toISOString().slice(0, 10);
       mensajeError.style.display = 'none';
@@ -307,6 +331,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     function cerrar() {
       modal.classList.remove('open');
+      gastoEditandoId = null;
     }
 
     document.getElementById('boton-nuevo-gasto').addEventListener('click', abrir);
@@ -316,24 +341,44 @@ document.addEventListener('DOMContentLoaded', async () => {
     form.addEventListener('submit', async (evento) => {
       evento.preventDefault();
       mensajeError.style.display = 'none';
+      const datos = {
+        rubro: document.getElementById('campo-gasto-rubro').value.trim(),
+        monto: Number(document.getElementById('campo-gasto-monto').value),
+        fecha: document.getElementById('campo-gasto-fecha').value,
+        descripcion: document.getElementById('campo-gasto-descripcion').value.trim() || null,
+      };
       try {
-        await window.Api.post(`/edificios/${edificioId}/gastos`, {
-          rubro: document.getElementById('campo-gasto-rubro').value.trim(),
-          monto: Number(document.getElementById('campo-gasto-monto').value),
-          fecha: document.getElementById('campo-gasto-fecha').value,
-          descripcion: document.getElementById('campo-gasto-descripcion').value.trim() || null,
-        });
+        if (gastoEditandoId) {
+          await window.Api.patch(`/edificios/${edificioId}/gastos/${gastoEditandoId}`, datos);
+        } else {
+          await window.Api.post(`/edificios/${edificioId}/gastos`, datos);
+          // Reset de filtros: un gasto recién cargado tiene que verse sin
+          // que el usuario tenga que adivinar que el filtro lo está tapando.
+          document.getElementById('filtro-anio').value = '';
+          document.getElementById('filtro-mes').value = '';
+        }
         cerrar();
-        // Reset de filtros: un gasto recién cargado tiene que verse sin
-        // que el usuario tenga que adivinar que el filtro lo está tapando.
-        document.getElementById('filtro-anio').value = '';
-        document.getElementById('filtro-mes').value = '';
         await cargarGastos();
       } catch (error) {
         mensajeErrorTexto.textContent = error.message;
         mensajeError.style.display = 'flex';
       }
     });
+  }
+
+  function abrirModalEdicionGasto(gastoId) {
+    const gasto = gastosListaActual.find((g) => g.id === gastoId);
+    if (!gasto) return;
+    gastoEditandoId = gasto.id;
+    document.getElementById('modal-gasto-titulo').textContent = 'Editar gasto';
+    document.getElementById('modal-gasto-sub').textContent = 'Corregí lo que se cargó mal — no afecta ninguna expensa ya generada, solo las que se generen de acá en adelante.';
+    document.getElementById('boton-gasto-guardar').textContent = 'Guardar cambios';
+    document.getElementById('mensaje-error-gasto').style.display = 'none';
+    document.getElementById('campo-gasto-rubro').value = gasto.rubro;
+    document.getElementById('campo-gasto-monto').value = gasto.monto;
+    document.getElementById('campo-gasto-fecha').value = gasto.fecha;
+    document.getElementById('campo-gasto-descripcion').value = gasto.descripcion || '';
+    document.getElementById('modal-gasto').classList.add('open');
   }
 
   // -------------------------- Pestaña Expensas --------------------------

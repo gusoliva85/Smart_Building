@@ -109,6 +109,102 @@ def test_propietario_no_puede_crear_gasto(entorno):
     assert r.status_code == 403
 
 
+def test_editar_gasto_corrige_solo_lo_enviado(entorno):
+    cliente, headers, eid = entorno["cliente"], entorno["headers_admin"], entorno["edificio_id"]
+    gasto = cliente.post(
+        f"/api/edificios/{eid}/gastos",
+        json={"rubro": "Limpieza", "monto": 1000, "fecha": "2026-08-05", "descripcion": "Insumos"},
+        headers=headers,
+    ).json()
+
+    r = cliente.patch(
+        f"/api/edificios/{eid}/gastos/{gasto['id']}",
+        json={"monto": 1500},
+        headers=headers,
+    )
+    assert r.status_code == 200, r.text
+    cuerpo = r.json()
+    assert cuerpo["monto"] == 1500
+    assert cuerpo["rubro"] == "Limpieza"  # no se tocó
+    assert cuerpo["descripcion"] == "Insumos"  # no se tocó
+
+
+def test_editar_gasto_puede_limpiar_la_descripcion(entorno):
+    cliente, headers, eid = entorno["cliente"], entorno["headers_admin"], entorno["edificio_id"]
+    gasto = cliente.post(
+        f"/api/edificios/{eid}/gastos",
+        json={"rubro": "Limpieza", "monto": 1000, "fecha": "2026-08-05", "descripcion": "Insumos"},
+        headers=headers,
+    ).json()
+
+    r = cliente.patch(
+        f"/api/edificios/{eid}/gastos/{gasto['id']}",
+        json={"descripcion": None},
+        headers=headers,
+    )
+    assert r.json()["descripcion"] is None
+
+
+def test_editar_gasto_de_otro_edificio_devuelve_404(entorno):
+    cliente, headers, eid = entorno["cliente"], entorno["headers_admin"], entorno["edificio_id"]
+    otro_edificio_id = cliente.post(
+        "/api/edificios",
+        json={"nombre": "Torre Ajena", "direccion": "Calle 2", "cantidad_pisos": 1, "unidades_por_piso": 1},
+        headers=headers,
+    ).json()["id"]
+    gasto = cliente.post(
+        f"/api/edificios/{eid}/gastos",
+        json={"rubro": "Limpieza", "monto": 1000, "fecha": "2026-08-05"},
+        headers=headers,
+    ).json()
+
+    r = cliente.patch(f"/api/edificios/{otro_edificio_id}/gastos/{gasto['id']}", json={"monto": 500}, headers=headers)
+    assert r.status_code == 404
+
+
+def test_editar_gasto_monto_invalido_devuelve_422(entorno):
+    cliente, headers, eid = entorno["cliente"], entorno["headers_admin"], entorno["edificio_id"]
+    gasto = cliente.post(
+        f"/api/edificios/{eid}/gastos",
+        json={"rubro": "Limpieza", "monto": 1000, "fecha": "2026-08-05"},
+        headers=headers,
+    ).json()
+
+    r = cliente.patch(f"/api/edificios/{eid}/gastos/{gasto['id']}", json={"monto": -50}, headers=headers)
+    assert r.status_code == 422
+
+
+def test_propietario_no_puede_editar_gasto(entorno):
+    cliente, headers, eid = entorno["cliente"], entorno["headers_admin"], entorno["edificio_id"]
+    gasto = cliente.post(
+        f"/api/edificios/{eid}/gastos",
+        json={"rubro": "Limpieza", "monto": 1000, "fecha": "2026-08-05"},
+        headers=headers,
+    ).json()
+
+    r = cliente.patch(f"/api/edificios/{eid}/gastos/{gasto['id']}", json={"monto": 500}, headers=entorno["headers_prop"])
+    assert r.status_code == 403
+
+
+def test_editar_gasto_no_altera_una_expensa_ya_generada(entorno):
+    # Documento Técnico / Prorrateo.md sección 6: ExpensaDetalle es una foto
+    # fija — corregir el Gasto de origen después no reescribe lo ya emitido.
+    cliente, headers, eid = entorno["cliente"], entorno["headers_admin"], entorno["edificio_id"]
+    cliente.post(f"/api/edificios/{eid}/coeficientes/auto", json={"criterio": "partes_iguales"}, headers=headers)
+    gasto = cliente.post(
+        f"/api/edificios/{eid}/gastos",
+        json={"rubro": "Limpieza", "monto": 1000, "fecha": "2026-08-05"},
+        headers=headers,
+    ).json()
+    expensa = cliente.post(f"/api/edificios/{eid}/expensas", json={"anio": 2026, "mes": 8}, headers=headers).json()
+    assert expensa["total"] == 1000
+
+    cliente.patch(f"/api/edificios/{eid}/gastos/{gasto['id']}", json={"monto": 5000}, headers=headers)
+
+    expensa_recargada = cliente.get(f"/api/edificios/{eid}/expensas/{expensa['id']}", headers=headers).json()
+    assert expensa_recargada["total"] == 1000  # sigue como se emitió, no 5000
+
+
 # --------------------------------- Fondos ---------------------------------
 
 def test_crear_fondo_con_movimientos_y_saldo_calculado(entorno):

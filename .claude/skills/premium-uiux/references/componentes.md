@@ -532,6 +532,14 @@ Usado por primera vez para avisar que una dirección no se pudo geocodificar (al
   max-width:360px; width:100%; padding:24px 22px; text-align:center;
   transform:scale(.96); transition:transform .22s ease;
   background:var(--glass-shell-fallback); /* ver "Lección aprendida" abajo — NO usar var(--glass-shell-bg) acá */
+  /* Coincide con el padding:20px del backdrop (arriba+abajo=40px) para que
+     el modal nunca exceda el alto visible — sin esto, contenido largo de
+     verdad (detalle de una expensa con varios rubros/departamentos, en
+     mobile) quedaba cortado contra los bordes de la ventana, sin forma de
+     scrollear (bug real, encontrado por el usuario). */
+  max-height:calc(100vh - 40px);
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
 }
 .modal-backdrop.open .modal{ transform:scale(1); }
 .modal-icono{
