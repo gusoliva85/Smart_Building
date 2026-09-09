@@ -21,6 +21,7 @@ class EdificioEntrada(BaseModel):
     cp: str | None = None
     cuit: str | None = None
     admin_consorcio_id: int | None = None
+    encargado_id: int | None = None
 
     # Geocodificados en el frontend (Leaflet + Nominatim) al completar
     # Dirección + CP — opcionales acá porque el alta no debe bloquearse si
@@ -49,6 +50,7 @@ class EdificioConfiguracion(BaseModel):
     roles_habilitados: list[str] | None = None
     cbu: str | None = None
     alias_cbu: str | None = None
+    encargado_id: int | None = None
 
     _validar_roles = field_validator("roles_habilitados")(_validar_lista_roles)
 
@@ -118,6 +120,7 @@ class EdificioResumenSalida(BaseModel):
     cp: str | None
     cuit: str | None
     admin_consorcio_id: int | None
+    encargado_id: int | None
     activo: bool
     cantidad_pisos: int
     cantidad_unidades: int
@@ -134,6 +137,7 @@ class EdificioSalida(BaseModel):
     latitud: float | None
     longitud: float | None
     admin_consorcio_id: int | None
+    encargado_id: int | None
     dias_vencimiento_expensas: int
     recargo_mora_porcentual: int
     contacto_emergencia_nombre: str | None

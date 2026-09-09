@@ -39,6 +39,16 @@ class Edificio(Base):
     # expresar de forma simple contra otra tabla.
     admin_consorcio_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
 
+    # Agregada en la Fase 3 (ciclo de vida del reclamo): hasta acá, el rol
+    # `encargado` nunca quedó vinculado a NINGÚN edificio puntual — existía
+    # el rol y su matriz de permisos (`ALCANCE_EDIFICIO`, Fase 1) pero
+    # nada decía a qué edificio pertenecía cada Encargado, y sin eso no
+    # hay forma de que gestione "los reclamos de su edificio". Mismo
+    # criterio que `admin_consorcio_id`: un FK simple, nullable, validado
+    # en el endpoint (no acá) contra el rol real del usuario. Se suma vía
+    # `core/migraciones.py` porque `edificios` ya tiene filas reales.
+    encargado_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+
     dias_vencimiento_expensas = Column(Integer, nullable=False, default=10)
     recargo_mora_porcentual = Column(Integer, nullable=False, default=0)  # % simple por mes de atraso
 

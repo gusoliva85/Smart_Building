@@ -98,3 +98,64 @@ def requerir_acceso_financiero_edificio(
             return actual
 
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tenés acceso a este edificio")
+
+
+def requerir_gestion_reclamos_edificio(
+    edificio_id: int,
+    db: Session = Depends(obtener_db),
+    actual: UsuarioAutenticado = Depends(obtener_usuario_actual),
+) -> UsuarioAutenticado:
+    """Quién GESTIONA los reclamos/OT de un edificio (ver todos, cambiar
+    de estado, asignar) — Documento General 11.4: "Administrador/
+    Encargado". Administrador General siempre; Administrador de Consorcio
+    o Encargado, solo si son los de ESE edificio puntual
+    (`Edificio.admin_consorcio_id`/`encargado_id`, este último agregado
+    recién en esta tarea — antes no existía ningún vínculo real entre un
+    Encargado y un edificio). Nunca el propio Propietario/Inquilino que
+    reclamó — su acceso a SU reclamo puntual es otra cosa, ver
+    `requerir_acceso_a_reclamo` en `routers/reclamos.py`."""
+    if actual.usuario.rol == "admin_general":
+        return actual
+
+    edificio = db.get(Edificio, edificio_id)
+    if not edificio:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Edificio no encontrado")
+
+    if actual.usuario.rol == "admin_consorcio" and edificio.admin_consorcio_id == actual.usuario.id:
+        return actual
+    if actual.usuario.rol == "encargado" and edificio.encargado_id == actual.usuario.id:
+        return actual
+
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No administrás este edificio")
+
+
+def requerir_acceso_para_crear_reclamo(
+    edificio_id: int,
+    db: Session = Depends(obtener_db),
+    actual: UsuarioAutenticado = Depends(obtener_usuario_actual),
+) -> UsuarioAutenticado:
+    """Quién puede CARGAR un reclamo nuevo: cualquiera con una unidad en
+    el edificio (Documento General 11.1: "el propietario o inquilino
+    carga el reclamo") o quien lo gestiona (Administrador/Encargado —
+    pueden notar algo y cargarlo sin esperar a que un residente lo haga).
+    Superset de `requerir_gestion_reclamos_edificio`, reutilizada
+    directamente en vez de repetir su lógica."""
+    try:
+        return requerir_gestion_reclamos_edificio(edificio_id=edificio_id, db=db, actual=actual)
+    except HTTPException:
+        pass
+
+    if actual.usuario.rol in ("propietario", "inquilino"):
+        tiene_unidad = (
+            db.query(Departamento)
+            .join(Piso, Piso.id == Departamento.piso_id)
+            .filter(
+                Piso.edificio_id == edificio_id,
+                (Departamento.propietario_id == actual.usuario.id) | (Departamento.inquilino_id == actual.usuario.id),
+            )
+            .first()
+        )
+        if tiene_unidad:
+            return actual
+
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No tenés acceso a este edificio")

@@ -111,6 +111,7 @@ def listar_edificios(
             Edificio.cp,
             Edificio.cuit,
             Edificio.admin_consorcio_id,
+            Edificio.encargado_id,
             Edificio.activo,
             func.count(func.distinct(Piso.id)).label("cantidad_pisos"),
             func.count(Departamento.id).label("cantidad_unidades"),
@@ -201,6 +202,13 @@ def configurar_edificio(
     db: Session = Depends(obtener_db),
 ):
     cambios = datos.model_dump(exclude_unset=True)
+    if cambios.get("encargado_id") is not None:
+        encargado = db.get(Usuario, cambios["encargado_id"])
+        if not encargado or encargado.rol != "encargado":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="encargado_id debe corresponder a un usuario con rol encargado",
+            )
     if "roles_habilitados" in cambios:
         lista = cambios.pop("roles_habilitados")
         edificio.roles_habilitados = ",".join(lista) if lista is not None else None
