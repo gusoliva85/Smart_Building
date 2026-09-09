@@ -140,6 +140,16 @@ if (usuario.rol === 'propietario' || usuario.rol === 'inquilino') {
 }
 ```
 
+## 9. Lo que encontró la prueba manual de punta a punta
+
+La última tarea de la fase (probar todo con el frontend real, no solo con tests) encontró tres huecos genuinos y dos pedidos de ajuste — exactamente para eso sirve una prueba de punta a punta, y quedan documentados acá porque son parte real de lo que se entrega en esta fase, no un capítulo aparte:
+
+- **La pantalla de Configuración de coeficientes no existía.** `Prorrateo.md` (sección 1) siempre anticipó que el coeficiente de cada departamento sería "editable después desde una pantalla de Configuración" — nunca se construyó, ni el endpoint ni la UI. Solo se notó porque el edificio usado en el resto de la fase ya tenía coeficientes cargados a mano en la base. Se agregó `PATCH .../departamentos/{id}/coeficiente` (manual) y `POST .../{id}/coeficientes/auto` (partes iguales / por m², reutilizando `services/finanzas.py`), con su UI en `edificios.html` → Estructura y un resumen en vivo de la suma. De paso apareció un bug real de precisión: los atajos redondeaban a 4 decimales pero la columna solo guarda 3, así que la suma dejaba de dar 100% recién al persistir en edificios grandes — corregido a 3 decimales.
+- **No se podía editar un gasto ya cargado.** Se sumó `PATCH /api/edificios/{id}/gastos/{id}` + botón de editar, reutilizando el modal de alta en modo edición. Nunca reabre una expensa ya emitida (sigue valiendo la foto fija de la sección 3) — solo afecta a la próxima que se genere.
+- **El modal de detalle de expensa no entraba en la pantalla en mobile.** `.modal`, el componente compartido de toda la skill, nunca tuvo `max-height`/`overflow-y` — corregido en un solo lugar, arregla todos los modales del proyecto.
+- **El monto se cargaba sin ningún separador.** El campo Monto de Gastos pasa de `<input type="number">` a un campo de texto con separador de miles en vivo (`assets/js/monto-input.js`, nuevo y reutilizable) — mismo formato `es-AR` que ya usa `moneda.js` para mostrar montos.
+- **No había forma de corregir una expensa ya generada.** Si un gasto o un coeficiente se corrige después de liquidar el período, hacía falta volver a generarla — antes era un error sin salida. Se agregó una excepción deliberada y acotada a la inmutabilidad de la sección 3: **solo la última expensa del edificio** admite reemplazo, con aviso (`409`) y confirmación explícita (`confirmar_reemplazo: true`) antes de ejecutar — nunca en silencio, nunca para un período anterior. Detalle completo en `Prorrateo.md`, sección 8.
+
 ---
 
 ## Cómo probarlo
@@ -152,4 +162,4 @@ Credenciales completas en [`usuarios.md`](../usuarios.md). El edificio de refere
 
 ## Estado final
 
-223 tests automáticos de backend pasando (empezó en 87 al cierre de la Fase 1). Verificado con Playwright contra el backend real en cada pestaña — admin_general, admin_consorcio, propietario e inquilino, mobile + tema oscuro, cero errores de consola.
+242 tests automáticos de backend pasando (empezó en 87 al cierre de la Fase 1). Verificado con Playwright contra el backend real en cada pestaña — admin_general, admin_consorcio, propietario e inquilino, mobile + tema oscuro, cero errores de consola. Fase cerrada con sus 18 tareas aprobadas, incluida la prueba manual de punta a punta.
