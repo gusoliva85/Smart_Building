@@ -13,7 +13,7 @@ import app.models  # noqa: F401 — registra todos los modelos en Base.metadata
 from app.core.config import NOMBRE_APP, ORIGENES_CORS, verificar_configuracion_produccion
 from app.core.migraciones import agregar_columnas_faltantes
 from app.database import Base, engine
-from app.routers import auth, edificios, financiero, reclamos, usuarios
+from app.routers import auth, edificios, financiero, ordentrabajo, reclamos, usuarios
 
 verificar_configuracion_produccion()
 
@@ -34,6 +34,7 @@ app.include_router(financiero.router)
 app.include_router(financiero.router_pagos)
 app.include_router(reclamos.router)
 app.include_router(reclamos.router_reclamos)
+app.include_router(ordentrabajo.router)
 
 # Crea, al arrancar, cualquier tabla que todavía no exista en la base real
 # (idempotente: no toca las que ya están). Para que funcione, todo modelo
