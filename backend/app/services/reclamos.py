@@ -12,6 +12,8 @@ tocar la base, para no terminar con la validación de transiciones
 repartida a mano en cada endpoint que cambie un estado.
 """
 
+from datetime import timedelta
+
 PRIORIDADES = ("leve", "medio", "critico")
 
 ESTADOS = ("recibido", "asignado", "en_curso", "resuelto", "cerrado")
@@ -83,3 +85,32 @@ def transicion_valida_ot(estado_actual: str, estado_nuevo: str) -> bool:
     — nunca se reutiliza `TRANSICIONES_VALIDAS` (la de `Reclamo`) para
     esto, son dos flujos distintos aunque compartan este archivo."""
     return estado_nuevo in TRANSICIONES_VALIDAS_OT.get(estado_actual, ())
+
+
+# ------------------------------------------------------------------
+# Tiempo de resolución — Documento General 10.5 (OT) y 11.7 (Reclamo);
+# Documento Técnico sección 12 ("campo calculado: fecha_cierre −
+# fecha_creación"). Lógica pura: recibe cualquier objeto con los
+# atributos que necesita (duck typing) en vez de importar los modelos
+# reales — así este archivo se sigue pudiendo importar desde
+# `models/reclamo.py`/`models/ordentrabajo.py` sin ciclo.
+# ------------------------------------------------------------------
+
+
+def tiempo_resolucion_reclamo(reclamo) -> timedelta | None:
+    """Documento General 11.7: tiempo entre la creación del reclamo y su
+    CIERRE (el estado `cerrado`, terminal — no `resuelto`, que todavía
+    puede reabrirse). `None` mientras el reclamo siga abierto."""
+    if reclamo.cerrado_en is None:
+        return None
+    return reclamo.cerrado_en - reclamo.creado_en
+
+
+def tiempo_resolucion_ot(orden) -> timedelta | None:
+    """Documento General 10.5 / Documento Técnico sección 12: tiempo
+    entre la apertura y el cierre de la orden de trabajo
+    (`fecha_cierre - creado_en`, se fija al pasar a `resuelta`, su
+    propio estado terminal). `None` mientras siga abierta."""
+    if orden.fecha_cierre is None:
+        return None
+    return orden.fecha_cierre - orden.creado_en

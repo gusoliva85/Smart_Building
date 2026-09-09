@@ -2,9 +2,9 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 
-from app.services.reclamos import ESTADOS, PRIORIDADES
+from app.services.reclamos import ESTADOS, PRIORIDADES, tiempo_resolucion_reclamo
 
 
 class ReclamoEntrada(BaseModel):
@@ -78,5 +78,14 @@ class ReclamoSalida(BaseModel):
     estado: str
     creado_por_id: int
     creado_en: datetime
+    cerrado_en: datetime | None
     fotos: list[ReclamoFotoSalida]
     comentarios: list[ReclamoComentarioSalida]
+
+    @computed_field
+    @property
+    def tiempo_resolucion_segundos(self) -> int | None:
+        """Documento General 11.7 — `None` mientras el reclamo siga
+        abierto (todavía no llegó a `cerrado`)."""
+        delta = tiempo_resolucion_reclamo(self)
+        return int(delta.total_seconds()) if delta is not None else None

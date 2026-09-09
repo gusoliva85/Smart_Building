@@ -16,6 +16,8 @@ Reglas de acceso (Documento General 11.4 + decisión de esta tarea):
   lo creó, no solo gestión.
 """
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -174,6 +176,10 @@ def cambiar_estado_reclamo(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Solo el Administrador o Encargado del edificio puede mover este reclamo")
 
     reclamo.estado = datos.estado
+    if datos.estado == "cerrado":
+        # Documento General 11.7: acá se fija el dato que alimenta el
+        # tiempo de resolución — "cerrado" es terminal, se fija una sola vez.
+        reclamo.cerrado_en = datetime.now(timezone.utc)
     db.commit()
     db.refresh(reclamo)
     return reclamo

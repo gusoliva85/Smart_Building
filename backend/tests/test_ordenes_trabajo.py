@@ -471,6 +471,23 @@ def test_resolver_ot_carga_costo_y_fecha_de_cierre(entorno):
     assert r.json()["fecha_cierre"] is not None
 
 
+def test_tiempo_resolucion_ot_null_hasta_que_se_resuelve(entorno):
+    cliente = entorno["cliente"]
+    ot_id = cliente.post(
+        f"/api/edificios/{entorno['edificio_id']}/ordenes-trabajo",
+        json={"tipo": "preventivo", "prioridad": "leve", "encargado_id": entorno["id_encargado"]},
+        headers=entorno["headers_encargado"],
+    ).json()["id"]
+    assert cliente.get(f"/api/ordenes-trabajo/{ot_id}", headers=entorno["headers_encargado"]).json()["tiempo_resolucion_segundos"] is None
+
+    en_curso = cliente.patch(f"/api/ordenes-trabajo/{ot_id}/estado", json={"estado": "en_curso"}, headers=entorno["headers_encargado"]).json()
+    assert en_curso["tiempo_resolucion_segundos"] is None
+
+    resuelta = cliente.patch(f"/api/ordenes-trabajo/{ot_id}/estado", json={"estado": "resuelta"}, headers=entorno["headers_encargado"]).json()
+    assert resuelta["tiempo_resolucion_segundos"] is not None
+    assert resuelta["tiempo_resolucion_segundos"] >= 0
+
+
 def test_resolver_la_ot_de_un_reclamo_pasa_el_reclamo_a_resuelto(entorno):
     cliente = entorno["cliente"]
     ot_id = cliente.post(

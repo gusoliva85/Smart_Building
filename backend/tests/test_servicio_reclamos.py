@@ -5,6 +5,9 @@ services/edificios.py y services/finanzas.py — se prueba antes de que
 exista ningún modelo de Reclamo real (próxima tarea de esta fase).
 """
 
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+
 import pytest
 
 from app.services.reclamos import (
@@ -13,6 +16,8 @@ from app.services.reclamos import (
     PRIORIDADES,
     TIPOS_OT,
     color_por_prioridad,
+    tiempo_resolucion_ot,
+    tiempo_resolucion_reclamo,
     transicion_valida,
     transicion_valida_ot,
 )
@@ -111,3 +116,46 @@ def test_flujo_de_ot_es_distinto_del_de_reclamo():
 
 def test_tipos_de_ot_son_los_del_documento_general():
     assert set(TIPOS_OT) == {"preventivo", "correctivo", "programado", "emergencia"}
+
+
+# --------------------------- tiempo_resolucion_* ---------------------------
+
+@dataclass
+class _ObjetoConFechas:
+    """Duck typing puro — ni `tiempo_resolucion_reclamo()` ni
+    `tiempo_resolucion_ot()` importan modelos reales, así que alcanza con
+    cualquier objeto con los atributos que leen."""
+
+    creado_en: datetime
+    cerrado_en: datetime | None = None
+    fecha_cierre: datetime | None = None
+
+
+def test_tiempo_resolucion_reclamo_none_mientras_sigue_abierto():
+    reclamo = _ObjetoConFechas(creado_en=datetime.now(timezone.utc))
+    assert tiempo_resolucion_reclamo(reclamo) is None
+
+
+def test_tiempo_resolucion_reclamo_calcula_desde_cerrado_en():
+    inicio = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    reclamo = _ObjetoConFechas(creado_en=inicio, cerrado_en=inicio + timedelta(hours=5))
+    assert tiempo_resolucion_reclamo(reclamo) == timedelta(hours=5)
+
+
+def test_tiempo_resolucion_reclamo_ignora_resuelto_solo_mira_cerrado():
+    # Un reclamo "resuelto" pero todavía no "cerrado" sigue sin tiempo de
+    # resolución — 11.7 mide hasta el CIERRE, no hasta "resuelto" (que
+    # todavía puede reabrirse).
+    reclamo = _ObjetoConFechas(creado_en=datetime.now(timezone.utc), cerrado_en=None)
+    assert tiempo_resolucion_reclamo(reclamo) is None
+
+
+def test_tiempo_resolucion_ot_none_mientras_sigue_abierta():
+    orden = _ObjetoConFechas(creado_en=datetime.now(timezone.utc))
+    assert tiempo_resolucion_ot(orden) is None
+
+
+def test_tiempo_resolucion_ot_calcula_desde_fecha_cierre():
+    inicio = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    orden = _ObjetoConFechas(creado_en=inicio, fecha_cierre=inicio + timedelta(days=2))
+    assert tiempo_resolucion_ot(orden) == timedelta(days=2)

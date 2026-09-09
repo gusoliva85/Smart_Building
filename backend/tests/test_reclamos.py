@@ -297,6 +297,43 @@ def test_un_tercero_ajeno_no_puede_reabrir(entorno):
     assert r.status_code == 403
 
 
+# ------------------------------- tiempo de resolución -------------------------------
+
+def test_tiempo_resolucion_es_null_mientras_el_reclamo_sigue_abierto(entorno):
+    cliente = entorno["cliente"]
+    reclamo = cliente.post(
+        f"/api/edificios/{entorno['edificio_id']}/reclamos",
+        json={"departamento_id": entorno["depto_id"], "descripcion": "x", "prioridad": "leve"},
+        headers=entorno["headers_prop"],
+    ).json()
+    assert reclamo["cerrado_en"] is None
+    assert reclamo["tiempo_resolucion_segundos"] is None
+
+    cliente.patch(f"/api/reclamos/{reclamo['id']}/estado", json={"estado": "asignado"}, headers=entorno["headers_encargado"])
+    en_curso = cliente.patch(f"/api/reclamos/{reclamo['id']}/estado", json={"estado": "en_curso"}, headers=entorno["headers_encargado"]).json()
+    assert en_curso["tiempo_resolucion_segundos"] is None
+
+
+def test_tiempo_resolucion_ignora_resuelto_solo_se_fija_al_cerrar(entorno):
+    cliente = entorno["cliente"]
+    reclamo_id = cliente.post(
+        f"/api/edificios/{entorno['edificio_id']}/reclamos",
+        json={"departamento_id": entorno["depto_id"], "descripcion": "x", "prioridad": "leve"},
+        headers=entorno["headers_prop"],
+    ).json()["id"]
+    for estado in ("asignado", "en_curso", "resuelto"):
+        cliente.patch(f"/api/reclamos/{reclamo_id}/estado", json={"estado": estado}, headers=entorno["headers_encargado"])
+
+    resuelto = cliente.get(f"/api/reclamos/{reclamo_id}", headers=entorno["headers_encargado"]).json()
+    assert resuelto["cerrado_en"] is None
+    assert resuelto["tiempo_resolucion_segundos"] is None
+
+    cerrado = cliente.patch(f"/api/reclamos/{reclamo_id}/estado", json={"estado": "cerrado"}, headers=entorno["headers_encargado"]).json()
+    assert cerrado["cerrado_en"] is not None
+    assert cerrado["tiempo_resolucion_segundos"] is not None
+    assert cerrado["tiempo_resolucion_segundos"] >= 0
+
+
 def test_estado_invalido_devuelve_422(entorno):
     cliente = entorno["cliente"]
     reclamo_id = cliente.post(

@@ -3,9 +3,9 @@
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, computed_field, field_validator
 
-from app.services.reclamos import ESTADOS_OT, PRIORIDADES, TIPOS_OT
+from app.services.reclamos import ESTADOS_OT, PRIORIDADES, TIPOS_OT, tiempo_resolucion_ot
 
 
 class OrdenTrabajoDesdeReclamoEntrada(BaseModel):
@@ -125,3 +125,11 @@ class OrdenTrabajoSalida(BaseModel):
     fecha_inicio: datetime | None
     fecha_cierre: datetime | None
     evidencias: list[OtEvidenciaSalida]
+
+    @computed_field
+    @property
+    def tiempo_resolucion_segundos(self) -> int | None:
+        """Documento General 10.5 / Documento Técnico sección 12 —
+        `None` mientras la orden siga abierta (todavía no `resuelta`)."""
+        delta = tiempo_resolucion_ot(self)
+        return int(delta.total_seconds()) if delta is not None else None

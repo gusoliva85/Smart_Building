@@ -54,6 +54,10 @@ class Reclamo(Base):
 
     creado_por_id = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
     creado_en = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    # Documento General 11.7: tiempo de resolución = creado_en → cerrado_en
+    # (el CIERRE, no "resuelto" — ese todavía puede reabrirse). Se fija una
+    # sola vez, al llegar al estado terminal "cerrado" (`routers/reclamos.py`).
+    cerrado_en = Column(DateTime, nullable=True)
 
     edificio = relationship("Edificio", backref="reclamos")
     departamento = relationship("Departamento", backref="reclamos")
