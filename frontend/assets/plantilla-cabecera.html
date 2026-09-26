@@ -1,0 +1,63 @@
+<!--
+  ============================================================================
+  plantilla-cabecera.html — SMART Building
+
+  QUE ES: el bloque <head> que copia TAL CUAL cada pagina del proyecto.
+
+  POR QUE EXISTE UN FRAGMENTO Y NO UN INCLUDE: el frontend es multi-pagina
+  estatica, sin build y sin motor de plantillas — los archivos que se editan
+  son los que se sirven. No hay ningun mecanismo que inserte esto solo, asi
+  que cada HTML lo repite. Este archivo es la version canonica: si cambia
+  algo de la cabecera, se cambia aca primero y despues se propaga.
+
+  ESTE ARCHIVO NO SE SIRVE. Es documentacion ejecutable, no una pagina.
+
+  El orden de las cuatro piezas no es casual y NO se altera:
+    1. Meta basicos.
+    2. El script de tema — antes que cualquier hoja de estilo.
+    3. Favicon y fuentes.
+    4. Las hojas: tokens primero, componentes despues.
+  ============================================================================
+-->
+
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pantalla · SMART Building</title>
+
+<!--
+  TEMA — va aca arriba, inline, y antes de las hojas de estilo.
+
+  El tema elegido se guarda en localStorage y se reaplica en cada pagina.
+  Sin esta linea, cambiar a oscuro y navegar a otra pantalla volvia a claro
+  (fue un bug real reportado).
+
+  Y no puede esperar al script del final del <body>: para cuando ese corre,
+  el navegador ya pinto la pagina en claro, y se ve un destello blanco antes
+  de pasar a oscuro. Por eso va inline, sincrono, y lo mas arriba posible.
+
+  El try/catch es necesario: en modo privado o con el almacenamiento
+  bloqueado, leer localStorage lanza una excepcion y sin el se caeria toda
+  la pagina por un detalle cosmetico.
+-->
+<script>try{if(localStorage.getItem('tema')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+
+<link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg">
+
+<!--
+  TIPOGRAFIA
+  Outfit para display, titulares, numeros de KPI y montos (pesos 500-800).
+  Inter para cuerpo, labels e inputs (pesos 400-700).
+  El fallback a ui-sans-serif / system-ui esta declarado en components.css,
+  asi que si Google Fonts no responde la pagina sigue siendo legible.
+  preconnect evita que la conexion al CDN se pague recien al pedir el CSS.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+<!--
+  HOJAS DE ESTILO — tokens primero, siempre.
+  tokens.css solo declara variables; components.css las consume.
+-->
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/components.css">

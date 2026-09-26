@@ -1,0 +1,55 @@
+# ============================================================================
+# SMART Building — .gitignore
+#
+# Regla de fondo (04_Infraestructura.md, sección 2.3): ningún secreto entra al
+# repositorio, en ningún archivo y en ningún commit. Los valores por defecto
+# que hay en el código son deliberadamente de desarrollo, y la guarda de
+# arranque los rechaza en producción.
+# ============================================================================
+
+# --- Secretos y configuración local -----------------------------------------
+# DATABASE_URL, JWT_SECRETO y CORS_ORIGENES_EXTRA viven SOLO en las variables
+# de entorno de Vercel y en el panel de Supabase. Nunca en el repositorio.
+.env
+.env.*
+!.env.ejemplo
+
+# Vínculo local del CLI de Vercel (identificadores del proyecto)
+.vercel/
+
+# --- Python ------------------------------------------------------------------
+# El entorno virtual se recrea con requirements.txt
+backend/venv/
+venv/
+.venv/
+
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.coverage
+htmlcov/
+
+# --- Base de datos de desarrollo ---------------------------------------------
+# SQLite se genera en runtime (seed.py o el arranque de la app) y NUNCA se
+# versiona: el esquema vive en los modelos, no en un archivo binario.
+# Los .db-journal / .db-wal los crea SQLite sola durante una transacción.
+backend/smart_building.db
+backend/*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# --- Herramientas -------------------------------------------------------------
+# Permisos y preferencias de esta máquina.
+# OJO: se ignora SOLO este archivo. La carpeta .claude/skills/ SÍ se versiona:
+# la skill premium-uiux es el contrato visual del proyecto (03_Documento_Frontend.md, sección 1).
+.claude/settings.local.json
+
+# --- Editor y sistema operativo ------------------------------------------------
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini

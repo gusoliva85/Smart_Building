@@ -1,0 +1,44 @@
+# ============================================================================
+# SMART Building — dependencias del backend
+# Python 3.12
+#
+# Se instala con:   pip install -r requirements.txt
+# El entorno virtual (backend/venv/) no se versiona: se recrea desde acá.
+# ============================================================================
+
+# --- Framework y servidor ---------------------------------------------------
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# --- Base de datos ----------------------------------------------------------
+SQLAlchemy==2.0.36
+# Driver de PostgreSQL. Solo interviene cuando DATABASE_URL apunta a Postgres
+# (producción, Supabase vía pooler); en desarrollo, sobre SQLite, no se usa.
+psycopg2-binary==2.9.10
+
+# --- Validación -------------------------------------------------------------
+pydantic==2.10.4
+# Requerido por Pydantic para validar el tipo EmailStr, que usa Usuario.email.
+email-validator==2.2.0
+
+# --- Autenticación ----------------------------------------------------------
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+# Pin deliberado. passlib 1.7.4 lee bcrypt.__about__.__version__ al arrancar, y
+# ese atributo se eliminó en bcrypt 4.1: con una versión más nueva el hasheo
+# sigue funcionando, pero cada arranque escupe un error de lectura de versión
+# que ensucia los logs y hace perder tiempo buscando un problema que no existe.
+bcrypt==4.0.1
+
+# Lectura de formularios multipart. La necesita el login (OAuth2PasswordRequestForm)
+# y, más adelante, la carga real de archivos de la Fase 7.
+python-multipart==0.0.20
+
+# --- Activos (Fase 4) -------------------------------------------------------
+# Genera el PNG del código QR que se pega sobre el activo físico.
+qrcode[pil]==8.0
+
+# --- Pruebas ----------------------------------------------------------------
+pytest==8.3.4
+# Lo usa el TestClient de FastAPI por debajo.
+httpx==0.28.1

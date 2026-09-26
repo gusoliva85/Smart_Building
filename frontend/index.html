@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="es">
+<head>
+<!-- ============================================================================
+     Cabecera canonica: assets/plantilla-cabecera.html
+     El frontend es multi-pagina estatica sin build, asi que cada HTML repite
+     este bloque. Si cambia, se cambia primero en la plantilla.
+     ========================================================================= -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SMART Building</title>
+
+<!-- Tema: inline, sincrono y antes de las hojas de estilo. Si esperara al
+     script del final del body, se veria un destello claro antes de pasar a
+     oscuro. El try/catch cubre el modo privado, donde leer localStorage lanza. -->
+<script>try{if(localStorage.getItem('tema')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+
+<link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/components.css">
+</head>
+
+<body>
+  <div class="main-column">
+    <div class="page-content">
+
+      <!-- ================================================================
+           Topbar. Marca a la izquierda, acciones a la derecha.
+           El boton de tema esta en su lugar; su comportamiento lo engancha
+           assets/js/theme.js en F0-T13.
+           ================================================================ -->
+      <header class="topbar shell">
+        <a class="brand" href="index.html">
+          <span class="brand-mark">
+            <!-- Todo icono del proyecto es SVG inline dibujado a trazo:
+                 viewBox 24x24, fill none, stroke currentColor, extremos
+                 redondeados. Nunca una libreria sin adaptar, nunca un emoji. -->
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 21V6l8-3 8 3v15"/>
+              <path d="M9 21v-6h6v6"/>
+              <path d="M9 10h.01M15 10h.01M9 14h.01M15 14h.01"/>
+            </svg>
+          </span>
+          <span class="brand-text">
+            <b>SMART Building</b>
+            <span>Gestion integral de consorcios</span>
+          </span>
+        </a>
+
+        <div class="topbar-actions">
+          <!-- Indicador de conexion con la API. Es el mismo componente que el
+               punto de "sistema en vivo" del techo del edificio en el
+               Dashboard Visual, reutilizado aca. conexion.js lo completa. -->
+          <span class="live verificando" data-indicador-conexion title="Verificando la conexion con el servidor">
+            <i aria-hidden="true"></i><span>Verificando</span>
+          </span>
+
+          <button type="button" class="icon-btn" id="boton-tema" aria-label="Cambiar tema">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/>
+              <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- ================================================================
+           Contenido. Deliberadamente minimo: esta pantalla es el cascaron
+           que demuestra que el sistema de diseno esta aplicado. No hay
+           login, ni indicadores, ni edificio, porque todavia no existen
+           esos modulos — y una pantalla no muestra secciones vacias de
+           funcionalidad futura.
+           ================================================================ -->
+      <main class="shell panel-centrado">
+        <h1>El sistema de diseno esta en pie</h1>
+        <p>
+          Esta es la primera pantalla real del proyecto. Todavia no hace nada:
+          existe para verificar que el fondo atmosferico, la textura de grano,
+          el vidrio en dos capas y la tipografia se ven como tienen que verse,
+          en mobile y en escritorio, en tema claro y oscuro.
+        </p>
+        <p>
+          El punto de la barra superior consulta la API al cargar y dice si el
+          backend esta respondiendo. A partir de aca la interfaz crece de a una
+          pantalla por vez, en el orden que fija el Roadmap: el proximo paso es
+          el login.
+        </p>
+      </main>
+
+    </div>
+  </div>
+
+  <!-- Los scripts van al final del body: ninguno de ellos necesita correr
+       antes de que la pagina se pinte. El unico que si lo necesita es el de
+       tema, y por eso ese esta inline en el <head>. -->
+  <!-- El orden es de dependencia, no de gusto:
+       config.js define la URL de la API, api.js la usa, conexion.js usa api.js. -->
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/conexion.js"></script>
+  <script src="assets/js/theme.js"></script>
+</body>
+</html>

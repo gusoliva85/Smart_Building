@@ -1,0 +1,690 @@
+/* ============================================================================
+   components.css — SMART Building · catalogo base
+   Fuente: .claude/skills/premium-uiux/references/componentes.md
+   Version legible y razonada: documentacion/03_Documento_Frontend.md
+
+   Ninguna pantalla define estilo propio: compone con lo que hay aca. Ante un
+   componente nuevo la pregunta correcta no es "como lo diseno" sino "cual de
+   los patrones ya definidos uso". Si de verdad no existe, se deriva de estos
+   mismos tokens y SE AGREGA al catalogo (aca y en la skill) para que la
+   proxima pantalla lo reutilice. La consistencia es el producto.
+
+   Regla no negociable: todo color, sombra y superficie sale de tokens.css.
+   En este archivo no hay un solo hexadecimal suelto salvo #fff sobre fondos
+   de acento solido, donde el texto es blanco por contraste y no por tema.
+
+   Alcance de esta tarea (F0-T10): base, vidrio, esqueleto de la zona
+   autenticada y componentes transversales. El Dashboard Visual, los listados
+   y los KPI llegan en sus fases.
+   ========================================================================== */
+
+/* ============================================================================
+   1. BASE
+   ========================================================================== */
+
+*,
+*::before,
+*::after{ box-sizing:border-box; }
+
+html{ -webkit-text-size-adjust:100%; }
+
+body{
+  margin:0;
+  color:var(--ink);
+  font:15px/1.5 Inter,ui-sans-serif,system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  min-height:100vh;
+
+  /* Fondo atmosferico: tres manchas radiales de color sobre un degrade
+     vertical. Nunca un color plano — es lo que le da profundidad al vidrio
+     que se apoya encima. `fixed` para que no se desplace con el scroll. */
+  background:
+    radial-gradient(ellipse 52% 34% at 10% -6%, var(--wash-a), transparent 62%),
+    radial-gradient(ellipse 42% 28% at 106% 6%, var(--wash-b), transparent 58%),
+    radial-gradient(ellipse 38% 26% at 50% 104%, var(--wash-a), transparent 66%),
+    linear-gradient(180deg, var(--bg-1), var(--bg-2));
+  background-attachment:fixed;
+}
+
+/* Textura de grano: ruido SVG al 3,5% en overlay sobre todo el body. Es lo
+   que da la sensacion tactil; sin ella el fondo se ve como un degrade liso.
+   pointer-events:none para que no capture ningun clic. */
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  z-index:999;
+  pointer-events:none;
+  opacity:.035;
+  mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+
+/* Titulares, numeros grandes y marca van SIEMPRE en Outfit; Inter queda para
+   cuerpo, labels e inputs. Un monto es "display" aunque este dentro de una
+   fila de texto en Inter. Nunca serif: es una herramienta de gestion. */
+h1, h2, h3, h4, .display{
+  margin:0;
+  font-family:Outfit,ui-sans-serif,system-ui,sans-serif;
+  letter-spacing:-.015em;
+}
+
+a{ color:inherit; }
+::selection{ background:var(--accent-ring); }
+
+/* El foco nunca se elimina sin reemplazarlo: se marca con el anillo de
+   acento. Solo cuando el navegador entiende que hace falta mostrarlo. */
+:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+}
+
+/* Las animaciones respetan la preferencia del sistema operativo. */
+@media (prefers-reduced-motion: reduce){
+  *,
+  *::before,
+  *::after{
+    animation-duration:.01ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:.01ms !important;
+    scroll-behavior:auto !important;
+  }
+}
+
+/* ============================================================================
+   2. VIDRIO EN DOS CAPAS
+   El vidrio no va debajo de contenido denso: un blur fuerte se ve
+   espectacular detras de un titular y vuelve ilegible una grilla de texto
+   chico. De ahi dos niveles, no uno.
+   ========================================================================== */
+
+/* Nivel 1 — contenedores grandes, de navegacion, poca densidad de texto:
+   topbar, sidebar, tarjetas KPI, contenedor del Dashboard Visual, panel de
+   detalle, modales. */
+.shell{
+  position:relative;
+  overflow:hidden;
+  background:var(--glass-shell-bg);
+  backdrop-filter:blur(var(--glass-shell-blur)) saturate(1.15);
+  -webkit-backdrop-filter:blur(var(--glass-shell-blur)) saturate(1.15);
+  border:1px solid var(--line);
+  box-shadow:var(--glass-in), var(--sh-md);
+}
+
+/* Brillo especular: el barrido diagonal de luz que hace que lea como vidrio
+   real y no como un blur plano. */
+.shell::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:var(--glass-sheen);
+}
+
+/* El contenido va por encima del brillo. */
+.shell > *{ position:relative; }
+
+/* Nivel 2 — contenido denso DENTRO de un shell: tarjetas de departamento,
+   chips de activos, filas de listado, items del panel de detalle. */
+.content-glass{
+  background:var(--glass-content-bg);
+  backdrop-filter:blur(var(--glass-content-blur));
+  -webkit-backdrop-filter:blur(var(--glass-content-blur));
+  border:1px solid var(--line-2);
+  box-shadow:var(--glass-in);
+}
+
+/* Respaldo: sin backdrop-filter, un fondo casi opaco en vez de un vidrio
+   roto. Se declara con la sintaxis prefijada incluida porque hay
+   navegadores que solo soportan esa. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))){
+  .shell{ background:var(--glass-shell-fallback); }
+  .content-glass{ background:var(--glass-content-fallback); }
+}
+
+/* ============================================================================
+   3. ESQUELETO DE LA ZONA AUTENTICADA
+   Mobile-first: los estilos base son los de la pantalla angosta y los
+   @media (min-width) AGREGAN, nunca corrigen.
+   ========================================================================== */
+
+.layout-app{
+  display:flex;
+  min-height:100vh;
+}
+
+.sidebar{
+  display:flex;
+  flex-direction:column;
+  gap:18px;
+  width:248px;
+  flex:none;
+  padding:18px 14px;
+  border-radius:0;
+}
+
+.sidebar-nav{
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+  flex:1;
+  overflow-y:auto;
+}
+
+.sidebar-footer{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  padding-top:14px;
+  border-top:1px solid var(--line-2);
+}
+
+/* Capa que solo captura el toque para cerrar el panel. Transparente a
+   proposito: no oscurece. El unico backdrop que si oscurece y difumina es
+   el de los modales, porque ahi hay que leer algo antes de seguir. */
+.sidebar-backdrop{ display:none; }
+
+.main-column{
+  flex:1;
+  min-width:0;          /* sin esto, un hijo ancho estira la columna */
+  padding:16px 16px 70px;
+}
+
+.page-content{
+  max-width:1180px;
+  margin:0 auto;
+}
+
+/* Contenedor de contenido de una pantalla. Se combina con .shell. Es el
+   bloque generico: cuando una pantalla necesita "una caja con texto o
+   controles adentro", usa este y no inventa el suyo. */
+.panel-centrado{
+  padding:22px 20px;
+  border-radius:var(--r-lg);
+}
+.panel-centrado h1{ font-size:22px; margin-bottom:10px; }
+.panel-centrado p{
+  margin:0 0 12px;
+  max-width:68ch;               /* longitud de linea legible */
+  color:var(--ink-2);
+  font-size:14px;
+  line-height:1.6;
+}
+.panel-centrado p:last-child{ margin-bottom:0; }
+
+@media (min-width: 640px){
+  .panel-centrado{ padding:28px 26px; }
+  .panel-centrado h1{ font-size:26px; }
+}
+
+.topbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:11px 14px;
+  margin-bottom:14px;
+  border-radius:var(--r-lg);
+}
+
+.topbar-actions{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex:none;
+}
+
+/* --- Marca ---------------------------------------------------------------- */
+/* El bloque de identidad de la topbar y del sidebar. Es el mismo componente
+   en los dos lugares, no dos variantes. */
+.brand{
+  display:flex;
+  align-items:center;
+  gap:11px;
+  min-width:0;                  /* permite que el texto se recorte, no la caja */
+  text-decoration:none;
+  color:inherit;
+}
+
+.brand-mark{
+  position:relative;
+  width:38px;
+  height:38px;
+  flex:none;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+  border-radius:13px;
+  background:linear-gradient(155deg, var(--accent), var(--accent-2));
+  box-shadow:var(--glass-in), 0 6px 16px -4px rgba(var(--shadow-rgb),.35);
+}
+
+/* Brillo diagonal sobre el degrade: el mismo recurso que el sheen del vidrio,
+   aplicado a una superficie solida. Es lo que evita que lea como un cuadrado
+   de color plano. */
+.brand-mark::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:linear-gradient(125deg, rgba(255,255,255,.55), transparent 50%);
+}
+
+.brand-mark svg{
+  position:relative;            /* por encima del brillo */
+  width:19px;
+  height:19px;
+  stroke:#fff;                  /* blanco por contraste sobre el acento solido */
+}
+
+.brand-text{ min-width:0; }
+
+.brand-text b{
+  display:block;
+  font-family:Outfit,ui-sans-serif,system-ui,sans-serif;
+  font-size:16.5px;
+  font-weight:700;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.brand-text span{
+  display:block;
+  font-size:10.5px;
+  letter-spacing:.04em;
+  color:var(--ink-3);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+/* Mobile: la sidebar se oculta y se despliega como panel deslizante — el
+   MISMO patron conceptual que el panel de detalle del Dashboard Visual, no
+   una segunda implementacion. */
+@media (max-width: 1023px){
+  .sidebar{
+    position:fixed;
+    left:0;
+    top:0;
+    bottom:0;
+    z-index:60;
+    width:82vw;
+    max-width:300px;
+    height:100%;
+    border-radius:0 20px 20px 0;
+    transform:translateX(-105%);
+    transition:transform .3s cubic-bezier(.32,.72,0,1);
+  }
+  .sidebar.abierta{ transform:translateX(0); }
+
+  .sidebar-backdrop{
+    display:block;
+    position:fixed;
+    inset:0;
+    z-index:55;
+    background:transparent;
+    pointer-events:none;
+  }
+  .sidebar-backdrop.abierta{ pointer-events:auto; }
+}
+
+@media (min-width: 1024px){
+  .sidebar{
+    position:sticky;
+    top:0;
+    height:100vh;
+  }
+  .main-column{ padding:16px 24px 70px; }
+  .hamburguesa{ display:none !important; }
+}
+
+/* ============================================================================
+   4. COMPONENTES TRANSVERSALES
+   ========================================================================== */
+
+/* --- Indicador de estado en vivo (.live) --------------------------------- */
+/* El punto luminoso con su etiqueta. La skill lo define dentro del techo del
+   edificio ("sistema en vivo") en el Dashboard Visual; aca se declara suelto
+   para que ese uso y el indicador de conexion de la topbar sean EL MISMO
+   componente, no dos parecidos.
+
+   Tres estados. El color sale del acento cuando todo anda, y de --crit
+   cuando hay un fallo — mismo criterio que .mensaje-error, que ya usa ese
+   token para un error de sistema y no para el estado de una unidad. */
+.live{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-size:10.5px;
+  font-weight:700;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:var(--ink-3);
+  white-space:nowrap;
+}
+
+.live i{
+  width:6px;
+  height:6px;
+  flex:none;
+  border-radius:50%;
+  background:currentColor;
+  transition:background .3s ease-out, box-shadow .3s ease-out;
+}
+
+/* Comprobando: gris, sin brillo, latiendo apenas. */
+.live.verificando i{ animation:live-latido 1.4s ease-in-out infinite; }
+
+/* Conectado: el acento, con el halo que lo hace leer como "en vivo". */
+.live.conectado{ color:var(--accent-2); }
+.live.conectado i{ box-shadow:0 0 8px var(--accent-2); }
+
+/* Sin conexion: rojo, sin halo. Un fallo no parpadea ni llama la atencion
+   con luz; se queda quieto y se lee. */
+.live.sin-conexion{ color:var(--crit); }
+
+@keyframes live-latido{
+  0%, 100%{ opacity:1; }
+  50%{ opacity:.35; }
+}
+
+/* En pantallas angostas el texto del indicador estorba: queda solo el punto,
+   y la explicacion sigue disponible en el title. */
+.live span{ display:none; }
+@media (min-width: 640px){
+  .live span{ display:inline; }
+}
+
+/* --- Boton de icono ------------------------------------------------------ */
+/* Cuadrado, 38px, para acciones de topbar. Todo boton de solo icono lleva
+   aria-label. El hover eleva 1px: nunca rebota. */
+.icon-btn{
+  position:relative;
+  width:38px;
+  height:38px;
+  flex:none;
+  display:grid;
+  place-items:center;
+  border-radius:13px;
+  border:1px solid var(--line);
+  background:var(--glass-content-bg);
+  box-shadow:var(--glass-in);
+  color:var(--ink-2);
+  cursor:pointer;
+  transition:transform .18s ease-out, color .18s ease-out;
+}
+.icon-btn:hover{ transform:translateY(-1px); color:var(--ink); }
+.icon-btn svg{ width:16px; height:16px; }
+
+/* Variante chica: una accion DENTRO de una fila de listado. El tamano de
+   topbar ahi es desproporcionado. */
+.icon-btn-sm{ width:32px; height:32px; border-radius:11px; }
+.icon-btn-sm svg{ width:15px; height:15px; }
+
+/* --- Pill de estado ------------------------------------------------------ */
+/* EL UNICO componente con licencia para usar los 4 colores del semaforo como
+   fondo de texto. El color se deriva con color-mix sobre el token, nunca con
+   un hexadecimal nuevo. */
+.pill{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  padding:3px 9px;
+  border-radius:99px;
+  font-size:11px;
+  font-weight:700;
+  white-space:nowrap;
+}
+.pill.ok{   background:color-mix(in srgb, var(--ok)   15%, var(--mix-tint)); color:color-mix(in srgb, var(--ok)   78%, var(--mix-ink)); }
+.pill.warn{ background:color-mix(in srgb, var(--warn) 16%, var(--mix-tint)); color:color-mix(in srgb, var(--warn) 78%, var(--mix-ink)); }
+.pill.pend{ background:color-mix(in srgb, var(--pend) 16%, var(--mix-tint)); color:color-mix(in srgb, var(--pend) 78%, var(--mix-ink)); }
+.pill.crit{ background:color-mix(in srgb, var(--crit) 15%, var(--mix-tint)); color:color-mix(in srgb, var(--crit) 80%, var(--mix-ink)); }
+
+/* --- Formularios --------------------------------------------------------- */
+.campo{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  margin-bottom:14px;
+  min-width:0;
+}
+.campo label{
+  font-size:12px;
+  font-weight:600;
+  color:var(--ink-2);
+}
+
+/* width:100%, min-width:0 y box-sizing van SIEMPRE. Sin los tres, un input
+   dentro de dos columnas vuelve a su ancho intrinseco (~20 caracteres) y
+   estira la columna mas alla de la tarjeta. */
+.campo input,
+.campo select,
+.campo textarea{
+  width:100%;
+  min-width:0;
+  box-sizing:border-box;
+  padding:10px 13px;
+  border-radius:var(--r-sm);
+  border:1px solid var(--line);
+  background:var(--glass-content-bg);
+  color:var(--ink);
+  font:inherit;
+  font-size:13.5px;
+  outline:none;
+  transition:border-color .18s ease-out, box-shadow .18s ease-out;
+}
+.campo textarea{ resize:vertical; min-height:88px; }
+
+.campo input:focus,
+.campo select:focus,
+.campo textarea:focus{
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px var(--accent-ring);
+}
+
+.campo-ayuda{ font-size:11px; color:var(--ink-3); }
+
+/* Dos campos cortos lado a lado: una columna en mobile, dos recien desde
+   480px, para que nunca deforme un input en pantallas chicas. */
+.form-grid-2{ display:grid; grid-template-columns:1fr; gap:0 12px; }
+@media (min-width: 480px){
+  .form-grid-2{ grid-template-columns:1fr 1fr; }
+}
+
+/* --- Boton primario ------------------------------------------------------ */
+.boton-primario{
+  width:100%;
+  padding:11px;
+  border:0;
+  border-radius:var(--r-sm);
+  background:linear-gradient(155deg, var(--accent), var(--accent-2));
+  color:#fff;                         /* blanco por contraste sobre el acento
+                                         solido, no por tema: no cambia en oscuro */
+  font-family:Outfit,ui-sans-serif,system-ui,sans-serif;
+  font-size:14px;
+  font-weight:700;
+  cursor:pointer;
+  box-shadow:0 6px 16px -8px rgba(var(--shadow-rgb),.6);
+  transition:transform .18s ease-out, box-shadow .18s ease-out, opacity .18s ease-out;
+}
+.boton-primario:hover:not(:disabled){
+  transform:translateY(-1px);
+  box-shadow:0 10px 22px -10px rgba(var(--shadow-rgb),.65);
+}
+/* Los botones que disparan una llamada se deshabilitan mientras dura, y se
+   rehabilitan pase lo que pase. */
+.boton-primario:disabled{ opacity:.6; cursor:default; transform:none; }
+
+/* Variante neutra, para el "Cancelar" que acompana a un primario. */
+.boton-secundario{
+  background:var(--glass-content-bg);
+  color:var(--ink-2);
+  box-shadow:inset 0 0 0 1px var(--line);
+}
+.boton-secundario:hover:not(:disabled){
+  color:var(--ink);
+  box-shadow:inset 0 0 0 1px var(--line-strong);
+}
+
+/* --- Selector de vista segmentado ---------------------------------------- */
+/* Base de TODO selector de pestanas del proyecto. El fondo del boton activo
+   no lo pinta cada boton: lo hace un unico indicador que se desliza entre
+   opciones, moviendose y cambiando de ancho para calzar exacto. El JS que lo
+   mueve llega en F1-T12. */
+.view-switch{
+  position:relative;
+  display:flex;
+  gap:4px;
+  padding:4px;
+  width:max-content;
+  max-width:100%;
+  overflow-x:auto;
+  border-radius:99px;
+  background:rgba(var(--shadow-rgb),.06);
+  box-shadow:inset 0 1px 3px rgba(var(--shadow-rgb),.12);
+  scrollbar-width:none;
+}
+.view-switch::-webkit-scrollbar{ display:none; }
+
+.view-switch-indicador{
+  position:absolute;
+  top:4px;
+  left:0;
+  height:calc(100% - 8px);
+  border-radius:99px;
+  background:var(--glass-content-bg);
+  box-shadow:var(--glass-in), var(--sh-sm);
+  pointer-events:none;
+  transition:transform .32s cubic-bezier(.32,.72,0,1),
+             width .32s cubic-bezier(.32,.72,0,1);
+}
+
+.view-switch button{
+  position:relative;
+  z-index:1;
+  padding:8px 13px;
+  border:0;
+  border-radius:99px;
+  background:transparent;
+  color:var(--ink-3);
+  font:inherit;
+  font-size:12px;
+  font-weight:600;
+  white-space:nowrap;
+  cursor:pointer;
+  transition:color .18s ease-out;
+}
+.view-switch button.activo{ color:var(--accent-2); }
+
+/* --- Modal --------------------------------------------------------------- */
+/* A diferencia del backdrop del sidebar y del panel de detalle, este SI
+   oscurece y difumina: el usuario tiene que leer algo antes de seguir. */
+.modal-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:80;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  /* Negro literal, no un token, y es deliberado: el velo del modal oscurece
+     lo mismo en tema claro que en oscuro. Si variara con el tema, en oscuro
+     no separaria el modal del fondo, que es justamente su unico trabajo. */
+  background:rgba(0,0,0,.35);
+  backdrop-filter:blur(6px) saturate(1.1);
+  -webkit-backdrop-filter:blur(6px) saturate(1.1);
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .22s ease-out;
+}
+.modal-backdrop.abierto{ opacity:1; pointer-events:auto; }
+
+.modal{
+  width:100%;
+  max-width:360px;
+  padding:24px 22px;
+  border-radius:var(--r-lg);
+  text-align:center;
+  transform:scale(.96);
+  transition:transform .22s ease-out;
+
+  /* Se usa junto con .shell, pero le pisa el fondo con la variante casi
+     opaca. El 52% de blanco de .shell esta pensado para apoyarse sobre el
+     fondo CLARO de la pagina; sobre el backdrop oscuro se mezcla con el
+     negro de abajo y da un gris lavado, "sin los colores de la app".
+     Cualquier componente nuevo que combine vidrio con un fondo oscuro
+     detras necesita el mismo ajuste. */
+  background:var(--glass-shell-fallback);
+
+  /* Descuenta el padding del backdrop (20px arriba + 20px abajo). Sin esto,
+     contenido largo de verdad se corta contra los bordes de la ventana en
+     mobile, sin ninguna forma de desplazarse. */
+  max-height:calc(100vh - 40px);
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+}
+.modal-backdrop.abierto .modal{ transform:scale(1); }
+
+/* Variante de formulario: mas ancha y alineada a la izquierda. El modal de
+   formulario NUNCA se cierra tocando el backdrop, solo con la X o Cancelar
+   — perder un alta a medio tipear es un problema real. Eso lo resuelve el JS
+   de la pantalla; aca queda la forma. */
+.modal-formulario{
+  max-width:560px;
+  padding:28px 26px 26px;
+  text-align:left;
+  position:relative;
+}
+.modal-formulario h3{ margin:0 0 4px; padding-right:34px; }
+.modal-formulario-sub{
+  display:block;
+  margin:0 0 18px;
+  font-size:13px;
+  color:var(--ink-3);
+}
+.modal-formulario-acciones{ display:flex; gap:10px; margin-top:6px; }
+.modal-formulario-acciones .boton-primario{ width:auto; flex:1; }
+
+.modal-cerrar{
+  position:absolute;
+  top:18px;
+  right:18px;
+  width:30px;
+  height:30px;
+  display:grid;
+  place-items:center;
+  border:0;
+  border-radius:10px;
+  background:var(--glass-content-bg);
+  box-shadow:var(--glass-in);
+  color:var(--ink-2);
+  cursor:pointer;
+  transition:transform .18s ease-out;
+}
+.modal-cerrar:hover{ transform:translateY(-1px); }
+.modal-cerrar svg{ width:14px; height:14px; }
+
+/* --- Mensajes en linea ---------------------------------------------------- */
+/* Los errores se muestran DONDE ocurrio la accion, nunca en un lugar
+   generico lejos del contexto. */
+.mensaje-error,
+.mensaje-exito{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:10px 13px;
+  margin-bottom:14px;
+  border-radius:var(--r-sm);
+  font-size:13px;
+  font-weight:600;
+}
+.mensaje-error{
+  background:color-mix(in srgb, var(--crit) 15%, var(--mix-tint));
+  color:color-mix(in srgb, var(--crit) 80%, var(--mix-ink));
+}
+.mensaje-exito{
+  background:color-mix(in srgb, var(--ok) 15%, var(--mix-tint));
+  color:color-mix(in srgb, var(--ok) 78%, var(--mix-ink));
+}
+.mensaje-error svg,
+.mensaje-exito svg{ width:16px; height:16px; flex:none; }

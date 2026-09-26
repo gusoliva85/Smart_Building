@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  favicon.svg de SMART Building.
+
+  Es la marca de la aplicacion (clase .brand-mark) reconstruida como SVG
+  independiente: mismo degrade acero/grafito a 155 grados, mismo icono de
+  edificio en trazo blanco, mismo brillo diagonal.
+
+  Los colores van en hexadecimal a proposito, y es la unica excepcion
+  legitima a la regla de "todo color sale de un token": un favicon se carga
+  fuera del documento y NO PUEDE leer las variables CSS de la pagina que lo
+  referencia. Si en tokens.css cambia el acento o el acento 2, hay que
+  actualizar los dos valores de aca a mano. Hoy son #57768c y #3e5a6d.
+
+  (Ojo al editar este comentario: dentro de un comentario de SVG, que es XML
+  estricto, no se pueden escribir dos guiones seguidos. Escribir los nombres
+  de los tokens tal como van en el CSS rompe el archivo entero.)
+
+  No se genera un icono nuevo por pantalla: siempre este mismo archivo.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="SMART Building">
+  <defs>
+    <linearGradient id="fondo" x1="0" y1="0" x2="1" y2="1" gradientTransform="rotate(65 0.5 0.5)">
+      <stop offset="0" stop-color="#57768c"/>
+      <stop offset="1" stop-color="#3e5a6d"/>
+    </linearGradient>
+    <linearGradient id="brillo" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.45"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="48" height="48" rx="15" fill="url(#fondo)"/>
+  <rect width="48" height="48" rx="15" fill="url(#brillo)"/>
+
+  <g fill="none" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M13 38V17l11-5 11 5v21"/>
+    <path d="M20 38v-7h8v7"/>
+    <path d="M19.5 21.5h0.01M28.5 21.5h0.01M19.5 26h0.01M28.5 26h0.01"/>
+  </g>
+</svg>
