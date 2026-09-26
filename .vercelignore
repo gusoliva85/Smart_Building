@@ -1,0 +1,17 @@
+# Que NO se sube a Vercel en cada despliegue.
+#
+# Vercel sube el repositorio entero antes de construir, aunque vercel.json
+# solo declare dos builds. Esto recorta lo que no participa del despliegue:
+# no cambia el resultado, solo hace cada deploy mas liviano y rapido.
+
+documentacion/
+.claude/
+backend/tests/
+backend/pytest.ini
+README.md
+
+# Nunca deberian existir en el repositorio, pero por las dudas.
+backend/venv/
+.venv/
+**/__pycache__/
+*.db

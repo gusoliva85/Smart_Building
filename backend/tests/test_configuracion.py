@@ -6,6 +6,7 @@ puede pasar meses sin que nadie lo advierta, asi que conviene tenerla probada.
 """
 
 import importlib
+import logging
 
 import pytest
 
@@ -90,16 +91,21 @@ def test_produccion_sobre_sqlite_no_arranca(configuracion):
         config.verificar_configuracion_produccion()
 
 
-def test_produccion_sin_origenes_cors_no_arranca(configuracion):
+def test_produccion_sin_origenes_cors_arranca_pero_avisa(configuracion, caplog):
+    """Frontend y backend comparten dominio en Vercel, asi que no hay CORS que
+    declarar. Exigirlo bloquearia el primer despliegue: el dominio lo asigna
+    Vercel recien DESPUES de desplegar. Se avisa en el log y se sigue."""
     entorno = {k: v for k, v in PRODUCCION_SANA.items() if k != "CORS_ORIGENES_EXTRA"}
     config = configuracion(**entorno)
 
-    with pytest.raises(config.ConfiguracionInsegura, match="CORS_ORIGENES_EXTRA"):
-        config.verificar_configuracion_produccion()
+    with caplog.at_level(logging.WARNING):
+        config.verificar_configuracion_produccion()   # no debe levantar nada
+
+    assert "CORS_ORIGENES_EXTRA" in caplog.text
 
 
 def test_informa_todos_los_problemas_juntos(configuracion):
-    """Que no haya que desplegar tres veces para enterarse de los tres."""
+    """Que no haya que desplegar dos veces para enterarse de los dos."""
     config = configuracion(VERCEL="1")
 
     with pytest.raises(config.ConfiguracionInsegura) as error:
@@ -108,7 +114,17 @@ def test_informa_todos_los_problemas_juntos(configuracion):
     mensaje = str(error.value)
     assert "JWT_SECRETO" in mensaje
     assert "SQLite" in mensaje
-    assert "CORS_ORIGENES_EXTRA" in mensaje
+
+
+def test_solo_el_secreto_y_la_base_bloquean_el_arranque(configuracion):
+    """Los dos que si bloquean son los que dejan el sistema inseguro o
+    pierden datos en silencio. Lo demas se avisa, no se bloquea."""
+    config = configuracion(VERCEL="1")
+
+    with pytest.raises(config.ConfiguracionInsegura) as error:
+        config.verificar_configuracion_produccion()
+
+    assert str(error.value).count("  - ") == 2
 
 
 def test_produccion_bien_configurada_arranca(configuracion):

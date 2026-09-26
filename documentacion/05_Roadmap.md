@@ -227,8 +227,77 @@ Para que quede registro de qué se corrigió y por qué:
 - [x] **F0-T18 · Prueba manual de punta a punta.**
   **Qué se prueba:** clonar en una carpeta limpia, seguir el README paso a paso, levantar los dos procesos, abrir el cascarón, ver el indicador de conexión, cambiar de tema, recargar y confirmar que el tema persistió. En mobile y en escritorio.
 
-- [ ] **F0-DOC · Documentación de la Fase 0.**
+- [x] **F0-DOC · Documentación de la Fase 0.**
   Con todo lo anterior aprobado, redactar `documentacion/fases/Fase_0_Fundacion.md` siguiendo la estructura de la sección 1.6. Foco particular: por qué el proyecto no usa framework de frontend ni build, qué hace exactamente el mecanismo de migraciones y cuáles son sus límites.
+
+---
+
+# Fase 0.5 — Despliegue temprano
+
+**Por que existe esta fase, fuera del orden original.** El plan ponia todo el
+despliegue en la Fase 13. El usuario pidio adelantarlo para poder ver cada
+tarea aprobada funcionando en produccion, y hay una razon tecnica que lo hace
+todavia mas conveniente: **hoy no existe ni un solo modelo**, asi que vaciar el
+esquema viejo de Supabase no cuesta nada. Cuando la Fase 1 cree la tabla
+`usuarios`, el mecanismo aditivo se va a encontrar con una `usuarios` vieja de
+otra forma, no la va a corregir y **tampoco va a dar error**. Resolverlo ahora
+es gratis; resolverlo mas adelante es una migracion escrita a mano.
+
+**Decision de arquitectura tomada aca (2026-09-27):** un solo proyecto de
+Vercel, no dos. El despliegue anterior eran dos proyectos separados, lo que
+obligaba al frontend a conocer el dominio del backend y a mantener CORS entre
+dominios. Con un unico proyecto y una regla de reescritura, `/api/*` va a la
+funcion Python y todo lo demas al frontend estatico: **mismo origen, sin CORS
+en produccion**, y `config.js` funciona sin cambios.
+
+**Esta fase no tiene documento propio.** Es un bloque de cuatro tareas
+adelantadas, no una etapa funcional: se documenta dentro de `F13-DOC`, junto
+con el resto de la puesta en produccion. Es una excepcion deliberada a la regla
+de la seccion 1.6, no un olvido.
+
+- [x] **F05-T01 · Vaciar el esquema de produccion de Supabase.**
+  **Que se hace:** eliminar el esquema `public` de la base de Supabase y
+  volverlo a crear vacio, para que el codigo nuevo lo construya desde cero en
+  vez de arrastrar la forma del codigo eliminado.
+  **Quien:** el usuario, desde el editor SQL de Supabase. No hay acceso a esa
+  cuenta desde el proyecto.
+  **Por que se puede hacer sin riesgo hoy:** lo que hay son datos de prueba del
+  codigo eliminado, y no existe todavia ningun modelo que dependa de ellos.
+  **Cuidado con:** es destructivo e irreversible. Adelanta `F13-T01`.
+  **Listo cuando:** el esquema `public` existe y esta vacio, verificado con una
+  consulta al catalogo de tablas.
+
+- [x] **F05-T02 · Punto de entrada serverless y `vercel.json`.**
+  **Que se construye:** `api/index.py` (el adaptador que expone la aplicacion
+  de FastAPI a la funcion serverless), `requirements.txt` en la raiz (es donde
+  lo busca el runtime de Python de Vercel) y `vercel.json` con la region
+  `gru1` y la reescritura de `/api/*` hacia la funcion.
+  **Por que la region importa:** se midio en produccion un costo fijo de
+  500-600 ms por request sin ninguna consulta de por medio, porque backend y
+  base podian estar en continentes distintos. `gru1` coincide con la region
+  `sa-east-1` de Supabase. **Si se cambia la region de la base, se cambia esta.**
+  **Listo cuando:** los tres archivos existen y la suite completa sigue en verde.
+
+- [ ] **F05-T03 · Ajustar la guarda de produccion al despliegue de dominio unico.**
+  **Que se cambia:** hoy `verificar_configuracion_produccion()` se niega a
+  arrancar si `CORS_ORIGENES_EXTRA` esta vacio. Con frontend y backend en el
+  mismo origen, el navegador no dispara CORS, asi que exigir ese valor seria
+  pedir configuracion que no hace falta. Pasa de error a advertencia registrada
+  en el log; las otras dos verificaciones (secreto y SQLite) siguen siendo
+  bloqueantes.
+  **Listo cuando:** el test de esa guarda refleja el comportamiento nuevo y la
+  suite completa sigue en verde.
+
+- [ ] **F05-T04 · Primer despliegue y verificacion en produccion.**
+  **Quien hace que:** el usuario conecta el repositorio de GitHub al proyecto
+  de Vercel y carga las variables de entorno (`DATABASE_URL`, `JWT_SECRETO`)
+  desde el panel. **Ningun secreto entra al repositorio ni pasa por la
+  conversacion.**
+  **Listo cuando:** `https://<dominio>/api/salud` responde 200; la pagina abre
+  con el indicador de conexion en verde; `/docs` responde **404** (la
+  documentacion interactiva esta apagada en produccion); y el despliegue se
+  dispara solo con cada push a `main`.
+  **Sustituye a** `F13-T02`, que queda como verificacion final.
 
 ---
 
@@ -1099,12 +1168,15 @@ Para que quede registro de qué se corrigió y por qué:
 
 **Respaldo documental:** `02_Documento_Tecnico.md` (7) · `04_Infraestructura.md` (entero).
 
-- [ ] **F13-T01 · Decisión — qué se hace con el esquema viejo de Supabase.**
+- [ ] **F13-T01 · Verificar el estado del esquema de produccion.**
+  **Nota (2026-09-27):** la decision y el vaciado se adelantaron a `F05-T01`. Esta tarea queda como la verificacion final de que el esquema de produccion coincide con los modelos despues de trece fases.
+  **Contenido original, que se conserva como referencia:**
   **⚠️ Esta tarea va primero de la fase y bloquea a las demás.** La base de producción **conserva el esquema y los datos del código eliminado**. Como los dos mecanismos de evolución del esquema son **puramente aditivos**, desplegar la reimplementación contra esa base **no va a corregir ninguna diferencia**: una tabla modelada distinto queda con su forma vieja, **sin error visible**.
   **Qué se decide:** vaciar el esquema y dejar que la aplicación lo recree desde cero (recomendado, y es lo que sugiere `04_Infraestructura.md` sección 3), o auditar tabla por tabla las diferencias.
   **Listo cuando:** la decisión está tomada, ejecutada y verificada contra la base real.
 
-- [ ] **F13-T02 · Infraestructura — repositorio, Vercel y variables de entorno.**
+- [ ] **F13-T02 · Infraestructura — revision final del despliegue.**
+  **Nota (2026-09-27):** el vinculo con el repositorio y las variables de entorno se adelantaron a `F05-T04`. Aca se revisa que todo siga correcto antes del cierre.
   **Qué se hace:** recrear el vínculo entre el repositorio nuevo y el proyecto de Vercel (quedó huérfano al borrarse el repositorio anterior), verificar las variables de entorno que siguen vivas, y **confirmar que la región del backend coincide con la de la base** — si están en continentes distintos se paga un costo fijo de cientos de milisegundos por request, incluso sin ninguna consulta de por medio.
 
 - [ ] **F13-T03 · Seguridad — rol de base de datos de mínimo privilegio.**

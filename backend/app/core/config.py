@@ -12,10 +12,13 @@ Las variables que consume el proyecto estan documentadas en
 documentacion/04_Infraestructura.md, seccion 2.3.
 """
 
+import logging
 import os
 from pathlib import Path
 
 # ---------------------------------------------------------------- identidad --
+
+logger = logging.getLogger(__name__)
 
 NOMBRE_APP = "SMART Building"
 VERSION = "0.1.0"
@@ -133,11 +136,24 @@ def verificar_configuracion_produccion() -> None:
             "Supabase, a traves del connection pooler."
         )
 
+    # CORS_ORIGENES_EXTRA vacio NO bloquea el arranque, y es deliberado.
+    #
+    # Frontend y backend se despliegan como UN SOLO proyecto de Vercel, con
+    # /api/* reescrito hacia la funcion: comparten dominio, asi que el
+    # navegador no dispara CORS y no hace falta declarar ningun origen.
+    # Exigirlo seria pedir configuracion que no cumple ninguna funcion — y en
+    # el primer despliegue seria imposible de cumplir, porque el dominio lo
+    # asigna Vercel recien despues de desplegar.
+    #
+    # Se registra igual: si alguna vez el frontend se sirve desde otro dominio
+    # (un dominio propio, o volver a dos proyectos separados), este aviso en
+    # el log de arranque es lo que va a explicar por que las peticiones fallan.
     if not _leer_origenes_extra():
-        problemas.append(
-            "CORS_ORIGENES_EXTRA esta vacio. Solo estan permitidos los origenes "
-            "de desarrollo, asi que el frontend desplegado no va a poder hablar "
-            "con la API. Defini el dominio real del frontend."
+        logger.warning(
+            "CORS_ORIGENES_EXTRA esta vacio. Solo se permiten los origenes de "
+            "desarrollo. Es lo correcto mientras frontend y backend compartan "
+            "dominio; si el frontend se sirve desde otro dominio, hay que "
+            "declararlo aca o sus peticiones van a ser rechazadas."
         )
 
     if problemas:

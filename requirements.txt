@@ -1,0 +1,13 @@
+# Dependencias para el despliegue en Vercel.
+#
+# El runtime de Python de Vercel instala el requirements.txt de la raiz del
+# repositorio. Las dependencias reales del proyecto viven en
+# backend/requirements.txt, que es el que se usa en desarrollo: este archivo
+# solo lo referencia para que haya UNA sola lista de versiones.
+#
+# Si se duplicaran las dependencias en dos archivos, en algun momento una de
+# las dos listas se quedaria atras y produccion correria con versiones
+# distintas a las probadas en local. Ese es exactamente el tipo de diferencia
+# que no da error y se descubre tarde.
+
+-r backend/requirements.txt
