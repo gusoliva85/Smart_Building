@@ -1,13 +1,51 @@
-# Dependencias para el despliegue en Vercel.
+# ============================================================================
+# SMART Building - dependencias del proyecto
+# Python 3.12
 #
-# El runtime de Python de Vercel instala el requirements.txt de la raiz del
-# repositorio. Las dependencias reales del proyecto viven en
-# backend/requirements.txt, que es el que se usa en desarrollo: este archivo
-# solo lo referencia para que haya UNA sola lista de versiones.
+# ESTA ES LA LISTA CANONICA, y vive en la raiz porque es donde la lee el
+# runtime de Python de Vercel. El parser de Vercel NO soporta incluir otro
+# archivo con "-r": si se intenta, el deploy falla con
+# "could not parse requirements.txt".
 #
-# Si se duplicaran las dependencias en dos archivos, en algun momento una de
-# las dos listas se quedaria atras y produccion correria con versiones
-# distintas a las probadas en local. Ese es exactamente el tipo de diferencia
-# que no da error y se descubre tarde.
+# backend/requirements.txt la referencia, para que haya una sola lista de
+# versiones y produccion no corra con versiones distintas a las probadas.
+#
+# Instalacion en desarrollo (desde backend/):  pip install -r requirements.txt
+# ============================================================================
 
--r backend/requirements.txt
+# --- Framework y servidor ---------------------------------------------------
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# --- Base de datos ----------------------------------------------------------
+SQLAlchemy==2.0.36
+# Driver de PostgreSQL. Solo interviene cuando DATABASE_URL apunta a Postgres
+# (producción, Supabase vía pooler); en desarrollo, sobre SQLite, no se usa.
+psycopg2-binary==2.9.10
+
+# --- Validación -------------------------------------------------------------
+pydantic==2.10.4
+# Requerido por Pydantic para validar el tipo EmailStr, que usa Usuario.email.
+email-validator==2.2.0
+
+# --- Autenticación ----------------------------------------------------------
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+# Pin deliberado. passlib 1.7.4 lee bcrypt.__about__.__version__ al arrancar, y
+# ese atributo se eliminó en bcrypt 4.1: con una versión más nueva el hasheo
+# sigue funcionando, pero cada arranque escupe un error de lectura de versión
+# que ensucia los logs y hace perder tiempo buscando un problema que no existe.
+bcrypt==4.0.1
+
+# Lectura de formularios multipart. La necesita el login (OAuth2PasswordRequestForm)
+# y, más adelante, la carga real de archivos de la Fase 7.
+python-multipart==0.0.20
+
+# --- Activos (Fase 4) -------------------------------------------------------
+# Genera el PNG del código QR que se pega sobre el activo físico.
+qrcode[pil]==8.0
+
+# --- Pruebas ----------------------------------------------------------------
+pytest==8.3.4
+# Lo usa el TestClient de FastAPI por debajo.
+httpx==0.28.1
