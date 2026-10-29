@@ -135,6 +135,99 @@ def test_produccion_bien_configurada_arranca(configuracion):
     config.verificar_configuracion_produccion()
 
 
+# ---------------------------------------------- longitud del secreto ---------
+
+
+def test_produccion_con_un_secreto_corto_no_arranca(configuracion):
+    """Un secreto propio pero corto pasaba la guarda, porque solo se comparaba
+    contra el de desarrollo. PyJWT avisa por log cuando la clave HMAC es menor
+    a 32 bytes, pero firma igual — y un warning en los logs de una funcion
+    serverless es un aviso que nadie lee."""
+    config = configuracion(**{**PRODUCCION_SANA, "JWT_SECRETO": "corto"})
+
+    with pytest.raises(config.ConfiguracionInsegura, match="32"):
+        config.verificar_configuracion_produccion()
+
+
+def test_el_secreto_se_mide_en_bytes_y_no_en_caracteres(configuracion):
+    """Misma trampa que en las contrasenias: 20 caracteres acentuados son 40
+    bytes, pero 20 caracteres ASCII son 20. Medir caracteres aceptaria una
+    clave de 20 bytes."""
+    config = configuracion(**{**PRODUCCION_SANA, "JWT_SECRETO": "a" * 31})
+
+    with pytest.raises(config.ConfiguracionInsegura, match="31 bytes"):
+        config.verificar_configuracion_produccion()
+
+    config = configuracion(**{**PRODUCCION_SANA, "JWT_SECRETO": "á" * 16})
+    config.verificar_configuracion_produccion()  # 32 bytes en 16 caracteres
+
+
+def test_un_secreto_de_exactamente_32_bytes_arranca(configuracion):
+    """El limite exacto, para que el control sea `<` y no `<=`."""
+    config = configuracion(**{**PRODUCCION_SANA, "JWT_SECRETO": "a" * 32})
+
+    config.verificar_configuracion_produccion()
+
+
+def test_el_secreto_de_desarrollo_se_reporta_como_tal_y_no_por_su_largo(configuracion):
+    """El secreto de desarrollo tiene 41 bytes, asi que pasaria el control de
+    longitud. Pero aunque fuera corto, el mensaje tiene que ser el de "es el
+    secreto publico del repositorio": es un problema distinto y mas grave, y
+    dos mensajes a la vez dispersan a quien tiene que arreglarlo."""
+    config = configuracion(
+        **{**PRODUCCION_SANA, "JWT_SECRETO": config_modulo.JWT_SECRETO_DESARROLLO}
+    )
+
+    with pytest.raises(config.ConfiguracionInsegura) as excepcion:
+        config.verificar_configuracion_produccion()
+
+    assert "valor de desarrollo" in str(excepcion.value)
+    assert "minimo es 32" not in str(excepcion.value)
+
+
+# ------------------------------------------------- cadena de conexion --------
+
+
+def test_produccion_con_la_conexion_directa_de_supabase_no_arranca(configuracion):
+    """El host directo de Supabase resuelve a IPv6 y una funcion serverless no
+    puede abrir conexiones IPv6 salientes. Falla igual, pero con un traceback
+    de ochenta lineas que no dice cual es el problema: mejor detectarlo al
+    arrancar y explicar que cadena hay que usar."""
+    config = configuracion(
+        **{
+            **PRODUCCION_SANA,
+            "DATABASE_URL": "postgresql://postgres:clave@db.abcdefgh.supabase.co:5432/postgres",
+        }
+    )
+
+    with pytest.raises(config.ConfiguracionInsegura, match="Transaction pooler"):
+        config.verificar_configuracion_produccion()
+
+
+def test_produccion_con_el_pooler_arranca(configuracion):
+    config = configuracion(
+        **{
+            **PRODUCCION_SANA,
+            "DATABASE_URL": (
+                "postgresql://postgres.abcdefgh:clave"
+                "@aws-0-sa-east-1.pooler.supabase.com:6543/postgres"
+            ),
+        }
+    )
+
+    config.verificar_configuracion_produccion()
+
+
+def test_una_base_que_no_es_de_supabase_no_dispara_la_verificacion(configuracion):
+    """La comprobacion es especifica de Supabase: cualquier otro PostgreSQL
+    tiene que poder usarse sin que esta regla se meta en el medio."""
+    config = configuracion(
+        **{**PRODUCCION_SANA, "DATABASE_URL": "postgresql://u:p@mi-servidor.example.com:5432/db"}
+    )
+
+    config.verificar_configuracion_produccion()
+
+
 # --------------------------------------------------------------------- CORS --
 
 

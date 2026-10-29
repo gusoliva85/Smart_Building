@@ -72,7 +72,7 @@ Dentro de cada tema, las tareas van siempre en ese orden y se aprueban en ese or
 
 El detalle completo vive en `02_Documento_Tecnico.md`. Resumen operativo para no saltar de documento en cada tarea:
 
-- **Backend:** Python 3.12 + FastAPI + SQLAlchemy + Pydantic v2 + Uvicorn. Un router por dominio bajo `/api/`. JWT (`python-jose`) + bcrypt (`passlib`). `/docs` siempre activo **en desarrollo**, apagado en producción.
+- **Backend:** Python 3.12 + FastAPI + SQLAlchemy + Pydantic v2 + Uvicorn. Un router por dominio bajo `/api/`. JWT (`PyJWT`, HS256) + hash con `bcrypt` usado directo. `/docs` siempre activo **en desarrollo**, apagado en producción.
 - **Base de datos:** SQLite en desarrollo, PostgreSQL (Supabase, vía *connection pooler*) en producción. El entorno serverless **no tiene disco persistente, ni procesos de fondo, ni estado en memoria entre requests**: todo lo que suene a *cron* (avisar vencimientos, recordar deudas) se calcula al momento de la consulta.
 - **Frontend:** multi-página estática, sin framework, sin router y **sin build**. Un `.html` por dominio, CSS propio (una hoja de tokens y un catálogo de componentes) + JavaScript vanilla ES2020+. Se evaluó Tailwind y se descartó el 2026-09-27: el sistema visual son clases compuestas propias, sus utilidades no se usarían, y sumaba una dependencia externa sin resolver nada.
 - **Sistema de diseño obligatorio:** **el contrato visual del proyecto es la skill `.claude/skills/premium-uiux/`** — se carga antes de crear o tocar cualquier pantalla, y ante una duda de aspecto, gana la skill. `03_Documento_Frontend.md` es la misma especificación en versión legible y razonada. **La carpeta `documentacion/mockups/` es exploración visual histórica y no manda sobre nada.** Si una regla cambia, cambia en los dos lugares: son dos formatos del mismo contrato, no dos fuentes de verdad.
@@ -154,7 +154,7 @@ Para que quede registro de qué se corrigió y por qué:
 ## Tema 0.2 — Esqueleto del backend
 
 - [x] **F0-T03 · Estructura de carpetas y entorno.**
-  **Qué se construye:** `backend/app/{core,models,schemas,routers,services}/`, `backend/tests/`, entorno virtual y `requirements.txt` con `fastapi`, `uvicorn`, `sqlalchemy`, `pydantic`, `python-jose[cryptography]`, `passlib[bcrypt]`, `python-multipart`, `qrcode[pil]`, `psycopg2-binary`, `pytest`, `httpx`.
+  **Qué se construye:** `backend/app/{core,models,schemas,routers,services}/`, `backend/tests/`, entorno virtual y `requirements.txt` con `fastapi`, `uvicorn`, `sqlalchemy`, `pydantic`, `PyJWT`, `bcrypt`, `python-multipart`, `qrcode[pil]`, `psycopg2-binary`, `pytest`, `httpx`.
   **Listo cuando:** `pip install -r requirements.txt` corre limpio en un entorno nuevo.
 
 - [x] **F0-T04 · `core/config.py` — configuración y variables de entorno.**
@@ -250,9 +250,10 @@ dominios. Con un unico proyecto y una regla de reescritura, `/api/*` va a la
 funcion Python y todo lo demas al frontend estatico: **mismo origen, sin CORS
 en produccion**, y `config.js` funciona sin cambios.
 
-**Esta fase no tiene documento propio.** Es un bloque de cuatro tareas
-adelantadas, no una etapa funcional: se documenta dentro de `F13-DOC`, junto
-con el resto de la puesta en produccion. Es una excepcion deliberada a la regla
+**Esta fase no tiene documento propio.** Es un bloque de tareas adelantadas, no
+una etapa funcional: quedo documentada en el **anexo (seccion 9) de
+`documentacion/fases/Fase_0_Fundacion.md`**, porque lo que se desplego es
+exactamente lo que construyo esa fase. Es una excepcion deliberada a la regla
 de la seccion 1.6, no un olvido.
 
 - [x] **F05-T01 · Vaciar el esquema de produccion de Supabase.**
@@ -278,7 +279,7 @@ de la seccion 1.6, no un olvido.
   `sa-east-1` de Supabase. **Si se cambia la region de la base, se cambia esta.**
   **Listo cuando:** los tres archivos existen y la suite completa sigue en verde.
 
-- [ ] **F05-T03 · Ajustar la guarda de produccion al despliegue de dominio unico.**
+- [x] **F05-T03 · Ajustar la guarda de produccion al despliegue de dominio unico.**
   **Que se cambia:** hoy `verificar_configuracion_produccion()` se niega a
   arrancar si `CORS_ORIGENES_EXTRA` esta vacio. Con frontend y backend en el
   mismo origen, el navegador no dispara CORS, asi que exigir ese valor seria
@@ -288,7 +289,7 @@ de la seccion 1.6, no un olvido.
   **Listo cuando:** el test de esa guarda refleja el comportamiento nuevo y la
   suite completa sigue en verde.
 
-- [ ] **F05-T04 · Primer despliegue y verificacion en produccion.**
+- [x] **F05-T04 · Primer despliegue y verificacion en produccion.**
   **Quien hace que:** el usuario conecta el repositorio de GitHub al proyecto
   de Vercel y carga las variables de entorno (`DATABASE_URL`, `JWT_SECRETO`)
   desde el panel. **Ningun secreto entra al repositorio ni pasa por la
@@ -298,6 +299,21 @@ de la seccion 1.6, no un olvido.
   documentacion interactiva esta apagada en produccion); y el despliegue se
   dispara solo con cada push a `main`.
   **Sustituye a** `F13-T02`, que queda como verificacion final.
+
+- [x] **F05-T05 · Detectar la cadena de conexion equivocada al arrancar.**
+  **Por que existe esta tarea:** no estaba planificada. La agregue despues de
+  perder un ciclo de despliegue completo con la cadena de conexion directa de
+  Supabase en lugar de la del pooler: el host directo resuelve a IPv6, una
+  funcion serverless no puede usarlo, y el error llega como un
+  `Cannot assign requested address` dentro de un traceback de ochenta lineas
+  que no menciona el verdadero problema.
+  **Que se construye:** una verificacion en
+  `verificar_configuracion_produccion()` que reconoce la cadena directa y
+  responde con el mensaje exacto de que cambiar — host terminado en
+  `pooler.supabase.com`, puerto 6543, usuario `postgres.<proyecto>`.
+  **Listo cuando:** hay tres tests — que la directa bloquee el arranque, que la
+  del pooler lo permita, y que una base que no sea de Supabase no dispare la
+  regla — y la suite completa sigue en verde.
 
 ---
 
@@ -311,47 +327,78 @@ de la seccion 1.6, no un olvido.
 
 ## Tema 1.1 — Autorización (la lógica antes que todo)
 
-- [ ] **F1-T01 · Lógica — `services/autorizacion.py`, la matriz de roles.**
+- [x] **F1-T01 · Lógica — `services/autorizacion.py`, la matriz de roles.**
   **Qué se construye:** la matriz completa de `02_Documento_Tecnico.md` sección 4.2 como **estructura de datos, no como condicionales repartidos**: los 8 roles (`admin_general`, `admin_consorcio`, `encargado`, `propietario`, `inquilino`, `proveedor`, `auditor`, `seguridad`), su alcance (cartera / edificio / unidad / órdenes asignadas), si ve el financiero de la unidad, si ve el financiero del edificio, y si es de solo lectura.
   **Reglas que quedan fijadas acá:** Propietario e Inquilino tienen **exactamente el mismo acceso financiero a nivel de su propia unidad** (decisión adoptada, `01` sección 3.1); el Encargado ve el semáforo del edificio pero **nunca los montos**; el Auditor ve todo y **no puede editar nada**.
   **Listo cuando:** hay tests que recorren los 8 roles y sus atributos, y la lista de roles válidos es la única fuente que después consumen los `CheckConstraint` de los modelos.
 
-- [ ] **F1-T02 · Decisión — cómo se resuelve el alcance de un usuario sobre un edificio.**
+- [x] **F1-T02 · Decisión — cómo se resuelve el alcance de un usuario sobre un edificio.**
   **Qué se decide:** `02_Documento_Tecnico.md` sección 3.1 deja abierta una contradicción heredada: existe la tabla `usuario_edificio` pero **nunca se pobló**, y la autorización real termina consultando la base (¿es el admin de este edificio? ¿tiene una unidad acá?). Tener las dos cosas a medias fue lo que generó confusión.
   **Las dos salidas posibles:** (a) poblar `usuario_edificio` de verdad y convertirla en la única fuente de alcance; (b) eliminarla y dejar los vínculos donde efectivamente están (`edificios.admin_consorcio_id`, `edificios.encargado_id`, `departamentos.propietario_id` / `inquilino_id`), agregando en la Fase 11 un vínculo explícito para el Auditor.
-  **Recomendación:** la opción (a). Es la única que resuelve de entrada el alcance del Auditor y del Propietario con unidades en varios edificios, y evita que la Fase 11 tenga que rehacer las dependencias de autorización ya construidas.
-  **Listo cuando:** la decisión está tomada por el usuario y escrita en esta misma tarea. Nada de este tema se implementa antes.
+  **DECISIÓN TOMADA (2026-09-27): ninguna de las dos como estaban planteadas.** Al escribir la matriz de roles (`F1-T01`) me di cuenta de que las dos opciones originales fallaban por el mismo lado: trataban a los ocho roles como si su vínculo con el edificio fuera de la misma naturaleza, y no lo es. Hay tres naturalezas distintas, y cada una tiene su lugar correcto:
+
+  | Naturaleza del vínculo | Roles | Dónde vive |
+  |---|---|---|
+  | **Derivado** de un dato que ya existe | propietario, inquilino, proveedor | `departamentos.propietario_id` / `inquilino_id`; las órdenes asignadas |
+  | **Responsabilidad única** por edificio (1:1) | admin_consorcio, encargado | Columnas de `edificios` |
+  | **Asignación** de varios a varios (N:M) | seguridad, auditor | Tabla `asignacion_edificio` |
+  | Sin vínculo | admin_general | Alcanza toda la cartera |
+
+  **Por qué descarté la tabla puente única.** Duplicaría la verdad. El vínculo real de un propietario con un edificio es su unidad; si además hubiera que insertar una fila en una tabla puente, asignar una unidad y olvidarse de esa fila dejaría al usuario con departamento y sin acceso, sin que nada avise. Un dato que se guarda en dos lugares termina divergiendo.
+
+  **Por qué descarté usar solo columnas.** Obligaría a una columna `seguridad_id` en `edificios`, y eso limita a **un** agente de seguridad por edificio, cuando en la realidad hay turnos. Y dejaría al Auditor sin resolver hasta la Fase 11.
+
+  **Un hueco real que esta decisión cierra.** El rol `seguridad` tiene alcance de edificio desde el primer día y **no tenía ningún vínculo** que lo atara a uno: `edificios` solo tiene `admin_consorcio_id` y `encargado_id`. Es exactamente el mismo error que ya pasó una vez con `encargado_id`, que faltaba y se descubrió recién en la Fase 3, cuando "gestión de reclamos por Encargado" no tenía forma de resolverse. Esta vez lo encontré antes de escribir la primera tabla.
+
+  **Consecuencias para las tareas siguientes:**
+  - `usuario_edificio` **no se crea**. Sale del esquema y del Documento Técnico.
+  - Se crea `asignacion_edificio` (`usuario_id`, `edificio_id`) en `F1-T03`, usada **solo** por seguridad y auditor.
+  - `F11-T05` ya no tiene que inventar el vínculo del Auditor: solo expone la pantalla para asignarlo.
 
 ## Tema 1.2 — Usuarios y autenticación
 
-- [ ] **F1-T03 · Backend — modelo `Usuario`.**
-  **Qué se construye:** `models/usuario.py` con `id`, `nombre`, `email` (único), `password_hash`, `rol`, `telefono`, `activo`, `creado_en`. El `rol` se valida dos veces: en Pydantic (para el mensaje de error claro) y con un `CheckConstraint` contra la lista de `services/autorizacion.py` (para que la base sea la última línea de defensa). Más el modelo de vínculo que haya definido `F1-T02`.
+- [x] **F1-T03 · Backend — modelo `Usuario`.**
+  **Qué se construye:** `models/usuario.py` con `id`, `nombre`, `email` (único), `password_hash`, `rol`, `telefono`, `activo`, `creado_en`. El `rol` se valida dos veces: en Pydantic (para el mensaje de error claro) y con un `CheckConstraint` contra la lista de `services/autorizacion.py` (para que la base sea la última línea de defensa). Más `AsignacionEdificio` (`usuario_id`, `edificio_id`), la tabla de asignación N:M que decidió `F1-T02`, usada **solo** por los roles `seguridad` y `auditor`. Con una restricción de unicidad sobre el par, para que no se pueda asignar dos veces al mismo usuario en el mismo edificio.
   **Cuidado con:** la baja es siempre **lógica** (`activo = false`), nunca borrado físico, para no perder trazabilidad.
 
-- [ ] **F1-T04 · Backend — `core/security.py`.**
-  **Qué se construye:** hash y verificación de contraseñas con `passlib`/bcrypt; emisión y decodificación de JWT de 60 minutos.
+- [x] **F1-T04 · Backend — `core/security.py`.**
+  **Qué se construye:** hash y verificación de contraseñas con `bcrypt`; emisión y decodificación de JWT de 60 minutos con `PyJWT`.
   **Cuidado con:** ninguna contraseña se guarda ni se loguea en texto plano en ningún punto, **ni siquiera en modo test**.
 
-- [ ] **F1-T05 · Backend — validador de contraseña robusta.**
+- [x] **F1-T05 · Backend — validador de contraseña robusta.**
   **Qué se construye:** validador en el esquema de alta de usuario exigiendo mínimo 8 caracteres con mayúscula, minúscula, número y carácter especial, con un mensaje que diga exactamente qué falta. El reflejo en el frontend (texto de ayuda bajo el campo) se agrega en `F1-T13`.
   **Por qué acá y no al final:** es el requisito 4 de los lineamientos de seguridad de la facultad, y agregarlo cuando ya existan usuarios creados obliga a migrar contraseñas. Nace con el modelo.
+  **Máximo que me deja `F1-T04`, además del mínimo:** bcrypt no acepta más de **72 bytes**, y el límite es en bytes y no en caracteres. En castellano eso importa de verdad: con UTF-8 cada letra acentuada y la eñe ocupan 2 bytes, así que 37 caracteres acentuados ya son 74 bytes. `core/security.py` levanta `PasswordDemasiadoLarga` con el conteo de bytes y de caracteres por separado, justamente para que el validador pueda explicar la diferencia — quien escribió la contraseña cuenta letras, y un "máximo 72" a secas parece arbitrario cuando le rechaza una de 40. El validador tiene que atajarlo antes, con un 422 claro, en vez de dejar que explote en el hasheo.
 
-- [ ] **F1-T06 · Backend — `app/seed.py`, primer Administrador General.**
+- [x] **F1-T06 · Backend — `app/seed.py`, primer Administrador General.**
   **Qué se construye:** script idempotente que crea, si no existe, el Administrador General inicial con credenciales de prueba conocidas. Sin esto no hay forma de loguearse la primera vez.
   **Listo cuando:** las credenciales quedan anotadas en `README.md` **en el momento**, no después.
 
-- [ ] **F1-T07 · Backend — `routers/auth.py`.**
+- [x] **F1-T07 · Backend — `routers/auth.py`.**
   **Qué se construye:** `POST /api/auth/login` (email + contraseña → JWT) y `GET /api/auth/me` (el usuario de la sesión, que es lo que el frontend usa para armar la navegación).
   **Cuidado con:** un usuario inactivo no puede iniciar sesión **y su token deja de valer aunque no haya expirado** — el estado del usuario se verifica en cada request, no solo la firma del token.
+  **Lo que queda deliberadamente para `F1-T30`:** hoy los tres motivos de rechazo del login —el email no existe, la contraseña es incorrecta, el usuario está inhabilitado— devuelven el **mismo** 401 con el mismo texto, y eso deja al usuario inhabilitado reintentando su contraseña correcta sin entender nunca qué pasa. Decidí no diferenciarlos acá porque hacerlo mal abre enumeración de cuentas; la forma de diferenciarlos sin abrirla está especificada en `F1-T30`.
+  **Normalización del email, que viene de `F1-T05`:** el esquema de login tiene que pasar el email por `schemas/usuario.normalizar_email`, la misma función que usa el alta. Pydantic baja a minúsculas el dominio pero **no la parte local**, así que sin eso el alta guarda `ana@...` y el login busca `Ana@...`: el usuario existe, la consulta no lo encuentra, y lo que ve la persona es "credenciales inválidas" sin ninguna pista de qué pasó.
 
 - [ ] **F1-T08 · Backend — `core/dependencies.py`, `obtener_usuario_actual`.**
-  **Qué se construye:** la dependencia que decodifica el JWT, busca el usuario, valida que esté activo y expone su rol y alcance. La reutiliza **cada** endpoint protegido de acá en adelante.
+  **Lo que ya quedó hecho en `F1-T07`:** `core/dependencies.py` existe con `obtener_usuario_actual`, porque `GET /api/auth/me` no podía funcionar sin él — la tarea anterior pedía que el estado del usuario se verifique en cada request, y eso es esta dependencia. Decodifica el token, busca al usuario y valida que esté activo, con tests de token vencido, token de usuario desactivado y token de usuario borrado. Escribir una versión descartable dentro del router y rehacerla acá habría sido duplicarla.
+  **Lo que también quedó hecho, antes de `F1-T09`:** las dependencias de autorización que consultan la matriz — `exigir_roles(...)`, `exigir_que_pueda_escribir`, y los atajos `SoloAdminGeneral`, `SoloAdministradores` y `UsuarioQuePuedeEscribir`. Las adelanté porque el CRUD de usuarios no se puede escribir sin ellas y la alternativa era que cada endpoint resolviera los permisos por su cuenta, que es justamente lo que la matriz existe para evitar. Con tests propios en `tests/test_dependencias.py`, sobre una aplicación de juguete: así la dependencia queda probada por sí misma y no mezclada con las reglas del primer endpoint que la use.
+  **Tres cosas que se fijaron ahí y valen para todo el proyecto:** el rechazo por permisos es **403 y nunca 401** (el envoltorio de `fetch` trata el 401 limpiando la sesión, así que un 403 mal devuelto como 401 desloguea a alguien que estaba perfectamente logueado); el 403 **no lleva** `WWW-Authenticate`, porque volver a autenticarse no da permisos; y la guarda de escritura es **independiente** de la lista de roles, porque el Auditor ve lo mismo que un administrador y una lista de roles amplia lo dejaría escribir.
+  **Y una que evita un agujero silencioso:** los nombres de rol se validan **al declarar** la dependencia, no al atender el request. Si se validaran al atender, `exigir_roles("encargdo")` dejaría ese endpoint rechazando a todos para siempre sin un solo error en los logs — un rol que no existe no coincide con nadie — y se descubriría meses después, cuando alguien reporte que no puede entrar a una pantalla.
+  **Lo único que falta y es lo que mantiene esta tarea abierta:** exponer el **alcance** — sobre qué edificios o unidades opera el usuario —, que necesita los modelos `Edificio` y `Departamento` y por lo tanto no se puede construir antes de `F1-T18` y `F1-T19`.
+  **Lo que desbloquea cuando esté:** ampliar el CRUD de usuarios (`F1-T09`), que quedó solo para el Administrador General porque sin alcance no hay forma de limitar a un Administrador de Consorcio a sus propios edificios. La ampliación necesita las dos cosas juntas: el alcance, y la regla de que nadie puede crear ni asignar un rol de más permisos que el propio — sin esa segunda regla, dar el alta al Administrador de Consorcio es darle la forma de hacerse Administrador General.
   **Cuidado con:** ninguna regla de permiso se escribe dentro del cuerpo de un endpoint. Y ojo con el tipo que devuelve cada dependencia: declarar mal el tipo en la firma no falla al importar, falla en ejecución cuando alguien usa un atributo que ese objeto no tiene.
 
-- [ ] **F1-T09 · Backend — CRUD de usuarios.**
+- [x] **F1-T09 · Backend — CRUD de usuarios.**
   **Qué se construye:** `routers/usuarios.py` con alta, edición parcial, listado filtrado según el rol de quien consulta, y desactivación.
   **Regla no negociable:** un usuario **no puede desactivarse a sí mismo**. Lo rechaza el backend con 400 tanto en el endpoint de desactivar como en el `PATCH` con `activo:false`. Esto no es teórico: un Administrador General se desactivó a sí mismo probando el botón, el login rechaza usuarios inactivos, hace falta ser admin para reactivar a alguien, y la cuenta quedó irrecuperable — hubo que reparar la base a mano.
   **Semántica de PATCH, válida para todo el sistema:** no mandar un campo lo deja como está; mandarlo en `null` lo borra de verdad.
+  **Cómo quedó el alcance, que es lo único que no se pudo hacer como estaba escrito:** el listado filtrado según el rol de quien consulta no se puede construir todavía, porque filtrar por rol es filtrar por **alcance** y el alcance necesita `Edificio` y `Departamento` (`F1-T18`, `F1-T19`). La elección real era entre dejar el módulo solo para el Administrador General o darle el acceso al Administrador de Consorcio **sin poder limitarlo** — que no es un filtro parcial, es que vea y edite los usuarios de todos los consorcios de la plataforma, incluidos los administradores de los otros. Entre un permiso que falta y un permiso de más, falta. Queda anotado en `F1-T08` dónde se amplía.
+  **Y una precondición que la ampliación tiene que traer:** sin una regla que impida crear un rol de más permisos que el propio, el alta es una escalada de privilegios — un Administrador de Consorcio que pudiera dar de alta usuarios se daría de alta a sí mismo un Administrador General.
+  **Segunda regla de la misma familia que la auto-desactivación, que agregué porque deja el mismo estado irrecuperable:** un usuario **no puede cambiarse el rol a sí mismo**. Un Administrador General que se pone rol `propietario` pierde en ese instante el permiso para volver a cambiárselo, y no hace falta ni que sea un error de dedo: "me bajo el rol para ver cómo queda la pantalla" alcanza. Con las dos reglas juntas queda cerrado el último camino al sistema sin ningún administrador activo, porque toda baja y toda degradación se la aplica **otro** usuario, que por definición sigue activo.
+  **El email repetido devuelve 400 y no 409**, aunque 409 sea el código semánticamente correcto: en este proyecto el `409` ya tiene significado reservado — `api.js` lo traduce a `error.necesitaConfirmacion` —, así que devolverlo haría que la pantalla ofrezca confirmar y repetir una operación que va a fallar igual. Es una limitación de usar el código HTTP como significado, y es exactamente lo que resuelve el catálogo de `F1-T29`.
+  **Los esquemas de entrada rechazan los campos desconocidos** (`extra="forbid"`). Por defecto Pydantic los descarta en silencio, y en un formulario eso significa que un `nombres` por `nombre` devuelve 200 sin haber guardado nada: la persona ve que se guardó bien y no se guardó.
+  **El cambio de estado va por `POST /{id}/estado` con el estado deseado en el cuerpo**, no por `/activar` y `/desactivar`: el botón de `F1-T14` es uno que alterna, y dos endpoints lo obligarían a elegir a cuál pegarle según un estado actual que puede haber cambiado en otra pestaña. Así el pedido es idempotente. Y va en el cuerpo y no como `?activo=false`, porque una URL se copia, se comparte y se llama por accidente desde la barra de direcciones, y esto cambia quién puede entrar al sistema.
   **Listo cuando:** hay test del caso permitido, del prohibido (403) y del intento de auto-desactivación (400).
 
 ## Tema 1.3 — Esqueleto de la zona autenticada
@@ -361,6 +408,7 @@ de la seccion 1.6, no un olvido.
   **Incluye:** `assets/js/formularios.js`, con el toggle de contraseña que se auto-engancha y con Enter comportándose como Tab salvo en el último campo.
   **Cuidado con:** **todo** campo de contraseña del proyecto usa la estructura con toggle, sin excepción "porque es modo test". Y nunca se pisa el contenido de un `<button>` con etiquetas `<path>` sueltas: el parser de HTML no las reconoce fuera de un `<svg>` y el ícono desaparece al primer clic — se apunta al `<svg>` interno.
   **Por qué Enter como Tab:** se creó un edificio a medio cargar porque Enter en un campo intermedio envió el formulario entero.
+  **Qué mensaje muestra, mientras `F1-T30` no esté hecha:** el texto que manda el backend, que en esta etapa es uno solo para los tres motivos de rechazo. La pantalla **no** interpreta el motivo ni lo adivina por su cuenta: cuando `F1-T30` agregue los códigos de error, lo único que cambia acá es de dónde sale el texto, no la lógica.
 
 - [ ] **F1-T11 · Frontend — `assets/js/layout.js`, el esqueleto por rol.**
   **Qué se construye:** el módulo que monta el sidebar y el topbar en **toda** pantalla autenticada: guarda de sesión, pedido de `/auth/me`, armado de los accesos según el rol desde **una única tabla declarada en un solo lugar**, marcado del acceso activo, hamburguesa en mobile y cierre de sesión.
@@ -402,6 +450,7 @@ de la seccion 1.6, no un olvido.
   **Qué se construye:** `id`, `nombre`, `direccion`, `cp`, `cuit`, `latitud`, `longitud`, **`admin_consorcio_id`**, **`encargado_id`**, `dias_vencimiento_expensas`, `recargo_mora_porcentual`, `contacto_emergencia_nombre`, `contacto_emergencia_telefono`, `roles_habilitados`, `cbu`, `alias_cbu`, `activo`, `creado_en`.
   **Cuidado con `encargado_id`:** en la iteración anterior **faltaba**. El rol Encargado existía con alcance de edificio desde el primer día pero no había nada que lo vinculara a un edificio concreto, lo que hacía imposible resolver "los reclamos que este encargado puede gestionar". Se detectó recién en la Fase 3. **Un rol con alcance de edificio necesita su vínculo desde el modelo, no después.**
   **Por qué CP y no ciudad:** es más preciso para geocodificar y suficiente para lo que usa la plataforma.
+  **Pendiente que me deja `F1-T03`:** `asignacion_edificio.edificio_id` quedó como entero sin clave foránea, porque cuando creé esa tabla `edificios` todavía no existía y una FK contra una tabla ausente hace fallar la creación del esquema entero al arrancar. Acá se formaliza. **No es una migración:** la tabla está vacía durante toda la ventana —lo primero que escribe una asignación es la pantalla de `F11-T05`—, así que alcanza con borrarla y dejar que se vuelva a crear con la FK declarada. Esto no es la deuda de claves foráneas de la sección 4: esas quedaron sin FK con datos ya cargados encima, y eso sí necesita una migración escrita a mano.
 
 - [ ] **F1-T19 · Backend — modelos `Piso`, `Departamento`, `Cochera`, `EspacioComun`.**
   **Qué se construye:** `Piso` (edificio, número, orden de apilado); `Departamento` (piso, identificador, m², `propietario_id`, `inquilino_id`, `ocupado`, `coeficiente` `Numeric(6,3)`); `Cochera` (edificio, número, tipo fija/rotativa con CHECK, departamento opcional); `EspacioComun` (edificio, nombre, capacidad, reglas de uso).
@@ -447,6 +496,27 @@ de la seccion 1.6, no un olvido.
 
 - [ ] **F1-T28 · Prueba de punta a punta — estructura del edificio.**
   **Qué se prueba:** dar de alta un edificio real con varios pisos, confirmar que la estructura se generó sola, completar coeficientes con un atajo y verificar que suman 100,000% exacto, corregir uno a mano, asignar un propietario y un inquilino a departamentos distintos, y confirmar que al loguearse como cada uno solo alcanza lo suyo. Repetir con un edificio de 28 unidades o más para verificar el redondeo.
+
+## Tema 1.7 — Mensajes de error
+
+- [ ] **F1-T29 · Backend — `core/errores.py`, catálogo único de mensajes de error.**
+  **Por qué existe esta tarea.** Hasta acá cada mensaje de error está escrito a mano dentro del endpoint que lo levanta, como un `detail=` suelto. Mientras hay dos endpoints eso no molesta; con cuarenta se convierte en tres problemas concretos: el mismo error se redacta distinto en dos lugares, el frontend no tiene nada estable contra lo que decidir (tiene que comparar el texto castellano, que cambia en cuanto alguien corrige una tilde), y cambiar un mensaje obliga a buscarlo por todo el proyecto. Es el mismo razonamiento que llevó a poner los permisos en una matriz en vez de repartirlos en condicionales: **si es una regla del sistema, es una estructura de datos, no texto suelto.**
+  **Qué se construye:** `core/errores.py` con un catálogo de errores de negocio, cada uno con **código estable** (`CREDENCIALES_INVALIDAS`, `CUENTA_INHABILITADA`, `SIN_PERMISO`, `NO_ENCONTRADO`, …), su código HTTP y su texto en castellano; una excepción propia que se levanta por código y no por texto; y un manejador único registrado en `main.py` que la convierte en respuesta JSON con la **misma forma siempre** — código, mensaje, y los campos involucrados cuando sean de un formulario.
+  **Regla:** ningún endpoint vuelve a escribir un `detail=` literal. El texto vive en el catálogo y en ningún otro lado.
+  **Cuidado con no romper lo que ya anda:** `api.js` (`F05-T03`) ya estandariza errores del lado del frontend y ya traduce el `422` de Pydantic. Esta tarea le da una forma estable que consumir, **no** una segunda capa de traducción en paralelo; si al terminar hay dos lugares que deciden qué texto ve el usuario, la tarea salió mal.
+  **Cuidado con lo que el catálogo no puede filtrar:** el texto de un error de negocio se le muestra a cualquiera, así que ninguna entrada menciona tablas, columnas, consultas ni nombres de archivo. Eso ya es regla del proyecto (`FX-T11`) y el catálogo la vuelve verificable: alcanza con leer un archivo para auditarla entera.
+  **Listo cuando:** hay test de que el manejador devuelve la misma forma para un error de negocio y para un `422` de validación, y de que ningún código del catálogo está duplicado.
+
+- [ ] **F1-T30 · Backend + Frontend — mensajes diferenciados del login, sin abrir enumeración de cuentas.**
+  **El problema que resuelve.** `F1-T07` dejó un solo 401 para los tres motivos de rechazo. Eso es correcto como defensa y malo como experiencia: el usuario inhabilitado por un administrador recibe "email o contraseña incorrectos", así que reintenta su contraseña —que es la correcta—, prueba otra, y termina pidiendo ayuda por algo que el sistema sabía desde el primer intento.
+  **La regla de seguridad que no se negocia, y por qué.** Mientras no se haya verificado la contraseña, el sistema **no puede** decir nada que dependa de si la cuenta existe. "Ese email no está registrado" y "la contraseña es incorrecta" tienen que seguir siendo la misma respuesta. Si no lo fueran, el login se convierte en un verificador de direcciones: se le pasa una lista de emails, se queda con los que existen y recién ahí se atacan solo esos. Es la recomendación explícita de OWASP y la razón por la que `F1-T07` está hecha así. Lo mismo vale para el tiempo de respuesta, que ya está igualado con un hash descartable.
+  **Lo que sí se puede diferenciar, que es justamente lo que falta.** Una vez que la contraseña **se verificó y es correcta**, quien está del otro lado ya demostró que la cuenta es suya, y contarle su situación no le informa nada a un atacante que no tenga ya la contraseña. Ahí sí van mensajes propios:
+  - cuenta inhabilitada → "Tu cuenta está inhabilitada. Contactá al administrador del consorcio." (código `CUENTA_INHABILITADA`)
+  - y queda el lugar listo para lo que venga después de la misma forma: contraseña vencida, segundo factor pendiente, cuenta bloqueada por intentos.
+  **El orden importa y es el contenido real de la tarea:** primero se busca el usuario, siempre se verifica la contraseña (exista o no), y **solo si la verificación dio bien** se evalúa el estado de la cuenta. Invertir esos dos pasos —chequear `activo` antes de la contraseña— vuelve a abrir la enumeración completa, porque responder "inhabilitada" sin contraseña correcta confirma que el email existe.
+  **Dónde vive el texto:** en el catálogo de `F1-T29`. Esta tarea no agrega mensajes sueltos al router; agrega entradas al catálogo y la decisión de cuál corresponde.
+  **Frontend:** la pantalla de login decide qué mostrar por el **código**, nunca comparando el texto. Y el caso "no sé si mi email está registrado" no se responde con un mensaje: se responde con el enlace de recuperación de contraseña, que también contesta siempre lo mismo exista o no la cuenta, y manda el correo solo si existe.
+  **Listo cuando:** hay test de que el email inexistente y la contraseña incorrecta siguen devolviendo respuestas **idénticas** —el test de `F1-T07` no se toca ni se debilita—, de que la cuenta inhabilitada con la contraseña correcta devuelve `CUENTA_INHABILITADA`, y de que la cuenta inhabilitada con la contraseña **incorrecta** devuelve el error genérico y no revela nada.
 
 - [ ] **F1-DOC · Documentación de la Fase 1.**
   Redactar `documentacion/fases/Fase_1_Usuarios_y_Estructura.md` según la sección 1.6. Foco particular: el cuadro completo de los 8 roles con lo que puede cada uno, cómo se decidió resolver el alcance (`F1-T02`) y por qué, y un ejemplo numérico de reparto de coeficientes en un edificio de 28 unidades.
@@ -1209,7 +1279,11 @@ de la seccion 1.6, no un olvido.
 
 # Fase X — Verificación de requisitos de facultad
 
-**No es una fase de desarrollo.** No sigue el orden lógica → backend → frontend ni agrega funcionalidad: es el **checklist de los requisitos que pide la facultad**, verificado uno por uno contra lo efectivamente construido. Se ejecuta **después de la Fase 13**.
+**No es una fase de desarrollo.** No sigue el orden lógica → backend → frontend ni agrega funcionalidad: es el **checklist de los requisitos que pide la facultad**, verificado uno por uno contra lo efectivamente construido.
+
+**Estado al 2026-09-27, con las Fases 0 y 0.5 cerradas: 6 de 19 requisitos cumplidos y verificados**, 3 parciales y 10 pendientes. Los cumplidos llevan su evidencia concreta escrita abajo, con la fecha de verificación.
+
+**Cómo se reparte el trabajo que falta.** La mayoría de estos requisitos no son tareas separadas: son **propiedades del código** que cada fase tiene que construir bien desde el principio (el control de acceso, las contraseñas robustas, la validación de entrada). Esos ya están dentro de las tareas de sus fases y no se pueden dejar para el final sin reescribir. Lo que sí corresponde al final es la **verificación formal** — el barrido de OWASP, el assessment de amenazas, la auditoría de contraste, el recorrido responsive completo — porque necesita el sistema terminado para tener sentido.
 
 > **Cómo cambió respecto de la versión anterior de este documento.** Antes, 15 de estos puntos estaban escritos como "Ya cumplido", describiendo código de la iteración eliminada. Ahora cada punto dice **dónde** se cumple en este Roadmap, y se verifica contra el código real en el momento de ejecutarlo. Los siete puntos que eran trabajo real ya no viven acá: se movieron a la fase donde corresponden, y esta fase solo los verifica.
 
@@ -1218,14 +1292,18 @@ de la seccion 1.6, no un olvido.
 - [ ] **FX-T01 · Sistema transaccional sobre base relacional.**
   **Dónde se cumple:** backend completo con transacciones explícitas — por ejemplo, la generación de una expensa (`F2-T05`): si el prorrateo falla a mitad de camino se hace rollback y no queda nada a medio crear. SQLite en desarrollo, PostgreSQL en producción.
   **Qué se verifica:** que existe al menos un caso documentado de rollback real, probado.
+  **Estado al 2026-09-27: parcial.** La base relacional ya esta en los dos entornos (SQLite y PostgreSQL) y las sesiones se abren sin autocommit, asi que toda operacion es transaccional por defecto. Lo que falta es el **caso de rollback documentado**, y llega con la generacion de expensas (`F2-T05`): es la primera operacion del sistema que escribe varias tablas en una sola transaccion.
 
-- [ ] **FX-T02 · Herramienta de mapeo objeto-relacional.**
+- [x] **FX-T02 · Herramienta de mapeo objeto-relacional.**
   **Dónde se cumple:** SQLAlchemy en el 100% de los modelos y consultas, desde `F0-T05`.
   **Qué se verifica:** que no hay SQL crudo armado a mano en ninguna parte, con la única excepción del mecanismo de migraciones, que compone DDL a partir de la metadata de los propios modelos.
+  **Evidencia (2026-09-27):** en todo `backend/app/` hay **una sola** llamada a `execute()` con SQL en texto, en `core/migraciones.py`, y su sentencia se compone a partir de la metadata de los propios modelos y del escapador de identificadores del motor — nunca de un dato de usuario. Todo lo demas pasa por SQLAlchemy.
+  **Verificado el 2026-09-27**, con la Fase 0.5 cerrada. Se re-verifica en `FX-DOC` al cierre del proyecto, porque es una propiedad que hay que mantener a lo largo de todas las fases.
 
 - [ ] **FX-T03 · Diseño web adaptable.**
   **Dónde se cumple:** mobile-first real en todo el sistema de diseño, con dos quiebres y **un solo maquetado**.
   **Qué se verifica:** un recorrido por todas las pantallas construidas en 390, 768 y 1280 px, sin desborde horizontal en ninguna.
+  **Estado al 2026-09-27: parcial.** El sistema ya esta: hoja mobile-first con dos quiebres (480 px para pares de campos, 1024 px para el salto a escritorio) y un solo maquetado. Pero hay **una sola pantalla construida**, asi que el recorrido completo solo se puede hacer al final. Cada tarea de frontend lo verifica en su momento, y `FX-T03` consolida.
 
 - [ ] **FX-T04 · API de autenticación.**
   **Dónde se cumple:** `F1-T07` (login y sesión) y `F1-T08` (la dependencia que valida el token en cada request).
@@ -1252,28 +1330,40 @@ de la seccion 1.6, no un olvido.
   **Dónde se cumple:** `F1-T05` (backend, la garantía real) y `F1-T13` (el reflejo en el frontend).
   **Qué se verifica:** que el backend rechaza una contraseña débil aunque el frontend la deje pasar.
 
-- [ ] **FX-T10 · Rutas sin extensión de script expuesta.**
+- [x] **FX-T10 · Rutas sin extensión de script expuesta.**
   **Dónde se cumple:** por diseño de FastAPI, todas las rutas son limpias. No hay forma de inferir el lenguaje o el framework desde una URL.
+  **Evidencia (2026-09-27):** la unica ruta publicada es `/api/salud`. No hay extension de archivo en ninguna URL del sistema, asi que no se puede inferir el lenguaje ni el framework.
+  **Verificado el 2026-09-27**, con la Fase 0.5 cerrada. Se re-verifica en `FX-DOC` al cierre del proyecto, porque es una propiedad que hay que mantener a lo largo de todas las fases.
 
-- [ ] **FX-T11 · Errores no visibles por pantalla.**
+- [x] **FX-T11 · Errores no visibles por pantalla.**
   **Dónde se cumple:** la aplicación nunca se instancia en modo depuración; un error no manejado devuelve un 500 genérico, jamás el traceback.
   **Qué se verifica:** revisar uno por uno los mensajes de error que sí muestran texto y confirmar que **todos** son mensajes de negocio redactados a mano, nunca el texto crudo de una excepción que pueda filtrar estructura interna.
+  **Cómo se vuelve verificable de una sola lectura:** `F1-T29` junta todos esos textos en `core/errores.py`, así que auditar esta regla pasa de recorrer cuarenta endpoints a leer un archivo.
+  **Evidencia (2026-09-27):** no existe ni una aparicion de `debug=True` en el codigo. Probado contra produccion: una ruta inexistente devuelve `{"detail":"Not Found"}`, sin traceback ni estructura interna.
+  **Verificado el 2026-09-27**, con la Fase 0.5 cerrada. Se re-verifica en `FX-DOC` al cierre del proyecto, porque es una propiedad que hay que mantener a lo largo de todas las fases.
 
-- [ ] **FX-T12 · Solo lo que debe verse, publicado.**
+- [x] **FX-T12 · Solo lo que debe verse, publicado.**
   **Dónde se cumple:** `F0-T07` — documentación interactiva apagada en producción.
   **Qué se verifica:** que `/docs`, `/redoc` y el esquema OpenAPI efectivamente **no responden** en producción, probándolo contra la URL real desplegada.
+  **Evidencia (2026-09-27), probada contra la URL real desplegada:** `/docs`, `/redoc`, `/openapi.json` y `/api/openapi.json` devuelven **404 los cuatro**. En desarrollo siguen disponibles, que es donde hacen falta.
+  **Verificado el 2026-09-27**, con la Fase 0.5 cerrada. Se re-verifica en `FX-DOC` al cierre del proyecto, porque es una propiedad que hay que mantener a lo largo de todas las fases.
 
-- [ ] **FX-T13 · Validación de entrada en cliente y servidor.**
+- [x] **FX-T13 · Validación de entrada en cliente y servidor.**
   **Dónde se cumple:** Pydantic en el 100% de las entradas del backend; tipos y validación HTML5 en cada formulario.
   **Qué se verifica:** que no existe **ni una sola** consulta armada por concatenación de strings a partir de un dato del request — todo pasa por el ORM, así que no hay superficie de inyección SQL.
+  **Evidencia (2026-09-27):** cero consultas armadas por concatenacion, interpolacion o `format()` en todo el backend — verificado con una busqueda por patron. No hay superficie de inyeccion SQL. La validacion de entrada con Pydantic se prueba de verdad cuando existan los primeros esquemas de entrada, en la Fase 1.
+  **Verificado el 2026-09-27**, con la Fase 0.5 cerrada. Se re-verifica en `FX-DOC` al cierre del proyecto, porque es una propiedad que hay que mantener a lo largo de todas las fases.
 
 - [ ] **FX-T14 · Mínimo privilegio en la base de datos.**
   **Dónde se cumple:** `F13-T03`.
+  **Estado al 2026-09-27: no hecho, y conviene adelantarlo.** La conexion de produccion usa hoy el rol por defecto del proyecto de Supabase, que puede borrar tablas. Crear el rol restringido ahora, con la base vacia y sin datos que migrar, es mas simple que hacerlo con trece fases encima.
   **Qué se verifica:** que la cadena de conexión de producción apunta al rol restringido y que ese rol **no** puede, por ejemplo, borrar tablas.
 
-- [ ] **FX-T15 · Sin acceso a carpetas privadas.**
+- [x] **FX-T15 · Sin acceso a carpetas privadas.**
   **Dónde se cumple:** `F0-T02` (el `.gitignore`) y la naturaleza del hosting: ni el estático del frontend ni las funciones serverless exponen listado de directorios.
   **Qué se verifica:** intentar acceder a rutas del filesystem del proyecto desde la URL pública y confirmar que no responden.
+  **Evidencia (2026-09-27), probada contra produccion:** nueve rutas de archivos privados devuelven 404 — `/backend/app/main.py`, `/backend/app/core/config.py`, `/api/index.py`, `/vercel.json`, `/.gitignore`, `/requirements.txt`, `/backend/`, `/documentacion/05_Roadmap.md` y `/.git/config`. No hay listado de directorios ni acceso al filesystem del proyecto.
+  **Verificado el 2026-09-27**, con la Fase 0.5 cerrada. Se re-verifica en `FX-DOC` al cierre del proyecto, porque es una propiedad que hay que mantener a lo largo de todas las fases.
 
 - [ ] **FX-T16 · Análisis contra vulnerabilidades conocidas (OWASP).**
   **Dónde se cumple:** `F13-T04`.
@@ -1289,24 +1379,26 @@ de la seccion 1.6, no un olvido.
 - [ ] **FX-T19 · Verificación de las 16 heurísticas.**
   **Qué se verifica, una por una, contra la aplicación terminada:**
 
-  | # | Heurística | Dónde se resuelve |
-  |---|---|---|
-  | 1 | Visibilidad del estado del sistema | `F1-T27` (indicador de carga), mensajes de error y éxito en cada formulario |
-  | 2 | Correspondencia con el mundo real | Nomenclatura de dominio en español con los términos reales del rubro (`F0-T01`, convención permanente) |
-  | 3 | Control y libertad del usuario | `F12-T03` (deshacer) |
-  | 4 | Consistencia y estándares | El catálogo de componentes y su regla de oro: reutilizar, nunca reinventar |
-  | 5 | Prevención de errores | `F1-T15` (confirmación de acción destructiva) + validación en las dos puntas |
-  | 6 | Reconocer antes que recordar | Ningún formulario pide escribir un ID de memoria; los selectores vienen poblados con datos reales |
-  | 7 | Flexibilidad y eficiencia | `F12-T06` |
-  | 8 | Diseño minimalista | El sistema de diseño completo: densidad deliberada, composición bento, nada que compita con el dato |
-  | 9 | Reconocer y recuperarse de errores | Los mensajes muestran el texto real del backend en lenguaje llano, nunca un código ni un stack trace |
-  | 10 | Ayuda y documentación | `F12-T05` (en la app) + los documentos de fase (para entender el sistema) |
-  | 11 | Anticipación | `F12-T07` |
-  | 12 | Autonomía | Usuario y rol siempre visibles en el sidebar; contexto y vuelta atrás en cada pantalla de detalle |
-  | 13 | Legibilidad | Jerarquía tipográfica del sistema de diseño + verificación formal de contraste en `F12-T10` |
-  | 14 | Registro del estado | `F0-T13` (tema persistente) + `F12-T08` (última pantalla y primer ingreso) |
-  | 15 | Simplificación de tareas | La metodología misma: una tarea a la vez, modales de un solo paso, nunca un asistente de varios pasos para un alta simple |
-  | 16 | Protección del trabajo | `F12-T04` |
+  Estado al 2026-09-27: **5 cumplidas, 4 parciales, 7 pendientes.**
+
+  | # | Heurística | Dónde se resuelve | Estado |
+  |---|---|---|---|
+  | 1 | Visibilidad del estado del sistema | `F1-T27` (indicador de carga), mensajes de error y éxito en cada formulario | Parcial — el indicador de conexión ya avisa si el backend responde |
+  | 2 | Correspondencia con el mundo real | Nomenclatura de dominio en español con los términos reales del rubro | **Cumplida** — convención fijada y aplicada |
+  | 3 | Control y libertad del usuario | `F12-T03` (deshacer) | Pendiente |
+  | 4 | Consistencia y estándares | El catálogo de componentes y su regla de oro: reutilizar, nunca reinventar | **Cumplida** — el catálogo existe y ya rechazó una clase inventada |
+  | 5 | Prevención de errores | `F1-T15` (confirmación de acción destructiva) + validación en las dos puntas | Pendiente |
+  | 6 | Reconocer antes que recordar | Ningún formulario pide escribir un ID de memoria; los selectores vienen poblados con datos reales | Pendiente — no hay formularios todavía |
+  | 7 | Flexibilidad y eficiencia | `F12-T06` | Pendiente |
+  | 8 | Diseño minimalista | El sistema de diseño completo: densidad deliberada, composición bento, nada que compita con el dato | **Cumplida** — el sistema está aplicado |
+  | 9 | Reconocer y recuperarse de errores | Los mensajes muestran el texto real del backend en lenguaje llano, nunca un código ni un stack trace | Parcial — `api.js` ya traduce el 422 de Pydantic y da un mensaje accionable si el backend no responde; el catálogo único de mensajes es `F1-T29` |
+  | 10 | Ayuda y documentación | `F12-T05` (en la app) + los documentos de fase | Parcial — los documentos de fase existen; la ayuda dentro de la app, no |
+  | 11 | Anticipación | `F12-T07` | Pendiente |
+  | 12 | Autonomía | Usuario y rol siempre visibles en el sidebar; contexto y vuelta atrás en cada pantalla de detalle | Pendiente — no hay sidebar todavía |
+  | 13 | Legibilidad | Jerarquía tipográfica del sistema de diseño + verificación formal de contraste en `F12-T10` | Parcial — la jerarquía está; el contraste sin verificar formalmente |
+  | 14 | Registro del estado | `F0-T13` (tema persistente) + `F12-T08` (última pantalla y primer ingreso) | Parcial — el tema ya persiste entre páginas y sesiones |
+  | 15 | Simplificación de tareas | La metodología misma: una tarea a la vez, modales de un solo paso, nunca un asistente de varios pasos para un alta simple | **Cumplida** — es la metodología del proyecto |
+  | 16 | Protección del trabajo | `F12-T04` | Pendiente |
 
 - [ ] **FX-DOC · Informe de cumplimiento.**
   Redactar `documentacion/fases/Fase_X_Cumplimiento.md` con el resultado de cada verificación, la evidencia concreta de cada una (captura, salida de consola, fragmento de código) y la justificación escrita de las decisiones conscientes que se apartan del enunciado (`FX-T07`).

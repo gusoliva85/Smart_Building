@@ -15,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core import config
 from app.core.migraciones import sincronizar_esquema
+from app.routers import auth, usuarios
 
 logging.basicConfig(
     level=logging.INFO,
@@ -80,6 +81,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# Los routers se montan aca, uno por dominio y uno por fase. Todos bajo /api.
+app.include_router(auth.router, prefix=config.PREFIJO_API)
+app.include_router(usuarios.router, prefix=config.PREFIJO_API)
 
 
 @app.get(f"{config.PREFIJO_API}/salud", tags=["Sistema"])

@@ -48,9 +48,14 @@ from app.main import app
 # y falla ruidosamente cuando falta una en vez de arrastrar una tabla que la
 # prueba no deberia necesitar.
 #
-# Cada fase agrega aca los modelos que crea. Hoy no hay ninguno.
+# Cada fase agrega aca los modelos que crea.
 # ---------------------------------------------------------------------------
-TABLAS_DE_PRUEBA: list = []
+from app.models.usuario import AsignacionEdificio, Usuario  # noqa: E402
+
+TABLAS_DE_PRUEBA: list = [
+    Usuario.__table__,
+    AsignacionEdificio.__table__,
+]
 
 
 @pytest.fixture
@@ -110,10 +115,63 @@ def cliente(db):
 
 
 # ---------------------------------------------------------------------------
-# PENDIENTE — helper de autenticacion
+# HELPER DE AUTENTICACION
 #
-# Cuando exista el login (F1-T07), va aca un fixture `como(rol)` que crea el
-# usuario de ese rol, se autentica y devuelve el header `Authorization` listo
-# para usar. No se escribe antes: hoy no hay endpoint contra el cual probarlo,
-# y un helper que nadie ejecuta se pudre en silencio.
+# `como(rol)` crea un usuario de ese rol, se autentica de verdad contra el
+# endpoint de login y devuelve el header `Authorization` listo para usar.
+#
+# Pasa por el login real en vez de fabricar el token a mano con
+# `crear_token_de_acceso`. Es a proposito: un token fabricado salteando el
+# login probaria los endpoints contra una sesion que el sistema nunca emitio,
+# y el dia que el login cambie —que valide algo mas, que arme el token
+# distinto— los tests seguirian pasando contra algo que en la aplicacion real
+# ya no funciona.
 # ---------------------------------------------------------------------------
+
+PASSWORD_DE_PRUEBA = "Prueba123!"
+
+
+@pytest.fixture
+def como(db, cliente):
+    """Devuelve el header de autenticacion de un usuario del rol que se pida.
+
+    Se usa asi:
+
+        def test_algo(cliente, como):
+            respuesta = cliente.get("/api/algo", headers=como("encargado"))
+
+    Cada llamada crea un usuario distinto, asi que un mismo test puede pedir
+    dos roles —o dos usuarios del mismo rol— sin que choquen por el email.
+    """
+    from app.core import security
+    from app.models.usuario import Usuario
+
+    creados: list[Usuario] = []
+
+    def autenticarse(rol: str, activo: bool = True) -> dict[str, str]:
+        # El dominio NO puede ser `.local`, `.test` ni `.example`:
+        # `email-validator` rechaza los dominios de uso reservado, asi que un
+        # email asi falla en cualquier esquema que lo valide.
+        email = f"{rol}-{len(creados)}@prueba.com.ar"
+        usuario = Usuario(
+            nombre=f"Usuario {rol}",
+            email=email,
+            password_hash=security.hashear_password(PASSWORD_DE_PRUEBA),
+            rol=rol,
+            activo=activo,
+        )
+        db.add(usuario)
+        db.commit()
+        creados.append(usuario)
+
+        respuesta = cliente.post(
+            "/api/auth/login",
+            data={"username": email, "password": PASSWORD_DE_PRUEBA},
+        )
+        # Si el login falla, conviene enterarse aca y con el motivo, no tres
+        # lineas despues con un 401 del endpoint que el test queria probar.
+        assert respuesta.status_code == 200, respuesta.text
+
+        return {"Authorization": f"Bearer {respuesta.json()['access_token']}"}
+
+    return autenticarse

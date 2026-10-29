@@ -28,7 +28,11 @@
 | Backend — servidor | **Uvicorn** | Servidor ASGI estándar para FastAPI. |
 | Base de datos — desarrollo | **SQLite** | Un archivo, cero infraestructura. |
 | Base de datos — producción | **PostgreSQL** (Supabase, vía *connection pooler*) | Requisito del entorno serverless: no hay disco persistente donde vivir un archivo SQLite. |
-| Autenticación | **passlib/bcrypt** (hash) + **python-jose** (JWT) | Sesión sin estado en el servidor — necesario en serverless, donde no hay proceso de larga vida que sostenga una sesión. |
+| Autenticación | **bcrypt** (hash, usado directo) + **PyJWT** (JWT HS256) | Sesión sin estado en el servidor — necesario en serverless, donde no hay proceso de larga vida que sostenga una sesión. |
+
+> **Por qué no `python-jose` ni `passlib`, que es lo que decía la versión anterior de este documento (cambio del 2026-10-28).** Al implementar `core/security.py` revisé el estado de las dos librerías y ninguna se sostenía. `python-jose` 3.3.0 arrastra CVE-2024-33663 (confusión de algoritmo) y CVE-2024-33664 (denegación de servicio por JWE comprimido); el primero sigue reportado como arreglo incompleto hasta 3.5.0, y la librería está prácticamente sin mantenimiento. `passlib` tiene su última release en enero de 2020, y era la única razón por la que `bcrypt` estaba clavado en 4.0.1: passlib lee `bcrypt.__about__.__version__`, atributo que bcrypt eliminó en 4.1. Sacándola, bcrypt queda al día. El formato del hash es el mismo (`$2b$`), así que no hubo nada que migrar, y `cryptography` salió del proyecto de paso: entraba como extra de python-jose y HS256 no la necesita, así que son varios MB menos en el bundle de la función serverless.
+
+> **La defensa concreta contra la confusión de algoritmo.** No alcanza con cambiar de librería: `decodificar_token` pasa `algorithms=["HS256"]` de forma explícita. Sin esa lista, quien valida el token acepta el algoritmo que el **propio token** declara en su encabezado, y entonces basta con mandar uno firmado con `alg: none` para fabricarse una sesión sin conocer el secreto. Hay un test que lo intenta y espera el rechazo, para que no se pueda reintroducir a mano.
 | Frontend — maquetado | **HTML + CSS propio**: una hoja de tokens y un catalogo de componentes | Ver `03_Documento_Frontend.md`. **Sin framework de CSS y sin build.** Se evaluo Tailwind y se descarto: el sistema visual son clases compuestas propias (vidrio en dos capas, semaforo, dashboard visual), asi que sus utilidades no se usarian, y agregarlo sumaba un CDN o un binario de build sin resolver ningun problema real. Decision del 2026-09-27. |
 | Frontend — interactividad | **JavaScript vanilla (ES2020+)** | Sin framework. Para el tamaño de este proyecto no aporta, y mantiene la promesa de arquitectura simple y sin build. |
 | Frontend — mapas | **Leaflet.js + OpenStreetMap + Nominatim** | Sin API key ni facturación, a diferencia de Google Maps/Mapbox. Coherente con un stack que no depende de credenciales externas. |
@@ -54,7 +58,8 @@ Smart_Building_ver_4/
 │   │   ├── services/               # Lógica de negocio pura (sección 2.3)
 │   │   └── seed.py                 # Datos iniciales de desarrollo
 │   ├── tests/                      # pytest — un archivo por router o por servicio
-│   ├── requirements.txt
+│   ├── pytest.ini
+│   ├── requirements.txt            # Solo referencia a ../requirements.txt
 │   └── smart_building.db           # Solo en desarrollo; no se versiona
 │
 ├── frontend/                       # Ver 03_Documento_Frontend.md para el detalle
@@ -76,7 +81,13 @@ Smart_Building_ver_4/
 │   ├── investigaciones/            # Decisiones con respaldo normativo
 │   └── mockups/                    # Exploración visual histórica (no es contrato)
 │
-├── .claude/skills/premium-uiux/    # Sistema de diseño ejecutable (ver 04, sección 1)
+├── api/
+│   └── index.py                    # Punto de entrada serverless de Vercel (ver 1.5)
+│
+├── .claude/skills/premium-uiux/    # Sistema de diseño ejecutable (ver 03, sección 1)
+├── vercel.json                     # Región, builds y ruteo del despliegue (ver 1.5)
+├── requirements.txt                # Lista canónica de dependencias (ver 1.5)
+├── .vercelignore
 ├── .gitignore
 └── README.md
 ```
@@ -113,6 +124,36 @@ Smart_Building_ver_4/
 | `VERCEL` | Marca que se está en producción | Ausente |
 
 **Guarda de arranque:** `verificar_configuracion_produccion()` se ejecuta al iniciar la aplicación y **falla fuerte** si detecta que está en producción con el secreto JWT de desarrollo todavía puesto. Es preferible que el despliegue no arranque a que arranque inseguro sin que nadie lo note.
+
+### 1.5 Los cuatro archivos del despliegue
+
+Hay cuatro archivos en la raíz que existen únicamente porque Vercel los espera
+ahí. Ninguno tiene lógica de negocio, y conviene entender qué hace cada uno
+antes de tocarlos.
+
+| Archivo | Para qué |
+|---|---|
+| `api/index.py` | Vercel busca las funciones serverless en una carpeta `api/` de la raíz, no dentro de `backend/`. Este archivo pone `backend/` en el path de importación y expone la aplicación que ya existe. **No debe tener lógica propia nunca.** |
+| `vercel.json` | Declara la región (`gru1`, para que coincida con la de Supabase), las dos construcciones —la función Python y el frontend estático— y el ruteo: `/api/*` a la función, el resto al frontend. |
+| `requirements.txt` (raíz) | Es la **lista canónica** de dependencias. Está en la raíz porque es donde la lee el runtime de Python de Vercel, y `backend/requirements.txt` la referencia con `-r ../requirements.txt`. |
+| `.vercelignore` | Recorta lo que no participa del despliegue (documentación, skill, tests). No cambia el resultado, solo lo hace más liviano. |
+
+**Frontend y backend se despliegan como un solo proyecto**, con `/api/*`
+reescrito hacia la función. Comparten dominio, así que en producción el
+navegador no dispara CORS.
+
+**Dos trampas que ya costaron un ciclo de despliegue cada una:**
+
+1. **El parser de `requirements.txt` de Vercel no admite `-r`.** Si el archivo
+   de la raíz intenta incluir otro, el build falla con
+   `could not parse requirements.txt`. Por eso la lista real está en la raíz y
+   la referencia está en `backend/`, y no al revés.
+2. **La cadena de conexión tiene que ser la del *Transaction pooler*, no la
+   directa.** El host directo (`db.<proyecto>.supabase.co`, puerto 5432)
+   resuelve a IPv6, y una función serverless no puede abrir conexiones IPv6
+   salientes: falla con `Cannot assign requested address`. Desde la Fase 0.5,
+   `verificar_configuracion_produccion()` detecta ese caso y lo dice en una
+   línea, en lugar de dejar un traceback de ochenta.
 
 ---
 
@@ -181,9 +222,24 @@ Es la convención central del proyecto. Un servicio contiene la regla de negocio
 
 > **Los dos vínculos de responsabilidad son columnas del edificio, no una tabla de asignación.** `admin_consorcio_id` y `encargado_id` apuntan a `usuarios` y son los que responden la pregunta "¿quién gestiona este edificio?". `encargado_id` **faltaba** en el diseño original: el rol Encargado existía con alcance de edificio desde el primer día, pero no había ningún mecanismo que lo vinculara a un edificio concreto, lo que hacía imposible resolver "los reclamos que este encargado puede gestionar". Se detectó recién al implementar reclamos. No repetir el error: **un rol con alcance de edificio necesita su vínculo desde el modelo, no después.**
 
-**`usuario_edificio`** — `id`, `usuario_id`, `edificio_id`, `rol_efectivo` (CHECK contra los 8 roles). Tabla puente para vínculos múltiples.
+**`asignacion_edificio`** — `id`, `usuario_id`, `edificio_id`, `creado_en`. Restricción de unicidad sobre el par (`usuario_id`, `edificio_id`).
 
-> **Advertencia sobre esta tabla:** existe en el esquema pero **la autorización real no se resuelve con ella**. El JWT lleva una lista de edificios que en la práctica siempre viaja vacía, así que toda dependencia de autorización termina consultando la base (¿es el admin de este edificio? ¿tiene una unidad acá?). Antes de volver a implementarla, decidir: o se la puebla y se la usa de verdad como fuente de alcance, o se la elimina y los vínculos quedan donde efectivamente están (`edificios.admin_consorcio_id`, `edificios.encargado_id`, `departamentos.propietario_id`/`inquilino_id`). Tener las dos cosas a medias es lo que generó confusión.
+> **Cómo se resuelve el alcance de un usuario sobre un edificio (decisión del 2026-09-27).** Los ocho roles no tienen todos la misma clase de vínculo con un edificio, así que no se resuelven todos con el mismo mecanismo. Cada vínculo vive en **un solo lugar**, y esa es la regla:
+>
+> | Naturaleza | Roles | Dónde vive |
+> |---|---|---|
+> | **Derivado** de un dato que ya existe | propietario, inquilino, proveedor | `departamentos.propietario_id` / `inquilino_id`; `ordenes_trabajo` asignadas |
+> | **Responsabilidad única** por edificio (1:1) | admin_consorcio, encargado | `edificios.admin_consorcio_id`, `edificios.encargado_id` |
+> | **Asignación** de varios a varios (N:M) | seguridad, auditor | `asignacion_edificio` |
+> | Sin vínculo | admin_general | Alcanza toda la cartera |
+>
+> `asignacion_edificio` existe **solo** para los dos roles N:M, y es deliberado que no sea una tabla puente genérica para los ocho. Una tabla así duplicaría la verdad: el vínculo real de un propietario es su unidad, y guardar además una fila que diga "alcanza el edificio X" crea dos fuentes del mismo hecho que pueden divergir — asignar una unidad y olvidar la fila dejaría al usuario con departamento y sin acceso, sin que nada avise.
+>
+> **Por qué hacen falta los dos roles N:M y no una columna más.** Un edificio tiene un solo administrador y un solo encargado, pero puede tener **varios** agentes de seguridad (turnos), y un auditor puede auditar **varios** edificios. Eso no entra en una columna.
+>
+> **La versión anterior de este documento describía una tabla `usuario_edificio` que nunca se pobló**, mientras la autorización real terminaba consultando la base. Tener las dos cosas a medias fue lo que generó confusión. Esa tabla no existe más: el reemplazo es la tabla de arriba, con un propósito acotado y documentado.
+>
+> **El hueco que esto cierra.** El rol `seguridad` tiene alcance de edificio desde el primer día y no tenía ningún vínculo que lo atara a uno. Es el mismo error que ya ocurrió con `encargado_id`, que faltaba y se descubrió recién al implementar reclamos. **Un rol con alcance de edificio necesita su vínculo desde el modelo, no después.**
 
 **`pisos`** — `id`, `edificio_id`, `numero`, `orden`.
 **`departamentos`** — `id`, `piso_id`, `identificador`, `m2`, `propietario_id`, `inquilino_id`, `ocupado`, **`coeficiente`** `Numeric(6,3)`.
@@ -277,7 +333,7 @@ El control de acceso vive en `core/dependencies.py` como dependencias de FastAPI
 
 **Lecciones de diseño que dejó esta capa:**
 
-1. **La lista de edificios del JWT nunca se pobló**, así que la autorización real se resuelve consultando la base en cada dependencia. Funciona y es correcto; lo que no hay que hacer es escribir código que *asuma* que el token trae el alcance. Ver la advertencia de `usuario_edificio` en 3.1.
+1. **El token no lleva el alcance: la autorización lo resuelve consultando la base en cada dependencia.** Es correcto y es lo que hay que hacer. Un alcance guardado dentro del token quedaría congelado en el momento de emitirlo: si a un usuario se le quita un edificio, seguiría entrando hasta que el token expire. Lo que no hay que hacer es escribir código que *asuma* que el token trae el alcance. Cada dependencia pregunta por el vínculo real, según la tabla de la sección 3.1.
 2. **Una dependencia se reutiliza si la regla coincide, aunque el nombre suene a otro dominio.** `requerir_acceso_para_crear_reclamo` terminó siendo también la regla correcta para "ver los espacios comunes de un edificio": el conjunto de gente es idéntico. Se reutiliza y se documenta el porqué, en vez de escribir una quinta dependencia igual.
 3. **Cuidado con el tipo que devuelve la dependencia.** Algunas devuelven el usuario autenticado y otras la entidad ya cargada. Declarar mal el tipo en la firma del endpoint no falla al importar: falla en tiempo de ejecución, cuando alguien usa un atributo que ese objeto no tiene. Ver sección 9.
 

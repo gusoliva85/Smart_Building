@@ -21,5 +21,10 @@ por nombre, despues de que todos esten cargados.
 """
 
 # Los modelos se van sumando fase por fase. Fase 1: Usuario y la estructura
-# del edificio. Todavia no hay ninguno.
-__all__: list[str] = []
+# del edificio.
+from app.models.usuario import AsignacionEdificio, Usuario
+
+__all__: list[str] = [
+    "AsignacionEdificio",
+    "Usuario",
+]

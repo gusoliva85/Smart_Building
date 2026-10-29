@@ -23,19 +23,42 @@ SQLAlchemy==2.0.36
 # (producción, Supabase vía pooler); en desarrollo, sobre SQLite, no se usa.
 psycopg2-binary==2.9.10
 
+# Nota: `cryptography` ya no figura acá. Entraba como extra de python-jose y
+# quedó huérfana al sacarlo; HS256 no la necesita. Son varios MB menos en el
+# bundle de la función serverless, que tiene límite de tamaño en Vercel.
+
 # --- Validación -------------------------------------------------------------
 pydantic==2.10.4
 # Requerido por Pydantic para validar el tipo EmailStr, que usa Usuario.email.
 email-validator==2.2.0
 
 # --- Autenticación ----------------------------------------------------------
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-# Pin deliberado. passlib 1.7.4 lee bcrypt.__about__.__version__ al arrancar, y
-# ese atributo se eliminó en bcrypt 4.1: con una versión más nueva el hasheo
-# sigue funcionando, pero cada arranque escupe un error de lectura de versión
-# que ensucia los logs y hace perder tiempo buscando un problema que no existe.
-bcrypt==4.0.1
+# Firma y verificación de los JWT (HS256).
+#
+# Acá había python-jose, y lo cambié por PyJWT el 2026-10-28 al implementar
+# F1-T04. Dos razones: python-jose 3.3.0 arrastra CVE-2024-33663 (confusión de
+# algoritmo) y CVE-2024-33664 (denegación de servicio por JWE comprimido), y el
+# primero sigue reportado como arreglo incompleto hasta 3.5.0. Y la librería
+# está prácticamente sin mantenimiento. PyJWT no tiene CVE abiertos, se mantiene
+# al día y para HS256 la API es equivalente.
+PyJWT==2.15.1
+
+# Hasheo de contraseñas, usado DIRECTAMENTE y no a través de passlib.
+#
+# passlib salió del proyecto en la misma tarea. Su última release es de enero de
+# 2020, y era la única razón por la que bcrypt estaba clavado en 4.0.1: passlib
+# lee bcrypt.__about__.__version__, atributo que bcrypt eliminó en 4.1. Sin
+# passlib, bcrypt puede estar al día. El formato del hash es el mismo, así que
+# no hay nada que migrar.
+#
+# Evalué Argon2 vía pwdlib y me quedé con bcrypt (decisión del 2026-10-28).
+# Argon2id es la primera opción de OWASP y lo que recomienda la documentación
+# de FastAPI, así que la alternativa era real y no la descarté por desconocerla:
+# bcrypt sigue siendo un estándar aceptado por OWASP, es el algoritmo de hash de
+# contraseñas más desplegado que hay, y el módulo ya estaba escrito y probado.
+# El costo de quedarse con él es tener que validar el máximo de 72 bytes, que
+# Argon2 no tendría; es una validación más en el esquema de alta y nada más.
+bcrypt==5.0.0
 
 # Lectura de formularios multipart. La necesita el login (OAuth2PasswordRequestForm)
 # y, más adelante, la carga real de archivos de la Fase 7.

@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Pantalla financiera en escritorio</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+:root{--bg-1:#f1f2f3;--bg-2:#e9ebec;--wash-a:#d6dee3;--wash-b:#e6e2d8;--ink:#1c2024;--ink-2:#4b5157;--ink-3:#7c828a;--ink-4:#a8adb3;--line:rgba(28,32,36,.10);--line-2:rgba(28,32,36,.07);--glass-shell-bg:rgba(255,255,255,.52);--glass-shell-blur:22px;--glass-content-bg:rgba(255,255,255,.68);--glass-content-blur:7px;--glass-in:inset 0 1px 0 rgba(255,255,255,.85),inset 0 0 0 1px rgba(255,255,255,.45);--glass-sheen:linear-gradient(120deg,rgba(255,255,255,.55),transparent 45%);--navy:#15181b;--accent:#57768c;--accent-2:#3e5a6d;--accent-soft:#e2e9ed;--accent-ring:rgba(87,118,140,.28);--ok:#2e8067;--warn:#ba8c1f;--pend:#bd6c2c;--crit:#b13c47;--mix-tint:#fff;--mix-ink:#1c2024;--shadow-rgb:20,22,25;--sh-sm:0 1px 2px rgba(var(--shadow-rgb),.06),0 4px 12px -4px rgba(var(--shadow-rgb),.12);--sh-md:0 2px 6px rgba(var(--shadow-rgb),.07),0 16px 34px -16px rgba(var(--shadow-rgb),.22);--sh-lg:0 4px 16px rgba(var(--shadow-rgb),.09),0 34px 70px -26px rgba(var(--shadow-rgb),.32);--r-card:20px;--r-lg:24px;--r-sm:12px}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 Inter,ui-sans-serif,system-ui,sans-serif;color:var(--ink);background:var(--bg-1);-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:Outfit,ui-sans-serif,sans-serif;letter-spacing:-.015em;margin:0;font-weight:700}
+a{color:var(--accent-2);text-decoration:none}
+a:hover{color:var(--accent)}
+button{font:inherit;cursor:pointer}
+.atm{background:radial-gradient(ellipse 52% 34% at 10% -6%,var(--wash-a),transparent 62%),radial-gradient(ellipse 42% 28% at 106% 6%,var(--wash-b),transparent 58%),radial-gradient(ellipse 38% 26% at 50% 104%,var(--wash-a),transparent 66%),linear-gradient(180deg,var(--bg-1),var(--bg-2));background-attachment:fixed}
+.shell{position:relative;background:var(--glass-shell-bg);backdrop-filter:blur(var(--glass-shell-blur)) saturate(1.15);-webkit-backdrop-filter:blur(var(--glass-shell-blur)) saturate(1.15);border:1px solid var(--line);box-shadow:var(--glass-in),var(--sh-md)}
+.shell::before{content:"";position:absolute;inset:0;background:var(--glass-sheen);pointer-events:none;border-radius:inherit}
+.content-glass{background:var(--glass-content-bg);backdrop-filter:blur(var(--glass-content-blur));-webkit-backdrop-filter:blur(var(--glass-content-blur));border:1px solid var(--line-2);box-shadow:var(--glass-in)}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.shell{background:rgba(255,255,255,.92)}.content-glass{background:rgba(255,255,255,.94)}}
+.icon-btn{position:relative;width:38px;height:38px;border-radius:13px;background:var(--glass-content-bg);border:1px solid var(--line);box-shadow:var(--glass-in);color:var(--ink-2);display:grid;place-items:center;transition:transform .18s ease-out}
+.icon-btn:hover{transform:translateY(-1px)}
+.icon-btn svg{width:16px;height:16px}
+.icon-btn-sm{width:32px;height:32px;border-radius:11px}
+.icon-btn-sm svg{width:15px;height:15px}
+.icon-btn .badge{position:absolute;top:-3px;right:-3px;min-width:15px;height:15px;padding:0 3px;border-radius:99px;background:var(--crit);color:#fff;font-size:9px;font-weight:800;display:grid;place-items:center;border:2px solid var(--bg-1)}
+.brand-mark{width:38px;height:38px;border-radius:13px;flex:none;background:linear-gradient(155deg,var(--accent),var(--accent-2));display:grid;place-items:center;box-shadow:var(--glass-in),0 6px 16px -4px rgba(var(--shadow-rgb),.35);position:relative;overflow:hidden}
+.brand-mark::after{content:"";position:absolute;inset:0;background:linear-gradient(125deg,rgba(255,255,255,.55),transparent 50%)}
+.brand-mark svg{width:19px;height:19px;stroke:#fff;position:relative}
+.avatar{width:38px;height:38px;border-radius:13px;flex:none;background:linear-gradient(155deg,#5c6469,#33383c);display:grid;place-items:center;font-family:Outfit;font-size:12px;font-weight:700;color:#fff;box-shadow:var(--glass-in)}
+.kpi-label{font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3)}
+.kpi-num{font-family:Outfit;font-weight:700;font-size:26px;letter-spacing:-.02em;margin:5px 0 2px}
+.kpi-sub{font-size:11.5px;color:var(--ink-3)}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:700}
+.pill.ok{background:color-mix(in srgb,var(--ok) 15%,var(--mix-tint));color:color-mix(in srgb,var(--ok) 78%,var(--mix-ink))}
+.pill.warn{background:color-mix(in srgb,var(--warn) 16%,var(--mix-tint));color:color-mix(in srgb,var(--warn) 78%,var(--mix-ink))}
+.pill.pend{background:color-mix(in srgb,var(--pend) 16%,var(--mix-tint));color:color-mix(in srgb,var(--pend) 78%,var(--mix-ink))}
+.pill.crit{background:color-mix(in srgb,var(--crit) 15%,var(--mix-tint));color:color-mix(in srgb,var(--crit) 80%,var(--mix-ink))}
+.s-ok{--c:var(--ok)}.s-warn{--c:var(--warn)}.s-pend{--c:var(--pend)}.s-crit{--c:var(--crit)}
+.view-switch{position:relative;display:flex;gap:4px;padding:4px;background:rgba(var(--shadow-rgb),.06);border-radius:99px;width:max-content;max-width:100%;overflow-x:auto;box-shadow:inset 0 1px 3px rgba(var(--shadow-rgb),.1)}
+.view-switch button{position:relative;z-index:1;border:0;background:transparent;padding:8px 14px;border-radius:99px;font-size:12px;font-weight:600;color:var(--ink-3);white-space:nowrap}
+.view-switch button.active{color:var(--accent-2);background:var(--glass-content-bg);box-shadow:var(--glass-in),var(--sh-sm)}
+.sidebar-nav a{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:14px;color:var(--ink-2);font-size:13.5px;font-weight:500}
+.sidebar-nav a svg{width:17px;height:17px;flex:none;stroke:currentColor}
+.sidebar-nav a:hover{color:var(--ink);background:rgba(var(--shadow-rgb),.05)}
+.sidebar-nav a.activo{color:var(--accent-2);background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 26%,transparent);box-shadow:var(--glass-in)}
+.boton-chico{border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 14px;background:var(--glass-content-bg);box-shadow:var(--glass-in);font-size:13px;font-weight:600;color:var(--ink-2)}
+.boton-chico-acento{border:0;background:linear-gradient(150deg,var(--accent),var(--accent-2));color:#fff;font-family:Outfit;font-weight:700;box-shadow:var(--glass-in),0 10px 22px -10px var(--accent-ring)}
+.campo-select-chico{border-radius:99px;border:1px solid var(--line);background:var(--glass-content-bg);box-shadow:var(--glass-in);padding:8px 12px;font:12px Inter,ui-sans-serif,sans-serif;font-weight:600;color:var(--ink-2)}
+.tabla-caja{overflow-x:auto;border-radius:18px;border:1px solid var(--line-2)}
+table{width:100%;min-width:720px;border-collapse:collapse;font-size:13px}
+thead th{text-align:left;font-family:Inter;font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);padding:11px 14px;border-bottom:1px solid var(--line);white-space:nowrap}
+tbody td{padding:12px 14px;border-bottom:1px solid var(--line-2);color:var(--ink-2);vertical-align:middle}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover{background:rgba(var(--shadow-rgb),.03)}
+.monto{font-family:Outfit,sans-serif;font-weight:700;font-size:13.5px;color:var(--ink);text-align:right;white-space:nowrap}
+.unidad{font-family:Outfit,sans-serif;font-weight:700;font-size:13.5px;color:var(--ink)}
+.rubro-track{height:8px;border-radius:99px;background:rgba(var(--shadow-rgb),.07);overflow:hidden;margin-top:6px}
+.rubro-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--accent-2),var(--accent))}
+.fila-lista{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border-radius:16px;padding:11px 13px;border:1px solid var(--line-2)}
+.fila-lista-acciones{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;margin-left:auto}
+</style>
+</helmet>
+
+<div class="atm" style="min-height: 100vh; display: flex; flex-wrap: wrap; align-items: flex-start">
+
+  <aside class="shell" style="flex: 0 1 248px; min-width: 0; margin: 16px 0 16px 16px; border-radius: 24px; display: flex; flex-direction: column; align-self: stretch">
+    <div style="position: relative; z-index: 1; display: flex; align-items: center; gap: 11px; padding: 16px 14px 14px">
+      <span class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V6l8-3 8 3v15"/><path d="M9 21v-6h6v6"/><path d="M9 10h.01M15 10h.01M9 14h.01M15 14h.01"/></svg>
+      </span>
+      <div style="min-width: 0">
+        <b style="display: block; font-family: Outfit, sans-serif; font-size: 15.5px; font-weight: 700">SMART Building</b>
+        <span style="display: block; font-size: 9.5px; color: var(--ink-3); letter-spacing: .06em; text-transform: uppercase">Torre Central</span>
+      </div>
+    </div>
+    <nav class="sidebar-nav" style="position: relative; z-index: 1; flex-grow: 1; padding: 4px 10px; display: flex; flex-direction: column; gap: 3px">
+      <a href="Desktop-Dashboard.dc.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V6l8-3 8 3v15"/><path d="M9 21v-6h6v6"/></svg>
+        Dashboard visual
+      </a>
+      <a href="Desktop-General.dc.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/></svg>
+        Dashboard general
+      </a>
+      <a href="Desktop-Financiero.dc.html" class="activo">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v12H3z"/><path d="M3 11h18M7 15h4"/></svg>
+        Financiero
+      </a>
+      <a href="Mobile-Reclamo.dc.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 11-3.2-6.4"/><path d="M12 8v4M12 16h.01"/></svg>
+        Reclamos
+        <span class="pill crit" style="margin-left: auto">7</span>
+      </a>
+      <a href="#ordenes">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 7l3 3-8 8H6v-3z"/><path d="M17 4l3 3-2 2-3-3z"/></svg>
+        Órdenes de trabajo
+        <span class="pill pend" style="margin-left: auto">2</span>
+      </a>
+      <a href="#activos">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7a4 4 0 018 0v3H8z"/><path d="M8 10h8v10H8z"/></svg>
+        Activos y seguridad
+      </a>
+      <a href="#edificios">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="8" height="13" rx="1"/><rect x="13" y="3" width="8" height="18" rx="1"/></svg>
+        Edificios
+      </a>
+      <a href="#usuarios">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0112 0"/><path d="M16 11a3 3 0 100-6M17.5 20a6 6 0 00-2-4.5"/></svg>
+        Usuarios
+      </a>
+    </nav>
+    <div style="position: relative; z-index: 1; padding: 10px 10px 14px; border-top: 1px solid var(--line-2)">
+      <div class="content-glass" style="display: flex; align-items: center; gap: 10px; border-radius: 16px; padding: 10px">
+        <span class="avatar">AC</span>
+        <div style="min-width: 0; flex-grow: 1">
+          <b style="display: block; font-family: Outfit, sans-serif; font-size: 13px; font-weight: 700">Ana Cardozo</b>
+          <span style="display: block; font-size: 10px; color: var(--ink-3)">Administradora</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <div style="flex: 999 1 560px; min-width: 0; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+
+    <header class="shell" style="padding: 11px 16px; border-radius: 24px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
+      <div style="min-width: 0; flex-grow: 1">
+        <h1 style="font-size: 19px">Financiero</h1>
+        <span style="display: block; font-size: 10.5px; color: var(--ink-3); letter-spacing: .04em">Torre Central · octubre 2026</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px; flex: none; margin-left: auto">
+        <button class="boton-chico boton-chico-acento">Registrar un pago</button>
+        <button class="icon-btn" aria-label="Notificaciones">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1112 0c0 5 2 6 2 6H4s2-1 2-6"/><path d="M10 20a2 2 0 004 0"/></svg>
+          <span class="badge">6</span>
+        </button>
+        <button class="icon-btn" aria-label="Cambiar a tema oscuro">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        </button>
+        <span class="avatar">AC</span>
+      </div>
+    </header>
+
+    <!-- Pestañas del dominio financiero, en un solo archivo -->
+    <div class="shell" style="border-radius: 24px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
+      <div class="view-switch" role="tablist" aria-label="Secciones del financiero">
+        <button role="tab" aria-selected="false">Gastos</button>
+        <button role="tab" aria-selected="false">Expensas</button>
+        <button class="active" role="tab" aria-selected="true">Pagos</button>
+        <button role="tab" aria-selected="false">Deudores</button>
+        <button role="tab" aria-selected="false">Fondos</button>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto; min-width: 0">
+        <select class="campo-select-chico" aria-label="Período">
+          <option>Octubre 2026</option>
+          <option>Septiembre 2026</option>
+        </select>
+        <select class="campo-select-chico" aria-label="Estado de conciliación">
+          <option>Todos los estados</option>
+          <option>Conciliados</option>
+          <option>Por conciliar</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start">
+
+      <!-- Tabla de pagos: la tabla ancha vive en una caja con scroll propio -->
+      <section class="shell" style="flex: 999 1 560px; min-width: 0; border-radius: 24px; padding: 18px 20px 20px">
+        <div style="position: relative; z-index: 1">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px">
+            <div style="min-width: 0">
+              <h2 style="font-size: 16px">Pagos informados</h2>
+              <span style="font-size: 11px; color: var(--ink-3)">21 de octubre · 3 esperan conciliación</span>
+            </div>
+            <a href="#exportar" style="font-size: 11.5px; font-weight: 600; margin-left: auto">Exportar el listado</a>
+          </div>
+
+          <div class="tabla-caja content-glass">
+            <table>
+              <caption style="text-align: left; padding: 0 14px 10px; font-size: 11px; color: var(--ink-3)">Pagos registrados en octubre de 2026</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Unidad</th>
+                  <th scope="col">Quién pagó</th>
+                  <th scope="col">Fecha</th>
+                  <th scope="col">Medio</th>
+                  <th scope="col" style="text-align: right">Monto</th>
+                  <th scope="col">Estado</th>
+                  <th scope="col"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%)">Acciones</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="unidad">4°A</span></td>
+                  <td>M. Sosa</td>
+                  <td>21/10</td>
+                  <td>Transferencia</td>
+                  <td class="monto">$ 118.900</td>
+                  <td><span class="pill ok">Conciliado</span></td>
+                  <td style="text-align: right"><button class="icon-btn icon-btn-sm" aria-label="Ver el comprobante del pago de 4°A"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.6"/></svg></button></td>
+                </tr>
+                <tr>
+                  <td><span class="unidad">2°C</span></td>
+                  <td>J. Pereyra</td>
+                  <td>20/10</td>
+                  <td>Transferencia</td>
+                  <td class="monto">$ 104.300</td>
+                  <td><span class="pill ok">Conciliado</span></td>
+                  <td style="text-align: right"><button class="icon-btn icon-btn-sm" aria-label="Ver el comprobante del pago de 2°C"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.6"/></svg></button></td>
+                </tr>
+                <tr>
+                  <td><span class="unidad">1°D</span></td>
+                  <td>Inmobiliaria Rivas</td>
+                  <td>19/10</td>
+                  <td>Depósito</td>
+                  <td class="monto">$ 97.600</td>
+                  <td><span class="pill pend">Por conciliar</span></td>
+                  <td style="text-align: right"><button class="boton-chico" style="padding: 7px 11px; font-size: 12px">Conciliar</button></td>
+                </tr>
+                <tr>
+                  <td><span class="unidad">3°D</span></td>
+                  <td>F. Lema</td>
+                  <td>18/10</td>
+                  <td>Transferencia</td>
+                  <td class="monto">$ 112.400</td>
+                  <td><span class="pill pend">Por conciliar</span></td>
+                  <td style="text-align: right"><button class="boton-chico" style="padding: 7px 11px; font-size: 12px">Conciliar</button></td>
+                </tr>
+                <tr>
+                  <td><span class="unidad">4°C</span></td>
+                  <td>R. Bermúdez</td>
+                  <td>17/10</td>
+                  <td>Efectivo en caja</td>
+                  <td class="monto">$ 60.000</td>
+                  <td><span class="pill warn">Parcial</span></td>
+                  <td style="text-align: right"><button class="boton-chico" style="padding: 7px 11px; font-size: 12px">Ver saldo</button></td>
+                </tr>
+                <tr>
+                  <td><span class="unidad">2°A</span></td>
+                  <td>C. Ibáñez</td>
+                  <td>16/10</td>
+                  <td>Transferencia</td>
+                  <td class="monto">$ 121.800</td>
+                  <td><span class="pill ok">Conciliado</span></td>
+                  <td style="text-align: right"><button class="icon-btn icon-btn-sm" aria-label="Ver el comprobante del pago de 2°A"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="2.6"/></svg></button></td>
+                </tr>
+                <tr>
+                  <td><span class="unidad">1°B</span></td>
+                  <td>S. Molina</td>
+                  <td>14/10</td>
+                  <td>Transferencia</td>
+                  <td class="monto">$ 99.200</td>
+                  <td><span class="pill pend">Por conciliar</span></td>
+                  <td style="text-align: right"><button class="boton-chico" style="padding: 7px 11px; font-size: 12px">Conciliar</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p style="margin: 12px 0 0; font-size: 11px; color: var(--ink-3); line-height: 1.5">La plataforma registra y concilia; la plata nunca pasa por el sistema. Un pago queda conciliado cuando la administración lo cruza con el extracto del banco.</p>
+        </div>
+      </section>
+
+      <!-- Resumen del mes -->
+      <aside style="flex: 0 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+        <div class="shell" style="border-radius: 24px; padding: 17px 18px">
+          <div style="position: relative; z-index: 1">
+            <span class="kpi-label">Cobrado en octubre</span>
+            <div class="kpi-num">$ 3.104.800</div>
+            <span class="kpi-sub">86% de los $ 3.609.700 emitidos</span>
+            <div class="rubro-track" style="height: 9px; margin-top: 12px">
+              <div class="rubro-fill" style="width: 86%"></div>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-top: 9px; font-size: 11.5px; color: var(--ink-3)">
+              <span>21 unidades al día</span>
+              <span>3 con deuda</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="shell" style="border-radius: 24px; padding: 17px 18px">
+          <div style="position: relative; z-index: 1">
+            <h3 style="font-size: 14.5px; margin-bottom: 11px">Deuda por antigüedad</h3>
+            <div style="display: flex; flex-direction: column; gap: 9px">
+              <div class="fila-lista content-glass s-crit" style="border-color: color-mix(in srgb, var(--crit) 46%, var(--line-2)); box-shadow: var(--glass-in), 0 10px 22px -12px color-mix(in srgb, var(--crit) 60%, transparent)">
+                <div style="min-width: 0">
+                  <span class="unidad">3°B</span>
+                  <div style="font-size: 11px; color: var(--ink-3)">2 períodos · desde agosto</div>
+                </div>
+                <div class="fila-lista-acciones">
+                  <span style="font-family: Outfit, sans-serif; font-size: 14px; font-weight: 700">$ 214.800</span>
+                </div>
+              </div>
+              <div class="fila-lista content-glass s-crit" style="border-color: color-mix(in srgb, var(--crit) 46%, var(--line-2)); box-shadow: var(--glass-in), 0 10px 22px -12px color-mix(in srgb, var(--crit) 60%, transparent)">
+                <div style="min-width: 0">
+                  <span class="unidad">2°D</span>
+                  <div style="font-size: 11px; color: var(--ink-3)">2 períodos · desde agosto</div>
+                </div>
+                <div class="fila-lista-acciones">
+                  <span style="font-family: Outfit, sans-serif; font-size: 14px; font-weight: 700">$ 183.400</span>
+                </div>
+              </div>
+              <div class="fila-lista content-glass s-warn" style="border-color: color-mix(in srgb, var(--warn) 46%, var(--line-2)); box-shadow: var(--glass-in), 0 10px 22px -12px color-mix(in srgb, var(--warn) 60%, transparent)">
+                <div style="min-width: 0">
+                  <span class="unidad">4°C</span>
+                  <div style="font-size: 11px; color: var(--ink-3)">1 período · pago parcial</div>
+                </div>
+                <div class="fila-lista-acciones">
+                  <span style="font-family: Outfit, sans-serif; font-size: 14px; font-weight: 700">$ 106.700</span>
+                </div>
+              </div>
+            </div>
+            <a href="#deudores" style="display: inline-block; margin-top: 13px; font-size: 11.5px; font-weight: 600">Ir a Deudores</a>
+          </div>
+        </div>
+
+        <div class="shell" style="border-radius: 24px; padding: 17px 18px">
+          <div style="position: relative; z-index: 1">
+            <h3 style="font-size: 14.5px; margin-bottom: 11px">Caja chica</h3>
+            <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 10px">
+              <div>
+                <div style="font-family: Outfit, sans-serif; font-size: 22px; font-weight: 700">$ 68.300</div>
+                <div style="font-size: 11px; color: var(--ink-3)">Disponible de un tope de $ 150.000</div>
+              </div>
+              <span class="pill warn">55% usado</span>
+            </div>
+            <div class="rubro-track" style="margin-top: 11px">
+              <div class="rubro-fill" style="width: 55%"></div>
+            </div>
+            <a href="#caja" style="display: inline-block; margin-top: 12px; font-size: 11.5px; font-weight: 600">Ver los 14 movimientos</a>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1360,"height":980}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -48,8 +48,18 @@ python -m venv venv              # solo la primera vez
 venv\Scripts\activate            # Windows   (Linux/macOS: source venv/bin/activate)
 pip install -r requirements.txt  # la primera vez, y cuando cambien las dependencias
 
+python -m app.seed               # solo la primera vez: crea el administrador inicial
+
 uvicorn app.main:app --reload
 ```
+
+El seed es **idempotente**: correrlo de nuevo no duplica nada y no le pisa la
+contraseña a un usuario que ya exista. Se corre a mano y no al arrancar la
+aplicación, a propósito: ese mismo arranque es el de producción, y un seed
+automático ahí significa que cada despliegue se asegura de que exista un
+administrador con la contraseña que está escrita en este archivo. En producción
+la guarda del seed exige `SEED_ADMIN_EMAIL` y `SEED_ADMIN_PASSWORD` por
+variables de entorno, y no deja sembrar con las de desarrollo.
 
 ### Terminal 2 — Frontend
 
@@ -152,7 +162,18 @@ Se completa a medida que el seed y las pruebas los vayan creando.
 
 | Nombre | Email | Contraseña | Rol |
 |---|---|---|---|
-| *(ninguno todavía: los crea la Fase 1)* | | | |
+| Administrador General | `administrador@test.com` | `Test1234!` | `admin_general` |
+
+Lo crea `python -m app.seed`. Es el único usuario que existe hasta que se
+construya el alta de usuarios (`F1-T13`), y es el que da de alta a todos los
+demás: no hay forma de crear el primero desde la aplicación.
+
+> **Por qué `Test1234!` y no `test1234`.** La quería como `test1234`, y no
+> entra: la política de contraseñas del propio sistema exige una mayúscula y un
+> carácter especial. Sembrar esa contraseña habría obligado a saltear el
+> validador, dejando al primer usuario del sistema con una contraseña que el
+> sistema rechaza. La T mayúscula y el signo final son el cambio más chico que
+> la hace cumplir, y así el seed valida su propia contraseña antes de hashearla.
 
 Son deliberadamente triviales porque el proyecto está en modo test, y **siempre
 se guardan hasheadas** en la base, nunca en texto plano.

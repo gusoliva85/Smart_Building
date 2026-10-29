@@ -1,11 +1,6 @@
 # Fase 0 — Fundación del proyecto
 
-> **Cerrada el 2026-09-27.** 19 tareas, todas aprobadas.
->
-> Este documento se escribe **una sola vez, al cerrar la fase**, cuando ya nada
-> de lo que describe va a cambiar. El Roadmap sigue siendo el único documento
-> vivo. Si una fase posterior modifica algo de acá, se agrega una línea al
-> final — no se reescribe el cuerpo.
+> **Cerrada el 2026-09-27.** 
 
 ---
 
@@ -403,7 +398,87 @@ no por leer el código dos veces.
 | El helper de autenticación de las pruebas | **Fase 1** (`F1-T07`) |
 | No hay ninguna tabla ni modelo | **Fase 1** (`F1-T03`) |
 | Las fuentes se piden a un CDN externo: es la última dependencia de terceros del frontend | **Fase 12** (`F12-T01`), donde se evalúa servirlas desde el propio proyecto |
-| El esquema viejo de la base de producción | **Fase 13** (`F13-T01`), y bloquea al resto de esa fase |
+| ~~El esquema viejo de la base de producción~~ | **Resuelto** en la Fase 0.5 (`F05-T01`): se vació y la aplicación lo recrea desde los modelos |
+
+---
+
+## 9. Anexo: el despliegue temprano (Fase 0.5)
+
+Apenas cerré la Fase 0 decidí adelantar el despliegue, que el plan original
+tenía reservado para la Fase 13. Quería ver cada tarea aprobada funcionando en
+producción, y desde el celular, que es donde la aplicación se va a usar de
+verdad. Documento el resultado acá porque es la continuación natural de esta
+fase: lo que quedó desplegado es exactamente lo que ella construyó.
+
+Hubo además una razón técnica que lo hacía conveniente justo en este momento:
+**todavía no existía ningún modelo**, así que vaciar el esquema viejo de
+Supabase no costaba nada. Si lo hubiera dejado para más adelante, cuando la
+Fase 1 creara la tabla `usuarios` el mecanismo aditivo se habría encontrado con
+una `usuarios` vieja de otra forma, no la habría corregido y **tampoco habría
+dado error**. Resolverlo ahora fue gratis; tres fases después habría sido una
+migración escrita a mano.
+
+### 9.1 La decisión de arquitectura: un solo proyecto
+
+El despliegue anterior eran **dos** proyectos de Vercel, uno para el frontend y
+otro para el backend. Eso obligaba al frontend a conocer el dominio del backend
+y a mantener CORS entre dominios. Lo cambié por **un solo proyecto** con una
+regla de reescritura: `/api/*` va a la función Python y todo lo demás al
+frontend estático.
+
+La consecuencia buena es que **comparten dominio**, así que en producción el
+navegador no dispara CORS y `config.js` funciona sin ninguna condición
+especial.
+
+### 9.2 Qué quedó en producción
+
+| Verificación | Resultado |
+|---|---|
+| `/api/salud` | 200 |
+| `/docs`, `/redoc`, `/openapi.json` | **404 los tres** |
+| Frontend y sus 7 assets | 200 |
+| Despliegue automático con cada push a `main` | Funcionando |
+
+Un detalle que confirma que la configuración de producción está bien aplicada:
+la respuesta de `/api/salud` en producción **no trae** `entorno` ni
+`base_de_datos`, que sí aparecen en desarrollo. El backend se reconoce como
+producción y oculta lo que no corresponde exponer.
+
+### 9.3 Los dos errores del camino, y qué dejé para que no se repitan
+
+Los dos costaron un ciclo de despliegue completo, y los dos ahora están
+atajados en el código.
+
+**El parser de `requirements.txt` de Vercel no admite `-r`.** Había puesto la
+lista real de dependencias en `backend/` y una referencia en la raíz, buscando
+tener una sola lista de versiones. El build falló con
+`could not parse requirements.txt`. La solución fue invertirlo: la lista real
+en la raíz, que es donde Vercel la lee, y la referencia en `backend/`, donde
+pip sí admite `-r`. El objetivo se mantiene —una sola lista— pero en el orden
+que la plataforma acepta.
+
+**La cadena de conexión tiene que ser la del *Transaction pooler*.** Usé la
+conexión directa de Supabase (`db.<proyecto>.supabase.co`, puerto 5432), que
+resuelve a IPv6; una función serverless no puede abrir conexiones IPv6
+salientes, así que falló con `Cannot assign requested address` dentro de un
+traceback de ochenta líneas que no mencionaba el verdadero problema.
+
+Eso último me pareció suficientemente caro como para prevenirlo: agregué una
+verificación al arranque que detecta la cadena directa y responde con el
+mensaje exacto de qué cambiar —el host termina en `pooler.supabase.com`, el
+puerto es 6543, y el usuario es `postgres.<proyecto>` y no `postgres`—. Tiene
+tres tests: que la directa bloquee, que la del pooler arranque, y que una base
+que no sea de Supabase no dispare la regla.
+
+### 9.4 Cómo quedó el reparto de responsabilidades
+
+Los secretos (`DATABASE_URL` y `JWT_SECRETO`) viven **solo** en las variables
+de entorno de Vercel y en el panel de Supabase. Nunca entraron al repositorio.
+Es la misma regla que ya estaba escrita en `04_Infraestructura.md`, ahora
+puesta a prueba.
+
+La suite pasó de 23 a **27 tests**, y la Fase 0.5 dejó cuatro archivos nuevos
+en la raíz que documenté en `02_Documento_Tecnico.md`, sección 1.5.
 
 ---
 

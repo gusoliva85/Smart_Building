@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Dashboard general y analitica</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+:root{--bg-1:#f1f2f3;--bg-2:#e9ebec;--wash-a:#d6dee3;--wash-b:#e6e2d8;--ink:#1c2024;--ink-2:#4b5157;--ink-3:#7c828a;--ink-4:#a8adb3;--line:rgba(28,32,36,.10);--line-2:rgba(28,32,36,.07);--glass-shell-bg:rgba(255,255,255,.52);--glass-shell-blur:22px;--glass-content-bg:rgba(255,255,255,.68);--glass-content-blur:7px;--glass-in:inset 0 1px 0 rgba(255,255,255,.85),inset 0 0 0 1px rgba(255,255,255,.45);--glass-sheen:linear-gradient(120deg,rgba(255,255,255,.55),transparent 45%);--navy:#15181b;--accent:#57768c;--accent-2:#3e5a6d;--accent-soft:#e2e9ed;--accent-ring:rgba(87,118,140,.28);--ok:#2e8067;--warn:#ba8c1f;--pend:#bd6c2c;--crit:#b13c47;--mix-tint:#fff;--mix-ink:#1c2024;--shadow-rgb:20,22,25;--sh-sm:0 1px 2px rgba(var(--shadow-rgb),.06),0 4px 12px -4px rgba(var(--shadow-rgb),.12);--sh-md:0 2px 6px rgba(var(--shadow-rgb),.07),0 16px 34px -16px rgba(var(--shadow-rgb),.22);--sh-lg:0 4px 16px rgba(var(--shadow-rgb),.09),0 34px 70px -26px rgba(var(--shadow-rgb),.32);--r-card:20px;--r-lg:24px;--r-sm:12px}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.5 Inter,ui-sans-serif,system-ui,sans-serif;color:var(--ink);background:var(--bg-1);-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{font-family:Outfit,ui-sans-serif,sans-serif;letter-spacing:-.015em;margin:0;font-weight:700}
+a{color:var(--accent-2);text-decoration:none}
+a:hover{color:var(--accent)}
+button{font:inherit;cursor:pointer}
+.atm{background:radial-gradient(ellipse 52% 34% at 10% -6%,var(--wash-a),transparent 62%),radial-gradient(ellipse 42% 28% at 106% 6%,var(--wash-b),transparent 58%),radial-gradient(ellipse 38% 26% at 50% 104%,var(--wash-a),transparent 66%),linear-gradient(180deg,var(--bg-1),var(--bg-2));background-attachment:fixed}
+.shell{position:relative;background:var(--glass-shell-bg);backdrop-filter:blur(var(--glass-shell-blur)) saturate(1.15);-webkit-backdrop-filter:blur(var(--glass-shell-blur)) saturate(1.15);border:1px solid var(--line);box-shadow:var(--glass-in),var(--sh-md)}
+.shell::before{content:"";position:absolute;inset:0;background:var(--glass-sheen);pointer-events:none;border-radius:inherit}
+.content-glass{background:var(--glass-content-bg);backdrop-filter:blur(var(--glass-content-blur));-webkit-backdrop-filter:blur(var(--glass-content-blur));border:1px solid var(--line-2);box-shadow:var(--glass-in)}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.shell{background:rgba(255,255,255,.92)}.content-glass{background:rgba(255,255,255,.94)}}
+.icon-btn{position:relative;width:38px;height:38px;border-radius:13px;background:var(--glass-content-bg);border:1px solid var(--line);box-shadow:var(--glass-in);color:var(--ink-2);display:grid;place-items:center;transition:transform .18s ease-out}
+.icon-btn:hover{transform:translateY(-1px)}
+.icon-btn svg{width:16px;height:16px}
+.icon-btn .badge{position:absolute;top:-3px;right:-3px;min-width:15px;height:15px;padding:0 3px;border-radius:99px;background:var(--crit);color:#fff;font-size:9px;font-weight:800;display:grid;place-items:center;border:2px solid var(--bg-1)}
+.brand-mark{width:38px;height:38px;border-radius:13px;flex:none;background:linear-gradient(155deg,var(--accent),var(--accent-2));display:grid;place-items:center;box-shadow:var(--glass-in),0 6px 16px -4px rgba(var(--shadow-rgb),.35);position:relative;overflow:hidden}
+.brand-mark::after{content:"";position:absolute;inset:0;background:linear-gradient(125deg,rgba(255,255,255,.55),transparent 50%)}
+.brand-mark svg{width:19px;height:19px;stroke:#fff;position:relative}
+.avatar{width:38px;height:38px;border-radius:13px;flex:none;background:linear-gradient(155deg,#5c6469,#33383c);display:grid;place-items:center;font-family:Outfit;font-size:12px;font-weight:700;color:#fff;box-shadow:var(--glass-in)}
+.kpi-label{font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3)}
+.kpi-num{font-family:Outfit;font-weight:700;font-size:28px;letter-spacing:-.02em;margin:5px 0 2px}
+.kpi-sub{font-size:11.5px;color:var(--ink-3)}
+.status-bar{display:flex;height:10px;border-radius:99px;overflow:hidden;margin:13px 0 10px;background:rgba(var(--shadow-rgb),.08);box-shadow:inset 0 1px 2px rgba(var(--shadow-rgb),.12);gap:2px}
+.status-bar i{display:block;height:100%;border-radius:99px}
+.status-legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--ink-2)}
+.status-legend b{color:var(--ink);font-family:Outfit}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:middle}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:700}
+.pill.ok{background:color-mix(in srgb,var(--ok) 15%,var(--mix-tint));color:color-mix(in srgb,var(--ok) 78%,var(--mix-ink))}
+.pill.warn{background:color-mix(in srgb,var(--warn) 16%,var(--mix-tint));color:color-mix(in srgb,var(--warn) 78%,var(--mix-ink))}
+.pill.pend{background:color-mix(in srgb,var(--pend) 16%,var(--mix-tint));color:color-mix(in srgb,var(--pend) 78%,var(--mix-ink))}
+.pill.crit{background:color-mix(in srgb,var(--crit) 15%,var(--mix-tint));color:color-mix(in srgb,var(--crit) 80%,var(--mix-ink))}
+.s-ok{--c:var(--ok)}.s-warn{--c:var(--warn)}.s-pend{--c:var(--pend)}.s-crit{--c:var(--crit)}
+.view-switch{position:relative;display:flex;gap:4px;padding:4px;background:rgba(var(--shadow-rgb),.06);border-radius:99px;width:max-content;max-width:100%;overflow-x:auto;box-shadow:inset 0 1px 3px rgba(var(--shadow-rgb),.1)}
+.view-switch button{position:relative;z-index:1;border:0;background:transparent;padding:8px 14px;border-radius:99px;font-size:12px;font-weight:600;color:var(--ink-3);white-space:nowrap}
+.view-switch button.active{color:var(--accent-2);background:var(--glass-content-bg);box-shadow:var(--glass-in),var(--sh-sm)}
+.sidebar-nav a{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:14px;color:var(--ink-2);font-size:13.5px;font-weight:500}
+.sidebar-nav a svg{width:17px;height:17px;flex:none;stroke:currentColor}
+.sidebar-nav a:hover{color:var(--ink);background:rgba(var(--shadow-rgb),.05)}
+.sidebar-nav a.activo{color:var(--accent-2);background:var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 26%,transparent);box-shadow:var(--glass-in)}
+.boton-chico{border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 14px;background:var(--glass-content-bg);box-shadow:var(--glass-in);font-size:13px;font-weight:600;color:var(--ink-2)}
+.boton-chico-acento{border:0;background:linear-gradient(150deg,var(--accent),var(--accent-2));color:#fff;font-family:Outfit;font-weight:700;box-shadow:var(--glass-in),0 10px 22px -10px var(--accent-ring)}
+.campo-select-chico{border-radius:99px;border:1px solid var(--line);background:var(--glass-content-bg);box-shadow:var(--glass-in);padding:8px 12px;font:12px Inter,ui-sans-serif,sans-serif;font-weight:600;color:var(--ink-2)}
+.grafico{position:relative;display:flex;align-items:flex-end;gap:12px;height:176px;padding-top:12px}
+.grafico-grid{position:absolute;left:0;right:0;top:12px;bottom:0;pointer-events:none}
+.grafico-grid i{position:absolute;left:0;right:0;height:1px;background:var(--line-2)}
+.barra{position:relative;flex:1 1 0;min-width:0;display:flex;flex-direction:column;justify-content:flex-end;height:100%}
+.barra-fill{border-radius:4px 4px 0 0;background:linear-gradient(180deg,var(--accent),var(--accent-2))}
+.barra:hover .barra-fill{background:linear-gradient(180deg,var(--accent-2),var(--accent-2))}
+.barra-label{margin-top:8px;text-align:center;font-size:10.5px;color:var(--ink-3);white-space:nowrap}
+.tooltip{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(100% + 10px);white-space:nowrap;border-radius:12px;padding:8px 11px;background:rgba(255,255,255,.95);border:1px solid var(--line);box-shadow:var(--glass-in),var(--sh-md);z-index:5}
+.rubro{display:grid;grid-template-columns:1fr 92px;gap:10px;align-items:center;font-size:12.5px;color:var(--ink-2)}
+.rubro-track{height:9px;border-radius:99px;background:rgba(var(--shadow-rgb),.07);overflow:hidden;margin-top:5px}
+.rubro-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--accent-2),var(--accent))}
+.rubro-monto{font-family:Outfit,sans-serif;font-weight:700;font-size:13.5px;text-align:right;color:var(--ink)}
+.fila-lista{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border-radius:16px;padding:12px 14px;border:1px solid var(--line-2)}
+.fila-lista-acciones{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;margin-left:auto}
+</style>
+</helmet>
+
+<div class="atm" style="min-height: 100vh; display: flex; flex-wrap: wrap; align-items: flex-start">
+
+  <aside class="shell" style="flex: 0 1 248px; min-width: 0; margin: 16px 0 16px 16px; border-radius: 24px; display: flex; flex-direction: column; align-self: stretch">
+    <div style="position: relative; z-index: 1; display: flex; align-items: center; gap: 11px; padding: 16px 14px 14px">
+      <span class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V6l8-3 8 3v15"/><path d="M9 21v-6h6v6"/><path d="M9 10h.01M15 10h.01M9 14h.01M15 14h.01"/></svg>
+      </span>
+      <div style="min-width: 0">
+        <b style="display: block; font-family: Outfit, sans-serif; font-size: 15.5px; font-weight: 700">SMART Building</b>
+        <span style="display: block; font-size: 9.5px; color: var(--ink-3); letter-spacing: .06em; text-transform: uppercase">Torre Central</span>
+      </div>
+    </div>
+    <nav class="sidebar-nav" style="position: relative; z-index: 1; flex-grow: 1; padding: 4px 10px; display: flex; flex-direction: column; gap: 3px">
+      <a href="Desktop-Dashboard.dc.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V6l8-3 8 3v15"/><path d="M9 21v-6h6v6"/></svg>
+        Dashboard visual
+      </a>
+      <a href="Desktop-General.dc.html" class="activo">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/></svg>
+        Dashboard general
+      </a>
+      <a href="Desktop-Financiero.dc.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v12H3z"/><path d="M3 11h18M7 15h4"/></svg>
+        Financiero
+      </a>
+      <a href="Mobile-Reclamo.dc.html">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a8 8 0 11-3.2-6.4"/><path d="M12 8v4M12 16h.01"/></svg>
+        Reclamos
+        <span class="pill crit" style="margin-left: auto">7</span>
+      </a>
+      <a href="#ordenes">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 7l3 3-8 8H6v-3z"/><path d="M17 4l3 3-2 2-3-3z"/></svg>
+        Órdenes de trabajo
+        <span class="pill pend" style="margin-left: auto">2</span>
+      </a>
+      <a href="#activos">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7a4 4 0 018 0v3H8z"/><path d="M8 10h8v10H8z"/></svg>
+        Activos y seguridad
+      </a>
+      <a href="#edificios">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="8" height="13" rx="1"/><rect x="13" y="3" width="8" height="18" rx="1"/></svg>
+        Edificios
+      </a>
+      <a href="#usuarios">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20a6 6 0 0112 0"/><path d="M16 11a3 3 0 100-6M17.5 20a6 6 0 00-2-4.5"/></svg>
+        Usuarios
+      </a>
+    </nav>
+    <div style="position: relative; z-index: 1; padding: 10px 10px 14px; border-top: 1px solid var(--line-2)">
+      <div class="content-glass" style="display: flex; align-items: center; gap: 10px; border-radius: 16px; padding: 10px">
+        <span class="avatar">AC</span>
+        <div style="min-width: 0; flex-grow: 1">
+          <b style="display: block; font-family: Outfit, sans-serif; font-size: 13px; font-weight: 700">Ana Cardozo</b>
+          <span style="display: block; font-size: 10px; color: var(--ink-3)">Administradora</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <div style="flex: 999 1 560px; min-width: 0; padding: 16px; display: flex; flex-direction: column; gap: 12px">
+
+    <header class="shell" style="padding: 11px 16px; border-radius: 24px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
+      <div style="min-width: 0; flex-grow: 1">
+        <h1 style="font-size: 19px">Dashboard general</h1>
+        <span style="display: block; font-size: 10.5px; color: var(--ink-3); letter-spacing: .04em">Octubre 2026 · Torre Central</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px; flex: none; margin-left: auto">
+        <select class="campo-select-chico" aria-label="Período">
+          <option>Octubre 2026</option>
+          <option>Septiembre 2026</option>
+        </select>
+        <button class="icon-btn" aria-label="Notificaciones">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1112 0c0 5 2 6 2 6H4s2-1 2-6"/><path d="M10 20a2 2 0 004 0"/></svg>
+          <span class="badge">6</span>
+        </button>
+        <button class="icon-btn" aria-label="Cambiar a tema oscuro">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        </button>
+        <span class="avatar">AC</span>
+      </div>
+    </header>
+
+    <!-- KPIs bento -->
+    <div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px">
+      <div class="shell" style="grid-column: span 3; border-radius: 20px; padding: 17px 18px">
+        <span class="kpi-label">Composición del edificio</span>
+        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+          <div class="kpi-num">24 unidades</div>
+          <a href="#tabla-estado" style="font-size: 11.5px; font-weight: 600">Ver tabla</a>
+        </div>
+        <div class="status-bar">
+          <i style="width: 71%; background: var(--ok)"></i>
+          <i style="width: 12%; background: var(--warn)"></i>
+          <i style="width: 8%; background: var(--pend)"></i>
+          <i style="width: 9%; background: var(--crit)"></i>
+        </div>
+        <div class="status-legend">
+          <span style="color: var(--ok)"><i class="dot" style="background: currentColor"></i><b>17</b> <span style="color: var(--ink-2)">al día</span></span>
+          <span style="color: var(--warn)"><i class="dot" style="background: currentColor"></i><b>3</b> <span style="color: var(--ink-2)">atención</span></span>
+          <span style="color: var(--pend)"><i class="dot" style="background: currentColor"></i><b>2</b> <span style="color: var(--ink-2)">en curso</span></span>
+          <span style="color: var(--crit)"><i class="dot" style="background: currentColor"></i><b>2</b> <span style="color: var(--ink-2)">críticas</span></span>
+        </div>
+      </div>
+      <div class="shell" style="grid-column: span 3; border-radius: 20px; padding: 17px 18px">
+        <span class="kpi-label">Resultado del mes</span>
+        <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px">
+          <div class="kpi-num">+ $ 118.400</div>
+          <span class="pill ok">Superávit</span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 13px">
+          <div>
+            <span style="font-size: 10.5px; color: var(--ink-3)">Ingresado</span>
+            <div style="font-family: Outfit, sans-serif; font-size: 16px; font-weight: 700">$ 3.104.800</div>
+          </div>
+          <div>
+            <span style="font-size: 10.5px; color: var(--ink-3)">Gastado</span>
+            <div style="font-family: Outfit, sans-serif; font-size: 16px; font-weight: 700">$ 2.986.400</div>
+          </div>
+        </div>
+      </div>
+      <div class="shell" style="grid-column: span 1; border-radius: 20px; padding: 14px 15px">
+        <span class="kpi-label">Morosidad</span>
+        <div class="kpi-num" style="font-size: 24px">14%</div>
+        <span class="kpi-sub">3 unidades</span>
+      </div>
+      <div class="shell" style="grid-column: span 1; border-radius: 20px; padding: 14px 15px">
+        <span class="kpi-label">Reclamos</span>
+        <div class="kpi-num" style="font-size: 24px">7</div>
+        <span class="kpi-sub">2 críticos</span>
+      </div>
+      <div class="shell" style="grid-column: span 1; border-radius: 20px; padding: 14px 15px">
+        <span class="kpi-label">Resolución</span>
+        <div class="kpi-num" style="font-size: 24px">4,2 d</div>
+        <span class="kpi-sub">promedio</span>
+      </div>
+      <div class="shell" style="grid-column: span 1; border-radius: 20px; padding: 14px 15px">
+        <span class="kpi-label">Fondo reserva</span>
+        <div class="kpi-num" style="font-size: 24px">$ 1,8 M</div>
+        <span class="kpi-sub">2,1 expensas</span>
+      </div>
+      <div class="shell" style="grid-column: span 2; border-radius: 20px; padding: 14px 15px">
+        <span class="kpi-label">Vencimientos próximos</span>
+        <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px">
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 12px">
+            <span style="min-width: 0; flex-grow: 1; color: var(--ink-2)">Seguro del consorcio</span>
+            <span class="pill warn" style="flex: none">18 días</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 12px">
+            <span style="min-width: 0; flex-grow: 1; color: var(--ink-2)">Habilitación de ascensores</span>
+            <span class="pill warn" style="flex: none">26 días</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Analítica -->
+    <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: stretch">
+
+      <section class="shell" style="flex: 999 1 420px; min-width: 0; border-radius: 24px; padding: 18px 20px 20px">
+        <div style="position: relative; z-index: 1">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap">
+            <div style="min-width: 0">
+              <h2 style="font-size: 16px">Lo recaudado mes a mes</h2>
+              <span style="font-size: 11px; color: var(--ink-3)">Pagos conciliados, últimos seis períodos</span>
+            </div>
+            <a href="#tabla-recaudacion" style="font-size: 11.5px; font-weight: 600; margin-left: auto">Ver tabla</a>
+          </div>
+
+          <div class="grafico" aria-label="Recaudación mensual de mayo a octubre de 2026">
+            <div class="grafico-grid">
+              <i style="top: 0"></i>
+              <i style="top: 33%"></i>
+              <i style="top: 66%"></i>
+              <i style="bottom: 0; background: var(--line)"></i>
+            </div>
+            <div class="barra">
+              <div class="barra-fill" style="height: 62%"></div>
+            </div>
+            <div class="barra">
+              <div class="barra-fill" style="height: 71%"></div>
+            </div>
+            <div class="barra">
+              <div class="barra-fill" style="height: 58%"></div>
+            </div>
+            <div class="barra">
+              <div class="barra-fill" style="height: 79%"></div>
+            </div>
+            <div class="barra">
+              <div class="barra-fill" style="height: 74%"></div>
+            </div>
+            <div class="barra">
+              <div class="tooltip">
+                <div style="font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-3)">Octubre 2026</div>
+                <div style="font-family: Outfit, sans-serif; font-size: 15px; font-weight: 700">$ 3.104.800</div>
+                <div style="font-size: 10.5px; color: var(--ink-3)">86% de lo emitido</div>
+              </div>
+              <div class="barra-fill" style="height: 86%; box-shadow: 0 0 0 2px rgba(255, 255, 255, .9), 0 10px 20px -10px var(--accent-ring)"></div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 12px">
+            <div style="flex: 1 1 0; min-width: 0" class="barra-label">May</div>
+            <div style="flex: 1 1 0; min-width: 0" class="barra-label">Jun</div>
+            <div style="flex: 1 1 0; min-width: 0" class="barra-label">Jul</div>
+            <div style="flex: 1 1 0; min-width: 0" class="barra-label">Ago</div>
+            <div style="flex: 1 1 0; min-width: 0" class="barra-label">Sep</div>
+            <div class="barra-label" style="flex: 1 1 0; min-width: 0; color: var(--ink); font-weight: 700">Oct</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="shell" style="flex: 999 1 420px; min-width: 0; border-radius: 24px; padding: 18px 20px 20px">
+        <div style="position: relative; z-index: 1">
+          <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap">
+            <div style="min-width: 0">
+              <h2 style="font-size: 16px">En qué se gastó en octubre</h2>
+              <span style="font-size: 11px; color: var(--ink-3)">Total $ 2.986.400 · seis rubros</span>
+            </div>
+            <a href="#tabla-gastos" style="font-size: 11.5px; font-weight: 600; margin-left: auto">Ver tabla</a>
+          </div>
+
+          <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 13px">
+            <div class="rubro">
+              <div>
+                Sueldo del encargado y cargas
+                <div class="rubro-track"><div class="rubro-fill" style="width: 100%"></div></div>
+              </div>
+              <div class="rubro-monto">$ 996.800</div>
+            </div>
+            <div class="rubro">
+              <div>
+                Ascensores — abono y service
+                <div class="rubro-track"><div class="rubro-fill" style="width: 58%"></div></div>
+              </div>
+              <div class="rubro-monto">$ 577.600</div>
+            </div>
+            <div class="rubro">
+              <div>
+                Luz y agua de espacios comunes
+                <div class="rubro-track"><div class="rubro-fill" style="width: 44%"></div></div>
+              </div>
+              <div class="rubro-monto">$ 439.700</div>
+            </div>
+            <div class="rubro">
+              <div>
+                Limpieza e insumos
+                <div class="rubro-track"><div class="rubro-fill" style="width: 31%"></div></div>
+              </div>
+              <div class="rubro-monto">$ 311.400</div>
+            </div>
+            <div class="rubro">
+              <div>
+                Reparaciones del mes
+                <div class="rubro-track"><div class="rubro-fill" style="width: 22%"></div></div>
+              </div>
+              <div class="rubro-monto">$ 223.500</div>
+            </div>
+            <div class="rubro">
+              <div>
+                Fondo de reserva
+                <div class="rubro-track"><div class="rubro-fill" style="width: 13%"></div></div>
+              </div>
+              <div class="rubro-monto">$ 123.600</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Lo que hay que mirar hoy -->
+    <section class="shell" style="border-radius: 24px; padding: 18px 20px 20px">
+      <div style="position: relative; z-index: 1">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap">
+          <h2 style="font-size: 16px">Lo que hay que mirar hoy</h2>
+          <div class="view-switch" role="tablist" aria-label="Qué mirar" style="margin-left: auto">
+            <button class="active" role="tab" aria-selected="true">Todo</button>
+            <button role="tab" aria-selected="false">Reclamos</button>
+            <button role="tab" aria-selected="false">Deuda</button>
+            <button role="tab" aria-selected="false">Activos</button>
+          </div>
+        </div>
+
+        <div style="margin-top: 14px; display: flex; flex-direction: column; gap: 8px">
+          <div class="fila-lista content-glass">
+            <div style="min-width: 0">
+              <b style="font-family: Outfit, sans-serif; font-size: 14px">Matafuegos del piso 3 con la carga vencida</b>
+              <div style="font-size: 11.5px; color: var(--ink-3)">Activo · vencido hace 12 días · exigible por normativa</div>
+            </div>
+            <div class="fila-lista-acciones">
+              <span class="pill crit">Crítico</span>
+              <button class="boton-chico">Generar orden</button>
+            </div>
+          </div>
+          <div class="fila-lista content-glass">
+            <div style="min-width: 0">
+              <b style="font-family: Outfit, sans-serif; font-size: 14px">Filtración en el baño de 3°B</b>
+              <div style="font-size: 11.5px; color: var(--ink-3)">Reclamo · abierto hace 6 días · sin asignar</div>
+            </div>
+            <div class="fila-lista-acciones">
+              <span class="pill crit">Crítico</span>
+              <button class="boton-chico">Asignar</button>
+            </div>
+          </div>
+          <div class="fila-lista content-glass">
+            <div style="min-width: 0">
+              <b style="font-family: Outfit, sans-serif; font-size: 14px">3°B y 2°D con más de un mes de deuda</b>
+              <div style="font-size: 11.5px; color: var(--ink-3)">Financiero · $ 398.200 entre las dos unidades</div>
+            </div>
+            <div class="fila-lista-acciones">
+              <span class="pill crit">Crítico</span>
+              <button class="boton-chico">Ver deudores</button>
+            </div>
+          </div>
+          <div class="fila-lista content-glass">
+            <div style="min-width: 0">
+              <b style="font-family: Outfit, sans-serif; font-size: 14px">El seguro del consorcio vence en 18 días</b>
+              <div style="font-size: 11.5px; color: var(--ink-3)">Documentación · renovación anual</div>
+            </div>
+            <div class="fila-lista-acciones">
+              <span class="pill warn">Atención</span>
+              <button class="boton-chico">Ver póliza</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1360,"height":980}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

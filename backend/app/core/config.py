@@ -58,6 +58,20 @@ JWT_SECRETO_DESARROLLO = "clave-de-desarrollo-no-usar-en-produccion"
 JWT_SECRETO = os.getenv("JWT_SECRETO", JWT_SECRETO_DESARROLLO)
 JWT_ALGORITMO = "HS256"
 
+# Minimo de bytes que tiene que tener el secreto en produccion.
+#
+# No es un numero elegido a ojo: la RFC 7518 (seccion 3.2), que es la que
+# define HS256, pide que la clave tenga AL MENOS el tamanio de la salida del
+# hash, y SHA-256 produce 32 bytes. PyJWT avisa por log cuando la clave es mas
+# corta, pero firma igual — y un warning en los logs de una funcion serverless
+# es, en la practica, un aviso que nadie lee.
+#
+# Lo descubri al escribir core/security.py (F1-T04): la guarda ya controlaba
+# que el secreto no fuera el de desarrollo, pero no su longitud, asi que un
+# JWT_SECRETO="123" en las variables de Vercel pasaba el control y dejaba todos
+# los tokens del sistema firmados con una clave que se rompe por fuerza bruta.
+JWT_SECRETO_MINIMO_BYTES = 32
+
 # Sesion corta: no hay refresh token todavia, se vuelve a iniciar sesion.
 # Se revisita si la friccion lo justifica (02_Documento_Tecnico.md, seccion 7).
 JWT_MINUTOS_EXPIRACION = 60
@@ -102,6 +116,19 @@ CORS_ORIGENES = (
 # -------------------------------------------------- guarda de produccion ----
 
 
+def _es_conexion_directa_de_supabase(url: str) -> bool:
+    """Distingue la conexion directa de Supabase de la del pooler.
+
+    El host directo es `db.<proyecto>.supabase.co` y resuelve a IPv6, algo que
+    una funcion serverless no puede usar. El del pooler es
+    `aws-0-<region>.pooler.supabase.com` y es IPv4.
+
+    La deteccion se apoya en dos diferencias: el dominio del pooler termina en
+    `.com` y contiene la palabra `pooler`; el directo termina en `.supabase.co`.
+    """
+    return ".supabase.co" in url and "pooler" not in url
+
+
 class ConfiguracionInsegura(RuntimeError):
     """La aplicacion esta en produccion con configuracion de desarrollo."""
 
@@ -128,12 +155,39 @@ def verificar_configuracion_produccion() -> None:
             "usuario. Defini JWT_SECRETO en las variables de entorno."
         )
 
+    elif len(JWT_SECRETO.encode("utf-8")) < JWT_SECRETO_MINIMO_BYTES:
+        # `elif` y no un `if` aparte: si el secreto es el de desarrollo, ese es
+        # EL problema, y agregar un segundo mensaje sobre su longitud solo
+        # dispersa la atencion de quien tiene que arreglarlo.
+        problemas.append(
+            f"JWT_SECRETO tiene {len(JWT_SECRETO.encode('utf-8'))} bytes y el "
+            f"minimo es {JWT_SECRETO_MINIMO_BYTES}. La RFC 7518 pide para HS256 "
+            "una clave de al menos el tamanio de la salida del hash, que para "
+            "SHA-256 son 32 bytes; mas corta, el secreto se puede romper por "
+            "fuerza bruta y con eso se firma un token de cualquier usuario.\n"
+            "    Genera uno con: python -c \"import secrets; "
+            "print(secrets.token_urlsafe(48))\""
+        )
+
     if USA_SQLITE:
         problemas.append(
             "DATABASE_URL apunta a SQLite. El entorno serverless no tiene disco "
             "persistente: todo lo que se escriba se pierde al terminar la "
             "invocacion. Defini DATABASE_URL apuntando al PostgreSQL de "
             "Supabase, a traves del connection pooler."
+        )
+
+    if _es_conexion_directa_de_supabase(DATABASE_URL):
+        problemas.append(
+            "DATABASE_URL usa la conexion DIRECTA de Supabase (host "
+            "db.<proyecto>.supabase.co, puerto 5432) y desde un entorno "
+            "serverless eso no puede funcionar: ese host resuelve a IPv6 y la "
+            "funcion no puede abrir conexiones IPv6 salientes. El sintoma es un "
+            "'Cannot assign requested address' al arrancar.\n"
+            "    Usa la cadena del Transaction pooler, que es IPv4: en Supabase, "
+            "Settings > Database > Connection string > Transaction pooler. Se "
+            "reconoce por tres cosas: el host termina en pooler.supabase.com, el "
+            "puerto es 6543, y el usuario es postgres.<proyecto> y no postgres."
         )
 
     # CORS_ORIGENES_EXTRA vacio NO bloquea el arranque, y es deliberado.

@@ -85,6 +85,28 @@ Regla no negociable: **ningún color, sombra o superficie de vidrio se escribe c
 - Los archivos que se editan son exactamente los que se sirven. No hay paso de compilacion, ni CDN de terceros para el estilo.
 - **Se evaluo Tailwind y se descarto** (decision del 2026-09-27): el sistema visual son clases compuestas propias, asi que sus utilidades no se usarian, y agregarlo sumaba una dependencia externa sin resolver ningun problema real.
 
+## Mockups de referencia de la carpeta `mockups/`
+
+Estas son las **pantallas de referencia vigentes** del sistema, hechas con este contrato y nada más que este contrato: mismos tokens, mismo vidrio en dos capas, misma jerarquía del Dashboard Visual, mismo semáforo. A diferencia de `documentacion/mockups/` (exploración histórica, que no manda sobre nada), estas sí se consultan: cuando necesito armar una pantalla nueva, abro la que más se le parezca y copio el patrón.
+
+Son archivos `.dc.html` autocontenidos (cada uno trae los tokens en su `<helmet>`, porque un artboard no puede linkear `tokens.css`). Al portarlos al frontend real, ese bloque se reemplaza por los dos `<link>` de siempre a `tokens.css` y `components.css` — **el CSS del `<helmet>` no se copia al proyecto**, es solo lo que hace que el mockup se vea solo.
+
+| Archivo | Qué resuelve |
+|---|---|
+| `Mobile-Dashboard.dc.html` | Dashboard Visual en mobile: topbar con hamburguesa, KPIs bento (1 hero + 2 métricas), fachada con selector de 4 vistas, piso expandido, franja de activos. |
+| `Mobile-Ficha.dc.html` | La ficha 360° como hoja inferior, con el backdrop transparente y dos acciones ancladas abajo. |
+| `Mobile-Reclamo.dc.html` | Alta en modal de formulario: el único backdrop que oscurece y difumina. La prioridad usa `.opcion-card`; la foto es un campo de URL, como corresponde mientras no haya almacenamiento propio. |
+| `Mobile-Financiero.dc.html` | "Mi cuenta" del residente: saldo arriba, apertura de la expensa por rubro, CBU y alias copiables. |
+| `Mobile-Oscuro.dc.html` | Tema oscuro + el panel de navegación deslizante (mismo componente conceptual que la hoja de detalle). |
+| `Desktop-Dashboard.dc.html` | Lo mismo en escritorio: sidebar de 248 px, KPIs a 6 columnas, fachada y panel de detalle lado a lado. |
+| `Desktop-General.dc.html` | Dashboard General: bento + recaudación mes a mes + gastos por rubro + "lo que hay que mirar hoy". |
+| `Desktop-Financiero.dc.html` | Pantalla financiera: pestañas del dominio en un solo archivo, tabla ancha en caja con scroll propio, columna de resumen. |
+
+### Dos ajustes que salieron de armarlos
+
+1. **Botón de ícono a 42 px en mobile, 38 px en escritorio.** El contrato decía 38 en los dos. A 38 no se llega al mínimo de área táctil que pide cualquier guía de accesibilidad, y en mobile ese botón es la hamburguesa y el cierre de la hoja — los dos toques más frecuentes de la app. En escritorio no hace falta, así que ahí se queda en 38 y no se toca nada más.
+2. **El amarillo y el naranja del semáforo son difíciles de distinguir entre sí.** Medido, no estimado: `--warn #ba8c1f` contra `--pend #bd6c2c` quedan a ΔE 8,4 en visión normal y 5,7 simulando deuteranopía. Los valores **no se cambian** — son regla de negocio y son los mismos en claro y oscuro. La consecuencia es otra: **ninguno de los cuatro estados se comunica nunca solo con color.** Siempre va con texto al lado (una `.pill`, un `.unit-tag`, la leyenda con su etiqueta). Esto ya estaba implícito en el sistema; queda explícito acá porque es lo que lo hace legible de verdad. Lo mismo vale para `--warn` sobre el fondo claro: queda en 2,73:1, así que nunca lleva texto encima.
+
 ## Archivos de referencia
 
 - **`references/paleta-color.md`** — todas las variables CSS (claro + oscuro) con su valor exacto y cuándo usar cada una.
