@@ -72,6 +72,15 @@ h1, h2, h3, h4, .display{
 a{ color:inherit; }
 ::selection{ background:var(--accent-ring); }
 
+/* El atributo hidden tiene que ganarle SIEMPRE a la clase del componente.
+   El navegador ya trae [hidden]{display:none}, pero eso vive en su hoja por
+   defecto, y cualquier regla de autor le gana sin importar la especificidad:
+   un .mensaje-error con display:flex se sigue viendo con hidden puesto. El
+   bug es silencioso y desconcertante — el cartel de error aparece al cargar
+   la pagina, sin que nada lo haya mostrado. Se declara una vez aca y vale
+   para todo componente que se oculte asi, presente o futuro. */
+[hidden]{ display:none !important; }
+
 /* El foco nunca se elimina sin reemplazarlo: se marca con el anillo de
    acento. Solo cuando el navegador entiende que hace falta mostrarlo. */
 :focus-visible{
@@ -163,6 +172,16 @@ a{ color:inherit; }
   border-radius:0;
 }
 
+/* La marca dentro del sidebar: la misma del topbar del login, con menos
+   aire. Enlaza a la pantalla de inicio del usuario. */
+.sidebar-brand{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:0 6px;
+  text-decoration:none;
+}
+
 .sidebar-nav{
   display:flex;
   flex-direction:column;
@@ -171,12 +190,81 @@ a{ color:inherit; }
   overflow-y:auto;
 }
 
+/* Un acceso del menu. Los genera layout.js desde su tabla de roles: no se
+   escriben a mano en el HTML de ninguna pantalla. */
+.sidebar-link{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 12px;
+  border-radius:var(--r-sm);
+  color:var(--ink-2);
+  font-size:13.5px;
+  font-weight:600;
+  text-decoration:none;
+  transition:background .18s ease-out, color .18s ease-out;
+}
+.sidebar-link:hover{
+  background:var(--glass-content-bg);
+  color:var(--ink);
+}
+/* El acceso de la pantalla en la que ya estamos. Usa el acento de marca y
+   NUNCA un color del semaforo: "donde estoy parado" no es un estado del
+   edificio. */
+.sidebar-link.activo{
+  background:var(--accent-soft);
+  color:var(--accent-2);
+}
+.sidebar-link svg{
+  width:17px;
+  height:17px;
+  flex:none;
+}
+
+/* El mensaje que ve un rol sin ninguna pantalla habilitada todavia. Existe
+   para que ese caso sea un texto que explica, y no un menu vacio que parece
+   roto. */
+.sidebar-vacio{
+  padding:12px;
+  border-radius:var(--r-sm);
+  background:var(--glass-content-bg);
+  color:var(--ink-3);
+  font-size:12px;
+  line-height:1.55;
+}
+
 .sidebar-footer{
   display:flex;
   flex-direction:column;
   gap:10px;
   padding-top:14px;
   border-top:1px solid var(--line-2);
+}
+
+/* Quien esta logueado, con su rol debajo. Contenido denso dentro de un
+   shell: va en .content-glass, no en vidrio de contenedor. */
+.sidebar-usuario{
+  display:flex;
+  flex-direction:column;
+  gap:1px;
+  padding:10px 12px;
+  border-radius:var(--r-sm);
+  min-width:0;
+}
+.sidebar-usuario b{
+  font-family:Outfit,ui-sans-serif,system-ui,sans-serif;
+  font-size:13.5px;
+  /* Un nombre largo de verdad no puede empujar el ancho del sidebar. */
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.sidebar-usuario span{
+  font-size:11.5px;
+  color:var(--ink-3);
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
 }
 
 /* Capa que solo captura el toque para cerrar el panel. Transparente a
@@ -225,6 +313,18 @@ a{ color:inherit; }
   padding:11px 14px;
   margin-bottom:14px;
   border-radius:var(--r-lg);
+}
+
+/* El titulo de la pantalla, en el topbar de la zona autenticada. Es un h1
+   real: la jerarquia de encabezados de cada pantalla arranca aca, no en el
+   contenido. */
+.topbar-titulo{
+  flex:1;
+  min-width:0;
+  font-size:16px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
 }
 
 .topbar-actions{
@@ -339,7 +439,117 @@ a{ color:inherit; }
 }
 
 /* ============================================================================
-   4. COMPONENTES TRANSVERSALES
+   4. ZONA PRE-AUTENTICACION (EL LOGIN)
+   La otra mitad del esqueleto de la seccion anterior, y la mas chica: la
+   unica pantalla a la que se entra SIN sesion. No tiene sidebar ni menu,
+   porque todavia no hay nada que navegar. Es una tarjeta centrada sobre el
+   fondo atmosferico y nada mas.
+   ========================================================================== */
+
+/* Va en el <body>. Convierte la pagina en una columna del alto de la
+   ventana, que es lo que despues le permite a .auth-centro repartir el
+   espacio que sobra entre la topbar y el borde de abajo. */
+.zona-auth{
+  display:flex;
+  flex-direction:column;
+  /* dvh, con vh de respaldo para el navegador que no lo entienda. En mobile
+     100vh cuenta tambien el alto que tapa la barra de direcciones, asi que
+     la tarjeta queda centrada respecto de un area mas alta que la visible
+     y se ve corrida hacia abajo. */
+  min-height:100vh;
+  min-height:100dvh;
+}
+.zona-auth > .main-column,
+.zona-auth .page-content{
+  display:flex;
+  flex-direction:column;
+  flex:1;
+  min-height:0;              /* sin esto, un hijo alto desborda la columna */
+}
+
+/* El espacio que queda libre debajo de la topbar: centra la tarjeta en los
+   dos ejes. El padding de abajo es mayor que el de arriba a proposito — un
+   bloque centrado matematicamente se percibe bajo, no centrado. */
+.auth-centro{
+  flex:1;
+  display:grid;
+  place-items:center;
+  padding:24px 0 48px;
+}
+
+/* Se combina con .shell: el vidrio de contenedor grande, que es el nivel que
+   corresponde a una tarjeta de baja densidad de texto como esta. */
+.tarjeta-auth{
+  width:100%;
+  max-width:396px;           /* mas ancha, un formulario de dos campos se ve
+                                perdido; mas angosta, el email no entra */
+  padding:24px 20px;
+  border-radius:var(--r-lg);
+}
+.tarjeta-auth h1{
+  font-size:21px;
+  margin-bottom:6px;
+}
+.tarjeta-auth-sub{
+  margin:0 0 20px;
+  color:var(--ink-2);
+  font-size:13px;
+  line-height:1.55;
+}
+
+@media (min-width: 640px){
+  .tarjeta-auth{ padding:30px 28px; }
+  .tarjeta-auth h1{ font-size:24px; }
+}
+
+/* Bloque de datos de la sesion ya iniciada. Densidad de texto: va en
+   .content-glass, no en .shell. */
+.auth-sesion{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  padding:13px 15px;
+  margin-bottom:16px;
+  border-radius:var(--r-sm);
+}
+.auth-sesion b{
+  font-family:Outfit,ui-sans-serif,system-ui,sans-serif;
+  font-size:15px;
+}
+.auth-sesion span{
+  font-size:12.5px;
+  color:var(--ink-2);
+}
+
+/* --- Campo de contrasenia con mostrar/ocultar ---------------------------- */
+/* TODO campo de contrasenia del proyecto usa esta estructura, sin ninguna
+   excepcion "porque es modo test". assets/js/formularios.js lo engancha
+   solo: la pantalla no llama nada. */
+.campo-password-wrap{ position:relative; }
+/* Deja libre el lugar del boton: sin esto, el texto pasa por debajo del ojo. */
+.campo-password-wrap input{ padding-right:42px; }
+
+.campo-password-toggle{
+  position:absolute;
+  right:5px;
+  top:50%;
+  transform:translateY(-50%);
+  width:28px;
+  height:28px;
+  border:0;
+  border-radius:8px;
+  background:transparent;
+  color:var(--ink-3);
+  display:grid;
+  place-items:center;
+  cursor:pointer;
+  transition:color .18s ease-out;
+}
+.campo-password-toggle:hover{ color:var(--ink); }
+.campo-password-toggle svg{ width:17px; height:17px; }
+
+/* ============================================================================
+   5. COMPONENTES TRANSVERSALES
    ========================================================================== */
 
 /* --- Indicador de estado en vivo (.live) --------------------------------- */
@@ -558,6 +768,11 @@ a{ color:inherit; }
   transition:transform .32s cubic-bezier(.32,.72,0,1),
              width .32s cubic-bezier(.32,.72,0,1);
 }
+/* Para la PRIMERA colocacion y para el reposicionamiento por resize: el
+   indicador tiene que aparecer donde corresponde, no deslizarse desde el
+   borde izquierdo cada vez que carga la pagina o se rota el telefono.
+   view-switch.js la pone, mide, y la saca en el frame siguiente. */
+.view-switch-indicador.sin-animacion{ transition:none; }
 
 .view-switch button{
   position:relative;

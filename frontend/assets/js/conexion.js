@@ -42,7 +42,7 @@
     if (!elementos.length) return;
 
     elementos.forEach(function (elemento) {
-      pintar(elemento, 'verificando', 'Verificando', 'Verificando la conexion con el servidor');
+      pintar(elemento, 'verificando', 'Verificando', 'Verificando la conexión con el servidor');
     });
 
     /* El catch cubre TODO: backend apagado, CORS mal configurado, un 500.
@@ -55,14 +55,14 @@
           pintar(
             elemento,
             'conectado',
-            'En linea',
+            'En línea',
             'Conectado a la API' + version + ' (' + window.Config.API + ')'
           );
         });
       },
       function (error) {
         elementos.forEach(function (elemento) {
-          pintar(elemento, 'sin-conexion', 'Sin conexion', error.message);
+          pintar(elemento, 'sin-conexion', 'Sin conexión', error.message);
         });
       }
     );

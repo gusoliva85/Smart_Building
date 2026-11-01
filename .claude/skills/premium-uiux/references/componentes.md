@@ -195,11 +195,13 @@ Uso: `<span class="pill crit">3 críticos</span>`. Es el único componente con l
 Base para **todo** selector de este tipo en el proyecto (a pedido explícito del usuario) — el fondo/sombra del botón activo ya no lo pinta cada botón por separado: un único **indicador que se desliza** entre opciones lo hace, con `assets/js/view-switch.js` (se engancha solo a cualquier `.view-switch` que haya en la página vía `DOMContentLoaded` — ninguna pantalla nueva llama nada a mano). Misma técnica que animaría un switch on/off (un "thumb" moviéndose entre dos posiciones), adaptada a N opciones con texto: el indicador se mueve Y cambia de ancho para calzar exacto con el botón activo, calculado desde `getBoundingClientRect()` — funciona igual con 2 o 6 opciones, de cualquier largo de texto.
 
 ```html
-<div class="view-switch" role="tablist" id="view-switch">
-  <button class="active" data-view="general">General</button>
-  <button data-view="incidentes">Incidentes</button>
-  <button data-view="deudores">Deudores</button>
-  <button data-view="mantenimiento">Mantenimiento</button>
+<!-- role="tablist" y role="tab" los pone view-switch.js si faltan, y el
+     indicador tampoco va en el HTML. Esto es todo lo que escribe la pantalla. -->
+<div class="view-switch">
+  <button class="activo" data-vista="general">General</button>
+  <button data-vista="incidentes">Incidentes</button>
+  <button data-vista="deudores">Deudores</button>
+  <button data-vista="mantenimiento">Mantenimiento</button>
 </div>
 ```
 
@@ -219,22 +221,32 @@ Base para **todo** selector de este tipo en el proyecto (a pedido explícito del
   position:relative; z-index:1; border:0; background:transparent; padding:8px 13px; border-radius:99px;
   font-size:12px; font-weight:600; color:var(--ink-3); cursor:pointer; white-space:nowrap; transition:color .18s;
 }
-.view-switch button.active{ color:var(--accent-2); } /* el fondo/sombra ahora los da el indicador, no el botón */
+.view-switch button.activo{ color:var(--accent-2); } /* el fondo/sombra ahora los da el indicador, no el botón */
+/* Para la primera colocación y para el resize: el indicador aparece donde
+   corresponde en vez de deslizarse desde el borde izquierdo. */
+.view-switch-indicador.sin-animacion{ transition:none; }
 ```
 
+**La división de responsabilidades es la clave de que esto no se pise.** `view-switch.js` se ocupa de la **piel**: qué botón se ve activo, dónde está el indicador, el `aria-selected` y el `tabindex`. La pantalla se ocupa del **dato**, con su propio listener de clic sobre los mismos botones:
+
 ```js
-// view-switch.js crea el <span class="view-switch-indicador"> solo — no
-// va en el HTML. La lógica de negocio de cada pantalla (marcar .active,
-// re-renderizar la vista) sigue siendo responsabilidad de esa pantalla,
-// con su propio listener de click en los mismos botones — los dos
-// conviven sin pisarse, uno mueve el indicador, el otro cambia el dato.
-document.querySelectorAll('#view-switch button').forEach(btn => btn.addEventListener('click', () => {
-  document.querySelectorAll('#view-switch button').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  currentView = btn.dataset.view;
-  renderFloors(); // se re-renderiza TODO, nunca queda estado de vista anterior pegado
-}));
+// La pantalla NO toca la clase .activo ni el indicador: de eso ya se
+// encarga view-switch.js. Solo reacciona al cambio de vista.
+document.querySelectorAll('.view-switch button').forEach(function (boton) {
+  boton.addEventListener('click', function () {
+    vistaActual = boton.dataset.vista;
+    dibujarPisos();  // se redibuja TODO, nunca queda pegado estado de la vista anterior
+  });
+});
 ```
+
+Y si una pantalla cambia el botón activo **por código** —restaurando un estado guardado, por ejemplo—, el indicador la sigue igual: un `MutationObserver` sobre la clase de los botones lo reposiciona sin que nadie tenga que avisar.
+
+**Teclado, que es parte del componente y no un extra:** flechas para moverse entre opciones (circular, del último vuelve al primero), Home y End para los extremos. Solo la opción activa es tabulable (`tabindex="0"`, el resto `-1`), que es el comportamiento estándar de un grupo de pestañas y evita que un selector de seis opciones se coma seis tabs.
+
+**Dos frames, no uno, para la colocación sin animar.** `view-switch.js` pone la clase `sin-animacion`, mide, coloca, y la saca en el frame siguiente. Tiene que ser `requestAnimationFrame` anidado dos veces: con uno solo el navegador puede no haber aplicado todavía el estilo nuevo cuando se saca la clase, y la transición se dispara igual — que es exactamente lo que se quería evitar.
+
+**Y un reposicionamiento fácil de no prever: las fuentes.** Outfit e Inter llegan de Google Fonts *después* del `DOMContentLoaded` y cambian el ancho del texto de los botones. Sin recolocar también en el evento `load`, el indicador queda calzado para la tipografía de respaldo y desfasado para la definitiva.
 
 **Ojo con inicializar el indicador mientras el switch está oculto** (`display:none`, ej. un panel que todavía no terminó de cargar sus datos): `getBoundingClientRect()` da todo en `0` ahí, y el indicador quedaría mal posicionado para siempre. `view-switch.js` resuelve esto con un `ResizeObserver` sobre el propio `.view-switch` en vez de calcular la posición una sola vez al cargar — se reposiciona solo (sin animar) apenas el switch pasa a tener tamaño real, y de paso cubre gratis el resize de ventana y la rotación del celular.
 
@@ -466,6 +478,54 @@ El vocabulario base de esta skill nació resolviendo el Dashboard Visual, no un 
 .chip-link:hover{ transform:translateY(-1px); color:var(--accent-2); border-color:var(--accent); }
 ```
 
+## Zona pre-autenticación (la tarjeta de login)
+
+La otra mitad del esqueleto, y la más chica: la única pantalla a la que se entra **sin sesión**, así que no tiene sidebar ni menú — no hay nada que navegar todavía. Es una tarjeta centrada sobre el fondo atmosférico, con la topbar de siempre arriba (marca + indicador de conexión + botón de tema, sin hamburguesa).
+
+```html
+<body class="zona-auth">
+  <div class="main-column"><div class="page-content">
+    <header class="topbar shell">…</header>
+    <main class="auth-centro">
+      <section class="tarjeta-auth shell">
+        <h1>Iniciar sesión</h1>
+        <p class="tarjeta-auth-sub">…</p>
+        <div class="mensaje-error" role="alert" hidden>…</div>
+        <form novalidate>…</form>
+      </section>
+    </main>
+  </div></div>
+</body>
+```
+
+```css
+.zona-auth{ display:flex; flex-direction:column; min-height:100vh; min-height:100dvh; }
+.zona-auth > .main-column, .zona-auth .page-content{ display:flex; flex-direction:column; flex:1; min-height:0; }
+.auth-centro{ flex:1; display:grid; place-items:center; padding:24px 0 48px; }
+
+.tarjeta-auth{ width:100%; max-width:396px; padding:24px 20px; border-radius:var(--r-lg); }
+.tarjeta-auth h1{ font-size:21px; margin-bottom:6px; }
+.tarjeta-auth-sub{ margin:0 0 20px; color:var(--ink-2); font-size:13px; line-height:1.55; }
+@media (min-width: 640px){ .tarjeta-auth{ padding:30px 28px; } .tarjeta-auth h1{ font-size:24px; } }
+
+/* Bloque de datos de la sesión iniciada: densidad de texto, va en .content-glass */
+.auth-sesion{ display:flex; flex-direction:column; gap:2px; padding:13px 15px; margin-bottom:16px; border-radius:var(--r-sm); }
+.auth-sesion b{ font-family:Outfit; font-size:15px; }
+.auth-sesion span{ font-size:12.5px; color:var(--ink-2); }
+```
+
+**`dvh` con `vh` de respaldo, y no `vh` solo.** En mobile `100vh` cuenta también el alto que tapa la barra de direcciones del navegador, así que la tarjeta queda centrada respecto de un área más alta que la visible y se ve corrida hacia abajo. El `vh` va primero para el navegador que no entienda `dvh`.
+
+**El padding de abajo de `.auth-centro` es el doble que el de arriba, a propósito.** Un bloque centrado matemáticamente se percibe bajo, no centrado — es el mismo ajuste óptico de cualquier composición.
+
+**La tarjeta va en `.shell` y el bloque de datos de la sesión en `.content-glass`.** Es la regla de los dos niveles aplicada tal cual: la tarjeta es un contenedor grande de baja densidad de texto, el bloque de datos es contenido denso adentro.
+
+**`max-width: 396px`.** Más ancha, un formulario de dos campos se ve perdido en el medio; más angosta, un email largo no entra de una línea en el input.
+
+**Dos tarjetas excluyentes, nunca una sección vacía.** `index.html` tiene la de login y la de "sesión iniciada", y `login.js` muestra una o la otra — nunca las dos, nunca una deshabilitada. La segunda existe porque la primera pantalla autenticada llega después (`F1-T13`) y la regla del proyecto prohíbe enlazar un archivo que no existe: en vez de un enlace roto, el login cierra el circuito mostrando el resultado real de `GET /auth/me`.
+
+**El `autocomplete` del login es el caso opuesto al del alta de usuarios.** Acá va activo y nombrado (`username` / `current-password`): es un login de verdad y que el gestor de contraseñas lo complete es lo correcto. En el formulario de **alta** el par email + contraseña es para OTRA persona, y ahí hay que apagarlo (`off` / `new-password`) para que Chrome no lo rellene con las credenciales del administrador logueado — ver la lección del campo de contraseña, más abajo.
+
 ## Sidebar de navegación (zona autenticada) — Documento Técnico, sección 4.1
 
 Todas las pantallas detrás de login comparten este layout: sidebar fija a la izquierda (desktop) o panel deslizante (mobile) + columna principal con su propio topbar. Arquitectura de contenedores:
@@ -506,15 +566,82 @@ Todas las pantallas detrás de login comparten este layout: sidebar fija a la iz
     position:fixed; left:0; top:0; bottom:0; z-index:60; width:82vw; max-width:300px;
     transform:translateX(-105%); transition:transform .3s cubic-bezier(.32,.72,0,1); border-radius:0 20px 20px 0;
   }
-  .sidebar.open{ transform:translateX(0); }
+  .sidebar.abierta{ transform:translateX(0); }
   .sidebar-backdrop{ position:fixed; inset:0; z-index:55; background:transparent; pointer-events:none; }
-  .sidebar-backdrop.open{ pointer-events:auto; }
-  .hamburger-btn{ display:grid; }
+  .sidebar-backdrop.abierta{ pointer-events:auto; }
 }
-@media(min-width:1024px){ .hamburger-btn{ display:none; } }
+/* La hamburguesa es un .icon-btn normal con esta clase, que solo la esconde
+   en desktop. No es un botón aparte con estilos propios. */
+@media(min-width:1024px){ .hamburguesa{ display:none !important; } }
 ```
 
-Mismo patrón de panel deslizante que ya usa `.detail` (sección "Panel de detalle" de este documento) — backdrop transparente que solo sirve para cerrar al tocar afuera, nunca oscurece la pantalla. Se monta con `assets/js/layout.js`, que hace la guarda de sesión, pide `/auth/me`, arma los accesos según el rol y engancha el logout — cada pantalla nueva lo importa, ninguna reescribe esta lógica.
+Y las piezas internas, que genera `layout.js`:
+
+```css
+.sidebar-brand{ display:flex; align-items:center; gap:10px; padding:0 6px; text-decoration:none; }
+
+.sidebar-link{
+  display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:var(--r-sm);
+  color:var(--ink-2); font-size:13.5px; font-weight:600; text-decoration:none;
+  transition:background .18s ease-out, color .18s ease-out;
+}
+.sidebar-link:hover{ background:var(--glass-content-bg); color:var(--ink); }
+.sidebar-link.activo{ background:var(--accent-soft); color:var(--accent-2); }
+.sidebar-link svg{ width:17px; height:17px; flex:none; }
+
+/* El mensaje de un rol sin pantallas habilitadas: un texto que explica, no
+   un menú vacío que parece roto. */
+.sidebar-vacio{
+  padding:12px; border-radius:var(--r-sm); background:var(--glass-content-bg);
+  color:var(--ink-3); font-size:12px; line-height:1.55;
+}
+
+/* Quién está logueado. Contenido denso: va en .content-glass. */
+.sidebar-usuario{ display:flex; flex-direction:column; gap:1px; padding:10px 12px; border-radius:var(--r-sm); min-width:0; }
+.sidebar-usuario b{ font-family:Outfit; font-size:13.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sidebar-usuario span{ font-size:11.5px; color:var(--ink-3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* El título de pantalla, en el topbar. Es un h1 real: la jerarquía de
+   encabezados de cada pantalla arranca acá, no en el contenido. */
+.topbar-titulo{ flex:1; min-width:0; font-size:16px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+```
+
+El `overflow:hidden; text-overflow:ellipsis; white-space:nowrap` de `.sidebar-usuario` no es decorativo: un nombre largo de verdad empuja el ancho del sidebar y descuadra el layout entero.
+
+`.sidebar-link.activo` usa el acento de marca y **nunca** un color del semáforo: "dónde estoy parado" no es un estado del edificio.
+
+Mismo patrón de panel deslizante que ya usa `.detail` (sección "Panel de detalle" de este documento) — backdrop transparente que solo sirve para cerrar al tocar afuera, nunca oscurece la pantalla. Se cierra de tres formas, y las tres hacen falta: la hamburguesa, el backdrop, y Escape (la tecla que la gente aprieta sin pensar). Al cerrarlo, el foco vuelve al botón que lo abrió: si se quedara dentro de un panel cerrado, el siguiente Tab seguiría recorriendo elementos que ya no se ven.
+
+**Lo que escribe cada pantalla, y es todo lo que escribe:**
+
+```html
+<body class="layout-app" data-pantalla="usuarios" data-titulo="Usuarios">
+  <div class="main-column">
+    <header class="topbar shell" data-topbar></header>
+    <main class="page-content"> …contenido propio… </main>
+  </div>
+</body>
+```
+
+El sidebar, el backdrop y el contenido del topbar los genera `assets/js/layout.js`: guarda de sesión, pedido de `/auth/me`, armado de los accesos según el rol, marcado del activo, logout y hamburguesa. Que eso no se repita en catorce HTML es justamente el punto — un acceso nuevo se agrega en un solo lugar y aparece en toda la aplicación.
+
+**La tabla de accesos es la única fuente del menú**, y cada fila lleva una bandera `construida`. Es lo que mantiene la regla de no enlazar nunca un archivo que todavía no existe: la fila se declara igual, con su rol y su ícono, para que la tabla se lea como el plan completo del menú; mientras el archivo no esté, el acceso no se dibuja. Cuando la pantalla se construye, se cambia ese `false` por `true` y nada más.
+
+Ojo con lo que esa tabla **no** es: decide qué se *muestra*, no qué se puede *hacer*. El permiso real lo controla el backend en cada endpoint. Ocultar un acceso es una cortesía para no ofrecer lo que va a ser rechazado, nunca un mecanismo de seguridad — quien escriba la URL a mano llega igual a la pantalla, y ahí lo frena el backend.
+
+**`layout.js` NO se engancha solo**, al contrario de `formularios.js` y `view-switch.js`. Montar el esqueleto implica pedir datos al backend y, si no hay sesión, sacar al usuario de la página: eso no puede pasar por el solo hecho de incluir un `<script>`. La pantalla lo pide, y además necesita el usuario que devuelve para rutear por rol:
+
+```js
+window.Layout.montar().then(function (usuario) {
+  // acá recién se dibuja el contenido propio de la pantalla
+});
+```
+
+Cuando no hay sesión, la promesa que devuelve **no se resuelve nunca**, y es deliberado: lo que sigue en la pantalla está encadenado a ese `.then()`, así que no resolver es lo que evita que se dibuje medio contenido mientras el navegador cambia de página.
+
+**El sidebar se inserta ANTES de la columna principal en el DOM**, no solo en el dibujo: el orden del documento es el orden en que se recorre con Tab y el que lee un lector de pantalla. Llegar al menú después del contenido obligaría a recorrer toda la pantalla para volver a navegar.
+
+**El nombre del usuario se escribe con `textContent`, nunca interpolado dentro de un `innerHTML`.** Lo escribió una persona en un formulario, y armar HTML con eso es exactamente cómo se inyecta un script.
 
 ## Modal de aviso (primer modal del proyecto)
 
@@ -603,6 +730,20 @@ Para dos campos "cortos" lado a lado dentro del formulario (Rol + Teléfono, CP 
 .form-grid-2{ display:grid; grid-template-columns:1fr; gap:0 12px; }
 @media(min-width:480px){ .form-grid-2{ grid-template-columns:1fr 1fr; } }
 ```
+
+## Enter avanza de campo (`assets/js/formularios.js`)
+
+En todo formulario del proyecto, Enter en un campo intermedio **avanza al siguiente** en vez de enviar; solo en el último campo envía, que es el atajo que la gente espera. Nació de un bug real: se creó un edificio a medio cargar porque Enter en un campo intermedio envió el formulario entero. Quien carga datos usa Enter como separador, igual que en una planilla, y la pantalla tiene que acompañar eso.
+
+No hay nada que llamar: el módulo escucha `keydown` **en `document`**, así que cubre igual un formulario que ya venía en el HTML y uno que se inserta después (el modal de alta), sin reinicializar nada al redibujar.
+
+Tres exclusiones, todas necesarias:
+
+- **`<textarea>`**: ahí Enter es un salto de línea y nada más.
+- **Con modificador apretado** (Ctrl/Cmd/Alt/Shift): Ctrl+Enter para enviar es una convención extendida, no se intercepta.
+- **Inputs que no son para escribir** (`submit`, `button`, `reset`, `image`, `hidden`) y los `disabled`/`readonly`.
+
+**Trampa al armar la lista de campos: `getClientRects().length`, nunca `offsetParent`.** Para descartar los campos invisibles, el reflejo es preguntar por `offsetParent === null`. No sirve acá: un campo dentro de un contenedor con `position: fixed` —o sea, **todo modal del proyecto**— tiene `offsetParent` nulo aunque se vea perfecto, así que con ese criterio la lista de campos de un modal sale vacía y Enter deja de avanzar justo en los formularios donde más se usa.
 
 ## Campo de contraseña con mostrar/ocultar
 

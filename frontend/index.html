@@ -8,7 +8,7 @@
      ========================================================================= -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SMART Building</title>
+<title>Iniciar sesion · SMART Building</title>
 
 <!-- Tema: inline, sincrono y antes de las hojas de estilo. Si esperara al
      script del final del body, se veria un destello claro antes de pasar a
@@ -25,14 +25,17 @@
 <link rel="stylesheet" href="assets/css/components.css">
 </head>
 
-<body>
+<!-- La clase zona-auth hace de esta pagina una columna del alto de la
+     ventana, para que la tarjeta se centre en el espacio que sobra debajo de
+     la topbar. Es la unica pantalla del proyecto sin sidebar: todavia no hay
+     sesion, asi que no hay nada que navegar. -->
+<body class="zona-auth">
   <div class="main-column">
     <div class="page-content">
 
       <!-- ================================================================
-           Topbar. Marca a la izquierda, acciones a la derecha.
-           El boton de tema esta en su lugar; su comportamiento lo engancha
-           assets/js/theme.js en F0-T13.
+           Topbar. La misma de siempre: marca, indicador de conexion y
+           boton de tema. Sin hamburguesa, porque no hay sidebar que abrir.
            ================================================================ -->
       <header class="topbar shell">
         <a class="brand" href="index.html">
@@ -48,15 +51,18 @@
           </span>
           <span class="brand-text">
             <b>SMART Building</b>
-            <span>Gestion integral de consorcios</span>
+            <span>Gestión integral de consorcios</span>
           </span>
         </a>
 
         <div class="topbar-actions">
           <!-- Indicador de conexion con la API. Es el mismo componente que el
                punto de "sistema en vivo" del techo del edificio en el
-               Dashboard Visual, reutilizado aca. conexion.js lo completa. -->
-          <span class="live verificando" data-indicador-conexion title="Verificando la conexion con el servidor">
+               Dashboard Visual, reutilizado aca. conexion.js lo completa.
+               En esta pantalla gana importancia: si el backend esta apagado,
+               el indicador lo dice ANTES de que alguien escriba su
+               contrasenia y reciba un error que parece de credenciales. -->
+          <span class="live verificando" data-indicador-conexion title="Verificando la conexión con el servidor">
             <i aria-hidden="true"></i><span>Verificando</span>
           </span>
 
@@ -69,27 +75,116 @@
         </div>
       </header>
 
-      <!-- ================================================================
-           Contenido. Deliberadamente minimo: esta pantalla es el cascaron
-           que demuestra que el sistema de diseno esta aplicado. No hay
-           login, ni indicadores, ni edificio, porque todavia no existen
-           esos modulos — y una pantalla no muestra secciones vacias de
-           funcionalidad futura.
-           ================================================================ -->
-      <main class="shell panel-centrado">
-        <h1>El sistema de diseno esta en pie</h1>
-        <p>
-          Esta es la primera pantalla real del proyecto. Todavia no hace nada:
-          existe para verificar que el fondo atmosferico, la textura de grano,
-          el vidrio en dos capas y la tipografia se ven como tienen que verse,
-          en mobile y en escritorio, en tema claro y oscuro.
-        </p>
-        <p>
-          El punto de la barra superior consulta la API al cargar y dice si el
-          backend esta respondiendo. A partir de aca la interfaz crece de a una
-          pantalla por vez, en el orden que fija el Roadmap: el proximo paso es
-          el login.
-        </p>
+      <main class="auth-centro">
+
+        <!-- ==============================================================
+             Tarjeta de login. Una de las dos tarjetas de esta pantalla:
+             login.js muestra esta cuando no hay sesion y la de abajo
+             cuando si la hay. Nunca las dos a la vez.
+             ============================================================== -->
+        <section class="tarjeta-auth shell" id="tarjeta-login">
+          <h1>Iniciar sesión</h1>
+          <p class="tarjeta-auth-sub">
+            Entrá con el email con el que te dieron de alta en el sistema.
+          </p>
+
+          <!-- El error se muestra ACA, dentro del formulario donde ocurrio la
+               accion, y nunca con un alert() del navegador. role="alert" es
+               lo que hace que un lector de pantalla lo anuncie al aparecer. -->
+          <div class="mensaje-error" id="error-login" role="alert" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9"/>
+              <path d="M12 8v4M12 16h.01"/>
+            </svg>
+            <span data-texto-error></span>
+          </div>
+
+          <!-- novalidate: la validacion la hace el formulario con los mensajes
+               del proyecto, no los globos nativos del navegador, que no se
+               pueden estilar y aparecen en el idioma del navegador y no en el
+               de la aplicacion.
+
+               Y aca el autocomplete SI se deja activo (username /
+               current-password): este es un login de verdad y que el gestor
+               de contrasenias lo complete es lo correcto. Es el caso opuesto
+               al formulario de ALTA de usuarios (F1-T13), donde el par
+               email + contrasenia es para OTRA persona y hay que apagarlo
+               para que Chrome no lo rellene con la sesion del administrador. -->
+          <form id="form-login" novalidate>
+            <div class="campo">
+              <label for="campo-email">Email</label>
+              <input
+                type="email"
+                id="campo-email"
+                name="email"
+                inputmode="email"
+                autocomplete="username"
+                autocapitalize="none"
+                spellcheck="false"
+                placeholder="nombre@consorcio.com"
+                required>
+            </div>
+
+            <div class="campo">
+              <label for="campo-password">Contraseña</label>
+              <!-- Estructura obligatoria de TODO campo de contrasenia del
+                   proyecto. El ojo lo engancha formularios.js solo: esta
+                   pantalla no inicializa nada. -->
+              <div class="campo-password-wrap">
+                <input
+                  type="password"
+                  id="campo-password"
+                  name="password"
+                  autocomplete="current-password"
+                  required>
+                <button type="button" class="campo-password-toggle" aria-label="Mostrar contraseña">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <button type="submit" class="boton-primario" id="boton-entrar">Iniciar sesión</button>
+          </form>
+        </section>
+
+        <!-- ==============================================================
+             Sesion iniciada.
+
+             POR QUE ESTA TARJETA EXISTE Y NO HAY REDIRECCION TODAVIA:
+             la regla del proyecto es que nunca se enlaza a un archivo que
+             no existe, y la primera pantalla autenticada llega en F1-T13
+             (usuarios.html). Enlazarla ahora seria un 404.
+
+             Asi que el login termina mostrando el resultado real: pide
+             GET /auth/me con el token recien guardado y muestra quien
+             entro. Eso prueba de punta a punta las dos mitades —que el
+             token se emitio bien y que sirve para un pedido autenticado—,
+             que es exactamente lo que hay que poder verificar hoy. Cuando
+             exista la pantalla de usuarios, esta tarjeta se reemplaza por
+             la redireccion y no queda nada muerto.
+             ============================================================== -->
+        <section class="tarjeta-auth shell" id="tarjeta-sesion" hidden>
+          <h1>Sesión iniciada</h1>
+          <p class="tarjeta-auth-sub">
+            El token quedó guardado en este navegador y el servidor lo aceptó.
+            Todavía no hay pantallas internas para recorrer: la primera llega
+            con el módulo de usuarios.
+          </p>
+
+          <div class="auth-sesion content-glass">
+            <b data-sesion-nombre></b>
+            <span data-sesion-rol></span>
+            <span data-sesion-email></span>
+          </div>
+
+          <button type="button" class="boton-primario boton-secundario" id="boton-salir">
+            Cerrar sesión
+          </button>
+        </section>
+
       </main>
 
     </div>
@@ -99,9 +194,13 @@
        antes de que la pagina se pinte. El unico que si lo necesita es el de
        tema, y por eso ese esta inline en el <head>. -->
   <!-- El orden es de dependencia, no de gusto:
-       config.js define la URL de la API, api.js la usa, conexion.js usa api.js. -->
+       config.js define la URL de la API, api.js la usa, login.js y
+       conexion.js usan api.js. formularios.js y theme.js no dependen de
+       ninguno de ellos. -->
   <script src="assets/js/config.js"></script>
   <script src="assets/js/api.js"></script>
+  <script src="assets/js/formularios.js"></script>
+  <script src="assets/js/login.js"></script>
   <script src="assets/js/conexion.js"></script>
   <script src="assets/js/theme.js"></script>
 </body>

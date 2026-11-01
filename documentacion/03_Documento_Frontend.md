@@ -201,7 +201,11 @@ Un archivo nuevo se justifica **solo** cuando es la puerta de entrada a un domin
 
 ### 4.3 Los accesos del sidebar se definen en un solo lugar
 
-`layout.js` tiene la tabla de qué rol ve qué acceso y la aplica en todas las pantallas. **Nunca se linkea a un archivo que todavía no existe**: un rol sin pantallas ve un mensaje explícito, no un menú roto. Cuando una pantalla suma una audiencia nueva, se agrega ahí y aparece en toda la aplicación de una vez.
+`layout.js` tiene la tabla de qué rol ve qué acceso y la aplica en todas las pantallas. Cuando una pantalla suma una audiencia nueva, se agrega ahí y aparece en toda la aplicación de una vez.
+
+**Nunca se linkea a un archivo que todavía no existe**, y lo que lo garantiza es una bandera `construida` en cada fila. La fila se declara igual —con su rol y su ícono— para que la tabla se lea como el plan completo del menú; mientras el archivo no esté, el acceso no se dibuja. Al construir la pantalla se cambia ese `false` por `true` y nada más. Un rol sin ninguna pantalla habilitada ve un mensaje que lo explica (`.sidebar-vacio`), nunca un menú vacío que parece roto — que es, hoy, lo que ven todos los roles, porque la primera pantalla del menú llega con `F1-T13`.
+
+**Esa tabla decide qué se muestra, no qué se puede hacer.** El permiso real lo controla el backend en cada endpoint. Ocultar un acceso es una cortesía para no ofrecer lo que va a ser rechazado, nunca un mecanismo de seguridad: quien escriba la URL a mano llega igual a la pantalla, y ahí lo frena el backend.
 
 ---
 
@@ -358,18 +362,19 @@ Existe documentada una variante donde, además del color por ventana, **todo el 
 
 ## 7. Módulos de JavaScript compartidos
 
-Diecisiete archivos en `frontend/assets/js/`, con una división clara: **módulos compartidos** que cualquier pantalla usa, y **un archivo por pantalla** con su lógica propia.
+La división es clara: **módulos compartidos** que cualquier pantalla usa, y **un archivo por pantalla** con su lógica propia. La cuenta final son unos diecisiete archivos; las dos tablas de abajo son el destino completo, no el estado de hoy. Al cierre de `F1-T12` existen ocho: `config.js`, `api.js`, `formularios.js`, `theme.js`, `conexion.js`, `layout.js`, `view-switch.js` y `login.js`.
 
 ### 7.1 Compartidos
 
 | Módulo | Responsabilidad | Detalle que importa |
 |---|---|---|
 | `config.js` | Única fuente de la URL del backend, decidida por el hostname. | Se carga **antes** que `api.js` en toda página. |
-| `api.js` | Envoltorio único de `fetch`: agrega el token, parsea JSON, estandariza errores. | Un 401 limpia la sesión y vuelve al login — **con una excepción a propósito**: en el propio login, un 401 significa "credenciales incorrectas", no "sesión vencida". Además adjunta el código HTTP al error, para que una pantalla pueda distinguir un 409 ("necesito confirmación") de un 400 cualquiera. |
-| `layout.js` | Monta el sidebar: guarda de sesión, pide el usuario actual, arma los accesos por rol, marca el activo, engancha logout y hamburguesa. | Cada pantalla autenticada lo llama una vez y recibe el usuario. Ninguna reescribe esta lógica. |
+| `api.js` | Envoltorio único de `fetch`: agrega el token, parsea JSON, estandariza errores. | Un 401 limpia la sesión y vuelve al login — **con una excepción a propósito**: en el propio login, un 401 significa "credenciales incorrectas", no "sesión vencida" (se pide con `redirigirEn401: false`). Además adjunta el código HTTP al error, para que una pantalla pueda distinguir un 409 ("necesito confirmación") de un 400 cualquiera. Y expone `postFormulario`, que codifica el cuerpo como un `<form>`: lo necesita **solo** el login, porque `POST /api/auth/login` usa el formulario estándar de OAuth2 (campos `username` y `password`) y mandarle JSON devuelve un 422 que no explica nada. Vive acá y no en la pantalla para que el login no tenga que llamar a `fetch` directo y perder el resto del envoltorio. |
+| `layout.js` | Monta el sidebar **y el topbar**: guarda de sesión, pide el usuario actual, arma los accesos por rol, marca el activo, engancha logout y hamburguesa. | Cada pantalla autenticada lo llama una vez y recibe el usuario. Ninguna reescribe esta lógica. **Es el único módulo compartido que NO se engancha solo**, y es deliberado: montar el esqueleto pide datos al backend y, sin sesión, saca al usuario de la página — eso no puede pasar por incluir un `<script>`. Se pide con `Layout.montar().then(function (usuario) { … })`, y sin sesión esa promesa **no se resuelve nunca**, para que no se dibuje medio contenido mientras el navegador cambia de página. Lo que escribe cada pantalla es solo `<body class="layout-app" data-titulo="…">` con la columna, el `<header data-topbar>` vacío y su `<main class="page-content">`. |
 | `theme.js` | Toggle de tema con View Transitions + persistencia. | El script anti-parpadeo va aparte, inline en el `<head>` de cada HTML. |
-| `formularios.js` | Enter se comporta como Tab (avanza de campo) salvo en el último, y el toggle de los campos de contraseña. | Nació de un bug real: se creó un edificio a medio cargar porque Enter en un campo intermedio envió el formulario entero. |
-| `view-switch.js` | Crea y mueve el indicador deslizante de todas las pestañas de la página. | Auto-enganche; ninguna pantalla lo inicializa. |
+| `conexion.js` | Indicador de conexión con la API: pregunta por `GET /api/salud` al cargar y lo refleja en el punto de la topbar. | Se auto-engancha a cualquier `[data-indicador-conexion]`. **Consulta una vez, al cargar — no es un monitor:** un sondeo periódico contra un backend serverless despierta la función cada pocos segundos para nada. Importa especialmente en el login: con el backend apagado lo avisa antes de que alguien escriba su contraseña y reciba un error que parece de credenciales. |
+| `formularios.js` | Enter se comporta como Tab (avanza de campo) salvo en el último, y el toggle de los campos de contraseña. | Nació de un bug real: se creó un edificio a medio cargar porque Enter en un campo intermedio envió el formulario entero. Las dos cosas trabajan **por delegación en `document`**, así que funcionan igual en un formulario que ya venía en el HTML y en uno que se inserta después (el modal de alta): no hay nada que reinicializar al redibujar. |
+| `view-switch.js` | Crea y mueve el indicador deslizante de todas las pestañas de la página. | Auto-enganche por delegación; ninguna pantalla lo inicializa. Se ocupa de la **piel** (botón activo, posición del indicador, `role`, `aria-selected`, `tabindex`); la pantalla se ocupa del **dato**, con su propio listener de clic en los mismos botones. Los dos conviven sin pisarse. Incluye el teclado del componente: flechas circulares entre opciones, Home y End a los extremos. |
 | `cargando.js` | Indicador de carga con dos frases rotando y puntos animados. | Un único intervalo global recorre los indicadores presentes, así funciona también con los que se insertan después al redibujar un listado. |
 | `moneda.js` | Formato de moneda argentino para **mostrar** montos. | Centralizado para que ninguna pantalla arme su propio formateador. |
 | `monto-input.js` | Formato de miles en vivo para **cargar** montos. | Ver 9.2. |
@@ -395,7 +400,10 @@ Errores ya cometidos, con su causa y su prevención.
 | Una fecha aparece un día antes | `new Date('2026-08-05')` se interpreta como medianoche UTC; en Argentina (UTC-3) retrocede al día anterior. | Nunca pasar una fecha `YYYY-MM-DD` del backend por `new Date()`: separar el texto y reordenarlo. |
 | Un formulario no envía y no muestra ningún error | Hay un `<select required>` oculto por `display:none` en un ancestro: Chromium bloquea el envío en silencio porque no puede enfocarlo para mostrar el mensaje. | Los campos mutuamente excluyentes no llevan `required` en HTML; se validan desde el JS del formulario. |
 | Un alta se autocompleta con las credenciales del administrador logueado | Chrome detecta el par email + contraseña como un formulario de login. | `autocomplete="off"` en el formulario y en el email, `autocomplete="new-password"` en la contraseña. Aplica a cualquier alta que cree credenciales **para otra persona**. |
+| Un cartel marcado con `hidden` se ve igual | El navegador trae `[hidden]{display:none}` en su hoja **por defecto**, y cualquier regla de autor le gana sin mirar la especificidad. Un `.mensaje-error` con `display:flex` sigue visible con `hidden` puesto, así que el error aparece solo al cargar la página sin que nada lo haya mostrado. | `[hidden]{ display:none !important; }` declarado una vez en la sección BASE de `components.css`. Cubre todo componente que se oculte así, presente o futuro. |
 | El indicador de pestañas queda mal posicionado | Se midió el switch mientras estaba oculto. | Ver 5.6. |
+| El indicador de pestañas se desliza desde el borde izquierdo al cargar la página | La primera colocación se animó como si fuera una elección del usuario. | Clase `sin-animacion` puesta antes de medir y quitada **dos** `requestAnimationFrame` después. Con uno solo, el navegador puede no haber aplicado todavía el estilo nuevo cuando se saca la clase, y la transición se dispara igual. |
+| El indicador de pestañas queda unos píxeles desfasado, pero solo al principio | Outfit e Inter llegan de Google Fonts *después* del `DOMContentLoaded` y cambian el ancho del texto de los botones. | Recolocar también en el evento `load`, no solo al armar el componente. |
 | Un modal con mucho contenido se corta en mobile | Faltaba `max-height` + `overflow-y` en `.modal`. | Ya resuelto globalmente; no reintroducirlo en un modal nuevo que redefina el fondo. |
 | Un modal se ve "gris lavado, sin los colores de la app" | Vidrio translúcido sobre backdrop oscuro. | Ver 2.3, último punto. |
 
@@ -445,11 +453,13 @@ La hoja se escribe **mobile-first**: los estilos base son los de la pantalla ang
 
 ## 11. Especificación pantalla por pantalla
 
-Todas las pantallas están **especificadas y ninguna construida**: el código de la primera iteración se eliminó en el reinicio del 2026-09-25. El orden en que se construyen lo fija el [`05_Roadmap.md`](05_Roadmap.md).
+El orden en que se construyen lo fija el [`05_Roadmap.md`](05_Roadmap.md). El código de la primera iteración se eliminó en el reinicio del 2026-09-25, así que todas nacen de nuevo. **Construida hasta hoy: `index.html` (login), en `F1-T10`.** El resto sigue especificado y sin escribir.
+
+Existe además `verificacion-esqueleto.html`, que **no es una pantalla del producto y se elimina al cerrar `F1-T13`**: es el banco de pruebas de `layout.js` y `view-switch.js`, que son módulos del esqueleto cuya primera pantalla real es `usuarios.html`. Sin una página que los monte no había forma de abrirlos en un navegador, y lo no probado no está hecho.
 
 | Pantalla | Audiencia | Contenido |
 |---|---|---|
-| `index.html` — Login | Todos | Tarjeta centrada, email + contraseña con mostrar/ocultar. Redirige siempre al dashboard. |
+| `index.html` — Login | Todos | Tarjeta centrada, email + contraseña con mostrar/ocultar. Redirige siempre al dashboard. **Hoy no redirige**: no existe todavía ninguna pantalla autenticada y la regla es no enlazar un archivo que no está, así que al entrar muestra el resultado de `GET /auth/me` —quién entró y con qué rol— y un botón de cerrar sesión. La redirección entra con `F1-T13`, cambiando una sola función. |
 | `dashboard.html` — Inicio | Todos los autenticados | Grilla de KPIs en composición bento y Dashboard Visual del edificio. Tres ramas por rol en el mismo archivo: gestión, residente y proveedor. |
 | `usuarios.html` | Administrador General | Listado con badge de rol, alta en modal, activar/desactivar con el botón de estado. **Nunca permite desactivarse a uno mismo.** |
 | `edificios.html` | Admin General / de Consorcio | Listado y alta con geocodificación y mapa. Detalle con pestañas: Datos, Estructura (pisos, departamentos, cocheras, espacios comunes, coeficientes con indicador de suma), Configuración. |

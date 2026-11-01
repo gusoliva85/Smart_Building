@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="es">
+<head>
+<!-- ============================================================================
+     ESTA PAGINA ES TEMPORAL Y SE BORRA.
+
+     No es una pantalla del producto y no esta en la lista de pantallas de
+     `03_Documento_Frontend.md` seccion 11. Existe por un problema de orden:
+     `layout.js` (F1-T11) y `view-switch.js` (F1-T12) son modulos del
+     esqueleto, y la primera pantalla que los consume de verdad es
+     `usuarios.html`, que llega en F1-T13. Sin una pagina que los monte no
+     hay forma de abrirlos en un navegador, y la regla del proyecto es que lo
+     no probado no esta hecho.
+
+     Asi que esta pagina es el banco de pruebas de esos dos modulos: usa
+     exactamente el mismo contrato que va a usar `usuarios.html` —el <body>
+     con `layout-app`, la columna, el topbar vacio— y nada mas.
+
+     SE ELIMINA AL CERRAR F1-T13, junto con esta explicacion.
+     ========================================================================= -->
+
+<!-- Cabecera canonica: assets/plantilla-cabecera.html -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verificación del esqueleto · SMART Building</title>
+
+<script>try{if(localStorage.getItem('tema')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+
+<link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/components.css">
+</head>
+
+<!-- Esto es TODO lo que una pantalla autenticada escribe de esqueleto. El
+     sidebar, el backdrop y el contenido del topbar los genera layout.js. -->
+<body class="layout-app" data-pantalla="verificacion" data-titulo="Verificación del esqueleto">
+  <div class="main-column">
+    <header class="topbar shell" data-topbar></header>
+
+    <main class="page-content">
+      <section class="panel-centrado shell">
+        <h1>Esqueleto de la zona autenticada</h1>
+        <p>
+          El sidebar de la izquierda, el botón de menú en mobile, el título de
+          arriba, la tarjeta con tu nombre y el botón de cerrar sesión los montó
+          <code>layout.js</code> desde una sola tabla de accesos por rol. Esta
+          página no escribió ninguno de ellos.
+        </p>
+        <p>
+          El menú está vacío a propósito: la tabla tiene una sola entrada
+          —Usuarios— y su archivo todavía no existe, así que el acceso no se
+          dibuja. En su lugar hay un texto que lo explica, que es la regla:
+          nunca un enlace a un archivo que no está, nunca un menú que parece
+          roto.
+        </p>
+
+        <h2 style="font-size:16px;margin:22px 0 10px">Selector segmentado</h2>
+        <p>
+          El fondo del botón elegido no lo pinta el botón: lo pinta un único
+          indicador que se desliza y cambia de ancho para calzar exacto. Probalo
+          también con las flechas del teclado, y rotando el teléfono.
+        </p>
+
+        <div class="view-switch" aria-label="Vista de ejemplo">
+          <button class="activo" data-vista="general">General</button>
+          <button data-vista="incidentes">Incidentes</button>
+          <button data-vista="deudores">Deudores</button>
+          <button data-vista="mantenimiento">Mantenimiento programado</button>
+        </div>
+
+        <p class="campo-ayuda" style="margin-top:12px">
+          Vista elegida por la pantalla: <b data-eco-vista>general</b>
+        </p>
+      </section>
+    </main>
+  </div>
+
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/formularios.js"></script>
+  <script src="assets/js/view-switch.js"></script>
+  <script src="assets/js/theme.js"></script>
+  <script src="assets/js/layout.js"></script>
+
+  <!-- La logica de esta pagina va inline y no en un .js propio justamente
+       porque la pagina se borra: no tiene sentido dejar un archivo en
+       assets/js/ que tambien habria que acordarse de eliminar. Toda pantalla
+       de verdad usa su archivo por pantalla, como login.js. -->
+  <script>
+    (function () {
+      'use strict';
+
+      /* El contrato de toda pantalla autenticada: se monta el esqueleto y se
+         dibuja el contenido propio recien cuando se sabe quien entro. */
+      window.Layout.montar().then(function (usuario) {
+        console.log('Sesión de', usuario.nombre, '·', usuario.rol_etiqueta);
+      });
+
+      /* El listener de la PANTALLA sobre los mismos botones del selector.
+         Demuestra que convive con view-switch.js sin pisarlo: este cambia el
+         dato, el otro mueve el indicador. */
+      var eco = document.querySelector('[data-eco-vista]');
+      document.querySelectorAll('.view-switch button').forEach(function (boton) {
+        boton.addEventListener('click', function () {
+          eco.textContent = boton.dataset.vista;
+        });
+      });
+    }());
+  </script>
+</body>
+</html>

@@ -79,7 +79,7 @@
    * @param {string}  metodo   GET, POST, PATCH, DELETE
    * @param {string}  ruta     Ruta relativa a la API, empezando con "/"
    * @param {object}  cuerpo   Se serializa a JSON. Omitir en GET.
-   * @param {object}  opciones { redirigirEn401: boolean }
+   * @param {object}  opciones { redirigirEn401: boolean, comoFormulario: boolean }
    */
   function pedir(metodo, ruta, cuerpo, opciones) {
     opciones = opciones || {};
@@ -90,8 +90,25 @@
 
     var init = { method: metodo, headers: cabeceras };
     if (cuerpo !== undefined && cuerpo !== null) {
-      cabeceras['Content-Type'] = 'application/json';
-      init.body = JSON.stringify(cuerpo);
+      if (opciones.comoFormulario) {
+        /* El unico endpoint que no recibe JSON es el login, y no es un
+           descuido: `POST /api/auth/login` usa el formulario estandar de
+           OAuth2 (campos `username` y `password`, codificados como los de un
+           <form>), que es lo que hace que el boton "Authorize" de /docs
+           funcione — la herramienta con la que se prueba cada endpoint
+           protegido antes de que exista su pantalla. Mandarle JSON devuelve
+           422 sin explicar por que.
+
+           Vive aca y no en la pantalla de login porque la regla del proyecto
+           es que ninguna pantalla llama a fetch() directo: si el login se
+           salteara este envoltorio, perderia gratis el parseo de errores y
+           el formato uniforme que usa el resto. */
+        cabeceras['Content-Type'] = 'application/x-www-form-urlencoded';
+        init.body = new URLSearchParams(cuerpo).toString();
+      } else {
+        cabeceras['Content-Type'] = 'application/json';
+        init.body = JSON.stringify(cuerpo);
+      }
     }
 
     return fetch(cfg.API + ruta, init).then(
@@ -106,7 +123,7 @@
            red, CORS mal configurado. Un 500 NO cae aca, cae arriba. El
            mensaje tiene que ser accionable, no "Failed to fetch". */
         throw ErrorApi(
-          'No se pudo contactar al servidor. Verifica que el backend este levantado.',
+          'No se pudo contactar al servidor. Verificá que el backend esté levantado.',
           0
         );
       }
@@ -143,7 +160,7 @@
       if (window.location.pathname.indexOf(cfg.PAGINA_LOGIN) === -1) {
         window.location.href = cfg.PAGINA_LOGIN;
       }
-      return ErrorApi('Tu sesion vencio. Volve a iniciar sesion.', 401, datos);
+      return ErrorApi('Tu sesión venció. Volvé a iniciar sesión.', 401, datos);
     }
 
     return ErrorApi(mensaje, estado, datos);
@@ -154,6 +171,13 @@
   window.Api = {
     get: function (ruta, opciones) { return pedir('GET', ruta, null, opciones); },
     post: function (ruta, cuerpo, opciones) { return pedir('POST', ruta, cuerpo, opciones); },
+    /* Mismo POST, con el cuerpo codificado como un formulario. Hoy lo usa
+       solo el login; cualquier otro endpoint del proyecto recibe JSON. */
+    postFormulario: function (ruta, campos, opciones) {
+      opciones = opciones || {};
+      opciones.comoFormulario = true;
+      return pedir('POST', ruta, campos, opciones);
+    },
     patch: function (ruta, cuerpo, opciones) { return pedir('PATCH', ruta, cuerpo, opciones); },
     borrar: function (ruta, opciones) { return pedir('DELETE', ruta, null, opciones); },
     pedir: pedir,
