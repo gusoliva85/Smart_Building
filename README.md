@@ -168,6 +168,35 @@ Lo crea `python -m app.seed`. Es el único usuario que existe hasta que se
 construya el alta de usuarios (`F1-T13`), y es el que da de alta a todos los
 demás: no hay forma de crear el primero desde la aplicación.
 
+**Este mismo usuario existe también en producción**, y es una decisión tomada
+a conciencia, no un descuido. Mientras el sistema no tenga un solo dato real
+adentro, el despliegue es un entorno de prueba más —el que me deja verificar
+cada tarea en el navegador contra la infraestructura de verdad— y usar las
+mismas credenciales en los dos lados evita tener dos juegos que mantener.
+
+> **Lo que eso implica, escrito para no olvidarlo.** Estas credenciales están
+> en este archivo, que está en un repositorio de GitHub: cualquiera que lo lea
+> puede entrar como Administrador General a la URL de producción. Es aceptable
+> hoy porque no hay nada que proteger. **Deja de serlo en el momento en que
+> entre el primer dato real de un consorcio**, y para entonces hay que: cambiar
+> la contraseña de este usuario por una que viva solo en las variables de
+> entorno, y sacar esta fila de la tabla. Es parte del cierre de la Fase 13.
+
+Para sembrarlo en producción, apuntando el seed a Supabase desde una terminal
+local (los valores por defecto del script ya son los de esta tabla, así que no
+hace falta definir nada más):
+
+```powershell
+$env:DATABASE_URL = "<cadena del Transaction pooler de Supabase>"
+venv\Scripts\python.exe -m app.seed
+```
+
+La cadena del pooler se saca de *Settings → Database → Connection string →
+Transaction pooler*. Se reconoce por tres cosas: el host termina en
+`pooler.supabase.com`, el puerto es `6543`, y el usuario es
+`postgres.<proyecto>` y no `postgres` pelado. **Nunca se escribe en un archivo
+del repositorio.**
+
 > **Por qué `Test1234!` y no `test1234`.** La quería como `test1234`, y no
 > entra: la política de contraseñas del propio sistema exige una mayúscula y un
 > carácter especial. Sembrar esa contraseña habría obligado a saltear el

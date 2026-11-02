@@ -182,13 +182,17 @@ Barra de estado (composición del edificio) y barra financiera:
 
 ```css
 .pill{ display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:99px; font-size:11px; font-weight:700; }
-.pill.crit{ background:color-mix(in srgb, var(--crit) 15%, var(--mix-tint)); color:color-mix(in srgb, var(--crit) 80%, var(--mix-ink)); }
-.pill.warn{ background:color-mix(in srgb, var(--warn) 16%, var(--mix-tint)); color:color-mix(in srgb, var(--warn) 78%, var(--mix-ink)); }
-.pill.pend{ background:color-mix(in srgb, var(--pend) 16%, var(--mix-tint)); color:color-mix(in srgb, var(--pend) 78%, var(--mix-ink)); }
-.pill.ok{ background:color-mix(in srgb, var(--ok) 15%, var(--mix-tint)); color:color-mix(in srgb, var(--ok) 78%, var(--mix-ink)); }
+.pill.crit{ background:color-mix(in srgb, var(--crit) var(--pill-tinte), var(--mix-tint)); color:var(--crit-ink); }
+.pill.warn{ background:color-mix(in srgb, var(--warn) var(--pill-tinte), var(--mix-tint)); color:var(--warn-ink); }
+.pill.pend{ background:color-mix(in srgb, var(--pend) var(--pill-tinte), var(--mix-tint)); color:var(--pend-ink); }
+.pill.ok{ background:color-mix(in srgb, var(--ok) var(--pill-tinte), var(--mix-tint)); color:var(--ok-ink); }
 ```
 
 Uso: `<span class="pill crit">3 críticos</span>`. Es el único componente con licencia para usar los 4 colores de semáforo como fondo de texto.
+
+**El texto NO se deriva con `color-mix` contra la tinta neutra**, y esa es la corrección del 2026-11-01. Se hacía así, y cuatro de los ocho casos (4 estados × 2 temas) no llegaban al mínimo de 4,5:1 — el peor, `.warn` en claro, quedaba en 3,72:1. La causa es estructural y no se arregla con porcentajes: el amarillo es intrínsecamente claro, así que para oscurecerlo hay que mezclarlo tanto contra el gris que deja de leerse como amarillo. Por eso cada estado tiene su token de texto (`--ok-ink` … `--crit-ink`), derivado moviendo **solo la luminosidad** del color del estado y redefinido en tema oscuro. Los ocho casos quedan entre 4,62:1 y 4,77:1.
+
+**Y el fondo lleva `--pill-tinte`** (22% en claro, 24% en oscuro) y no un 15-16% escrito a mano: con tan poco color la pill se veía apagada incluso con el token del estado bien puesto. Cualquier componente nuevo que ponga texto sobre un fondo teñido de estado usa estas dos piezas, no un `color-mix` propio.
 
 ## Selector de vista segmentado (`view-switch`)
 
@@ -319,7 +323,14 @@ html[data-theme="dark"] .building::after{ background:linear-gradient(90deg, rgba
 **Clases de estado — el patrón obligatorio (borde completo + sombra de color, NUNCA barra lateral):**
 
 ```css
-.s-ok{ --c:var(--ok); } .s-warn{ --c:var(--warn); } .s-pend{ --c:var(--pend); } .s-crit{ --c:var(--crit); }
+/* Cada clase de estado declara DOS variables: el color del estado y el color
+   del texto que va encima de un fondo teñido con él. Van juntas a propósito —
+   si --c-ink se derivara con un color-mix sobre --c, volvería el problema de
+   contraste que se corrigió en las pills. */
+.s-ok{ --c:var(--ok); --c-ink:var(--ok-ink); }
+.s-warn{ --c:var(--warn); --c-ink:var(--warn-ink); }
+.s-pend{ --c:var(--pend); --c-ink:var(--pend-ink); }
+.s-crit{ --c:var(--crit); --c-ink:var(--crit-ink); }
 
 .window.s-ok, .window.s-warn, .window.s-pend, .window.s-crit{
   background:color-mix(in srgb, var(--c) 26%, rgba(255,255,255,.4));
@@ -330,7 +341,7 @@ html[data-theme="dark"] .building::after{ background:linear-gradient(90deg, rgba
   border-color:color-mix(in srgb, var(--c) 46%, var(--line-2));
   box-shadow:var(--glass-in), 0 10px 22px -12px color-mix(in srgb, var(--c) 60%, transparent);
 }
-.unit-tag{ background:color-mix(in srgb, var(--c) 18%, var(--mix-tint)); color:color-mix(in srgb, var(--c) 78%, var(--mix-ink)); }
+.unit-tag{ background:color-mix(in srgb, var(--c) var(--pill-tinte), var(--mix-tint)); color:var(--c-ink); }
 ```
 
 Franja de activos:
@@ -458,8 +469,8 @@ El vocabulario base de esta skill nació resolviendo el Dashboard Visual, no un 
 
 .mensaje-error{
   display:flex; align-items:center; gap:8px; padding:10px 13px; border-radius:var(--r-sm);
-  background:color-mix(in srgb, var(--crit) 15%, var(--mix-tint));
-  color:color-mix(in srgb, var(--crit) 80%, var(--mix-ink));
+  background:color-mix(in srgb, var(--crit) var(--pill-tinte), var(--mix-tint));
+  color:var(--crit-ink);
   font-size:13px; font-weight:600; margin-bottom:14px;
 }
 ```
@@ -671,7 +682,7 @@ Usado por primera vez para avisar que una dirección no se pudo geocodificar (al
 .modal-backdrop.open .modal{ transform:scale(1); }
 .modal-icono{
   width:44px; height:44px; margin:0 auto 12px; border-radius:50%; display:grid; place-items:center;
-  background:color-mix(in srgb, var(--warn) 16%, var(--mix-tint)); color:color-mix(in srgb, var(--warn) 75%, var(--mix-ink));
+  background:color-mix(in srgb, var(--warn) var(--pill-tinte), var(--mix-tint)); color:var(--warn-ink);
 }
 ```
 

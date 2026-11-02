@@ -98,8 +98,8 @@ Viven en `frontend/assets/css/tokens.css`, que **no dibuja nada**: no tiene una 
 
 ```css
 /* Neutros y superficies */
---bg-1:#f1f2f3; --bg-2:#e9ebec;
---wash-a:#d6dee3; --wash-b:#e6e2d8;
+--bg-1:#f0f2f4; --bg-2:#e8ebed;
+--wash-a:#cde0eb; --wash-b:#ebe2cb;
 --ink:#1c2024;    --ink-2:#4b5157;
 --ink-3:#7c828a;  --ink-4:#a8adb3;
 --line:rgba(28,32,36,.10); --line-2:rgba(28,32,36,.07); --line-strong:rgba(28,32,36,.16);
@@ -110,13 +110,18 @@ Viven en `frontend/assets/css/tokens.css`, que **no dibuja nada**: no tiene una 
 --glass-in:inset 0 1px 0 rgba(255,255,255,.85),inset 0 0 0 1px rgba(255,255,255,.45);
 --glass-sheen:linear-gradient(120deg,rgba(255,255,255,.55),transparent 45%);
 
---navy:#15181b;
+--navy:#14181d;
 
 /* Acento de marca — acero/grafito, fuera de la familia del semáforo */
---accent:#57768c; --accent-2:#3e5a6d; --accent-soft:#e2e9ed; --accent-ring:rgba(87,118,140,.28);
+--accent:#487798; --accent-2:#305b77; --accent-soft:#dceaf3; --accent-ring:rgba(72,119,152,.30);
 
 /* Semáforo funcional */
---ok:#2e8067; --warn:#ba8c1f; --pend:#bd6c2c; --crit:#b13c47;
+--ok:#238166; --warn:#bd8b00; --pend:#c1691f; --crit:#b63544;
+
+/* Texto de la pill de cada estado, y cuánto color lleva su fondo. El texto
+   NO se deriva con color-mix contra la tinta: ver 3.4. */
+--ok-ink:#106e56; --warn-ink:#825e00; --pend-ink:#984c00; --crit-ink:#a9303e;
+--pill-tinte:22%;
 
 /* Mezclas y sombras */
 --mix-tint:#fff; --mix-ink:#1c2024;
@@ -132,7 +137,7 @@ Viven en `frontend/assets/css/tokens.css`, que **no dibuja nada**: no tiene una 
 ### 3.2 Tema oscuro (`html[data-theme="dark"]`)
 
 ```css
---bg-1:#0c0d0e; --bg-2:#0f1011; --wash-a:#1c2529; --wash-b:#221f18;
+--bg-1:#0b0d0f; --bg-2:#0e1012; --wash-a:#0f2730; --wash-b:#261e0d;
 --ink:#eef0f1;  --ink-2:#bcc0c4; --ink-3:#868b91; --ink-4:#54585d;
 --line:rgba(238,240,241,.10); --line-2:rgba(238,240,241,.06); --line-strong:rgba(238,240,241,.16);
 
@@ -141,16 +146,44 @@ Viven en `frontend/assets/css/tokens.css`, que **no dibuja nada**: no tiene una 
 --glass-in:inset 0 1px 0 rgba(255,255,255,.07),inset 0 0 0 1px rgba(255,255,255,.05);
 --glass-sheen:linear-gradient(120deg,rgba(255,255,255,.07),transparent 45%);
 
---navy:#050607;
---accent:#7ea3ba; --accent-2:#9bc0d4; --accent-soft:#151e23; --accent-ring:rgba(126,163,186,.3);
+--navy:#050608;
+--accent:#6da5c7; --accent-2:#8bc2e0; --accent-soft:#0a1f2a; --accent-ring:rgba(109,165,199,.32);
+--ok-ink:#56a88d; --warn-ink:#cb9b32; --pend-ink:#dc8647; --crit-ink:#eb6c74;
+--pill-tinte:24%;
 --mix-tint:#181b1e; --mix-ink:#f2f4f5;
 --shadow-rgb:0,0,0;
 --sh-sm:0 1px 2px rgba(0,0,0,.4), 0 4px 14px -4px rgba(0,0,0,.5);
 --sh-md:0 2px 8px rgba(0,0,0,.35), 0 18px 38px -16px rgba(0,0,0,.55);
 --sh-lg:0 4px 18px rgba(0,0,0,.4), 0 40px 80px -28px rgba(0,0,0,.65);
 
-/* --ok / --warn / --pend / --crit NO se redefinen, a propósito */
+/* --ok / --warn / --pend / --crit NO se redefinen, a propósito.
+   Los cuatro *-ink SÍ: el color del estado no depende del tema, pero el
+   texto que va encima tiene que contrastar contra un fondo que sí cambió. */
 ```
+
+### 3.4 La revisión del 2026-11-01: por qué la paleta se veía apagada
+
+El usuario reportó que toda la interfaz se sentía "opaca y apagada, sin brillo". Medí el croma de cada token en OkLCh y el diagnóstico resultó específico, y no donde uno esperaría:
+
+| Grupo | Croma antes | Factor | Por qué |
+|---|---|---|---|
+| `--wash-a` / `--wash-b` | 0,011 y 0,014 | **×2,3** | Eran prácticamente grises, y son el fondo de página detrás de **todo** el vidrio. Ahí estaba la mayor parte del efecto lavado. |
+| `--accent` / `--accent-2` | 0,050 y 0,046 | ×1,45 | Acero muy apagado, presente en cada botón, foco y elemento activo. |
+| `--accent-soft` | 0,009 | ×2,1 | El fondo del acceso activo del sidebar era blanco con una idea de azul. |
+| `--bg-1` / `--bg-2` / `--navy` | ~0,003 | ×1,6 | Casi neutros a propósito; se les dio apenas temperatura. |
+| Semáforo | 0,089 – 0,152 | ×1,08 | **No era el problema.** |
+
+**El método:** se multiplica el croma y se conservan la luminosidad perceptual y el tono. Así ningún color cambia de identidad ni de claridad — solo deja de estar desteñido. Y como el contraste WCAG depende casi enteramente de la luminosidad, los contrastes no se mueven: el texto blanco sobre el botón primario pasó de 4,80:1 a 4,81:1.
+
+**Por qué el semáforo casi no se tocó.** El amarillo ya estaba a ×1,08 del techo del gamut sRGB para su tono y su luminosidad. El rojo sí admitía ×1,37, pero subirlo solo a él desbalancea la familia: pasaría a gritar al lado de un amarillo que no se puede mover. Se sube lo que permite el más limitado. Donde el estado sí se ve más presente es en la pill, vía `--pill-tinte`, que pasó de 15-16% a 22/24%.
+
+**El hallazgo que salió de medir esto: cuatro de los ocho casos de pill no cumplían contraste.** El texto se derivaba con `color-mix(var(--estado) 78%, var(--mix-ink))`, y eso daba 3,72:1 en `.warn` claro, 4,44:1 en `.pend` claro, 4,36:1 en `.ok` oscuro y 3,78:1 en `.crit` oscuro — los cuatro bajo el mínimo de 4,5:1. La causa es estructural: el amarillo es intrínsecamente claro, así que para oscurecerlo hay que mezclarlo tanto contra el gris que deja de leerse como amarillo. De ahí los tokens `--ok-ink` … `--crit-ink`, derivados moviendo **solo la luminosidad** del color del estado. Los ocho casos quedaron entre 4,62:1 y 4,77:1.
+
+**Lo que se verificó que no empeorara:** la separación entre los cuatro estados mejoró en los seis pares, también simulando deuteranopía; el acento sigue a 67–71° de tono del estado más cercano, así que marca y semáforo no se confunden; y el vidrio no se tocó, porque bajar su opacidad para que pasara más color habría costado legibilidad del texto que se apoya encima.
+
+**Dos cosas que siguen igual y conviene no olvidar.** `--warn` sobre el fondo claro queda en 2,73:1, así que nunca lleva texto encima — y eso no se arregla con croma. Y el par `--warn` / `--pend` sigue siendo el difícil en deuteranopía (ΔE 6,3), que es la razón de fondo por la que ningún estado se comunica nunca solo con color.
+
+> **Sobre la métrica.** Los ΔE de esta sección son **distancia en OkLab ×100**. No son ΔE2000: para el par amarillo/naranja, OkLab da 8,8 y ΔE2000 da 16,2. Los dos son correctos y miden cosas distintas, así que toda medición futura tiene que decir cuál usa — si no, no es comparable con esta.
 
 ### 3.3 Tema: comportamiento y persistencia
 

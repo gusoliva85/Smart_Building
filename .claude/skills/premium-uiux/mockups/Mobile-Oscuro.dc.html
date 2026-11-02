@@ -10,7 +10,7 @@
 <helmet>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
 <style>
-:root{--bg-1:#0c0d0e;--bg-2:#0f1011;--wash-a:#1c2529;--wash-b:#221f18;--ink:#eef0f1;--ink-2:#bcc0c4;--ink-3:#868b91;--ink-4:#54585d;--line:rgba(238,240,241,.10);--line-2:rgba(238,240,241,.06);--glass-shell-bg:rgba(22,25,28,.5);--glass-shell-blur:22px;--glass-content-bg:rgba(22,25,28,.72);--glass-content-blur:7px;--glass-in:inset 0 1px 0 rgba(255,255,255,.07),inset 0 0 0 1px rgba(255,255,255,.05);--glass-sheen:linear-gradient(120deg,rgba(255,255,255,.07),transparent 45%);--navy:#050607;--accent:#7ea3ba;--accent-2:#9bc0d4;--accent-soft:#151e23;--accent-ring:rgba(126,163,186,.3);--ok:#2e8067;--warn:#ba8c1f;--pend:#bd6c2c;--crit:#b13c47;--mix-tint:#181b1e;--mix-ink:#f2f4f5;--shadow-rgb:0,0,0;--sh-sm:0 1px 2px rgba(0,0,0,.4),0 4px 14px -4px rgba(0,0,0,.5);--sh-md:0 2px 8px rgba(0,0,0,.35),0 18px 38px -16px rgba(0,0,0,.55);--sh-lg:0 4px 18px rgba(0,0,0,.4),0 40px 80px -28px rgba(0,0,0,.65);--r-card:20px;--r-lg:24px;--r-sm:12px}
+:root{--bg-1:#0b0d0f;--bg-2:#0e1012;--wash-a:#0f2730;--wash-b:#261e0d;--ink:#eef0f1;--ink-2:#bcc0c4;--ink-3:#868b91;--ink-4:#54585d;--line:rgba(238,240,241,.10);--line-2:rgba(238,240,241,.06);--glass-shell-bg:rgba(22,25,28,.5);--glass-shell-blur:22px;--glass-content-bg:rgba(22,25,28,.72);--glass-content-blur:7px;--glass-in:inset 0 1px 0 rgba(255,255,255,.07),inset 0 0 0 1px rgba(255,255,255,.05);--glass-sheen:linear-gradient(120deg,rgba(255,255,255,.07),transparent 45%);--navy:#050608;--accent:#6da5c7;--accent-2:#8bc2e0;--accent-soft:#0a1f2a;--accent-ring:rgba(109,165,199,.32);--ok:#238166;--warn:#bd8b00;--pend:#c1691f;--crit:#b63544;--ok-ink:#56a88d;--warn-ink:#cb9b32;--pend-ink:#dc8647;--crit-ink:#eb6c74;--pill-tinte:24%;--mix-tint:#181b1e;--mix-ink:#f2f4f5;--shadow-rgb:0,0,0;--sh-sm:0 1px 2px rgba(0,0,0,.4),0 4px 14px -4px rgba(0,0,0,.5);--sh-md:0 2px 8px rgba(0,0,0,.35),0 18px 38px -16px rgba(0,0,0,.55);--sh-lg:0 4px 18px rgba(0,0,0,.4),0 40px 80px -28px rgba(0,0,0,.65);--r-card:20px;--r-lg:24px;--r-sm:12px}
 *{box-sizing:border-box}
 body{margin:0;font:15px/1.5 Inter,ui-sans-serif,system-ui,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased}
 h1,h2,h3,h4{font-family:Outfit,ui-sans-serif,sans-serif;letter-spacing:-.015em;margin:0;font-weight:700}
@@ -32,8 +32,8 @@ button{font:inherit;cursor:pointer}
 .brand-mark svg{width:20px;height:20px;stroke:#10161a;position:relative}
 .avatar{width:40px;height:40px;border-radius:13px;flex:none;background:linear-gradient(155deg,#4b5257,#272b2e);display:grid;place-items:center;font-family:Outfit;font-size:12.5px;font-weight:700;color:#eef0f1;box-shadow:var(--glass-in)}
 .pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:700}
-.pill.ok{background:color-mix(in srgb,var(--ok) 15%,var(--mix-tint));color:color-mix(in srgb,var(--ok) 78%,var(--mix-ink))}
-.pill.crit{background:color-mix(in srgb,var(--crit) 15%,var(--mix-tint));color:color-mix(in srgb,var(--crit) 80%,var(--mix-ink))}
+.pill.ok{background:color-mix(in srgb, var(--ok) var(--pill-tinte), var(--mix-tint));color:var(--ok-ink)}
+.pill.crit{background:color-mix(in srgb, var(--crit) var(--pill-tinte), var(--mix-tint));color:var(--crit-ink)}
 .s-ok{--c:var(--ok)}.s-warn{--c:var(--warn)}.s-pend{--c:var(--pend)}.s-crit{--c:var(--crit)}
 .kpi-label{font-size:10px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3)}
 .kpi-num{font-family:Outfit;font-weight:700;font-size:26px;letter-spacing:-.02em;margin:4px 0 2px}

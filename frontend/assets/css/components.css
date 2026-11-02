@@ -645,10 +645,14 @@ a{ color:inherit; }
   font-weight:700;
   white-space:nowrap;
 }
-.pill.ok{   background:color-mix(in srgb, var(--ok)   15%, var(--mix-tint)); color:color-mix(in srgb, var(--ok)   78%, var(--mix-ink)); }
-.pill.warn{ background:color-mix(in srgb, var(--warn) 16%, var(--mix-tint)); color:color-mix(in srgb, var(--warn) 78%, var(--mix-ink)); }
-.pill.pend{ background:color-mix(in srgb, var(--pend) 16%, var(--mix-tint)); color:color-mix(in srgb, var(--pend) 78%, var(--mix-ink)); }
-.pill.crit{ background:color-mix(in srgb, var(--crit) 15%, var(--mix-tint)); color:color-mix(in srgb, var(--crit) 80%, var(--mix-ink)); }
+/* El fondo lleva --pill-tinte del color del estado; el texto es el token
+   --<estado>-ink, derivado para cumplir 4,5:1 en los dos temas. Antes ambos
+   salian de un color-mix contra la tinta neutra, y cuatro de los ocho casos
+   no llegaban al minimo (ver tokens.css). */
+.pill.ok{   background:color-mix(in srgb, var(--ok)   var(--pill-tinte), var(--mix-tint)); color:var(--ok-ink); }
+.pill.warn{ background:color-mix(in srgb, var(--warn) var(--pill-tinte), var(--mix-tint)); color:var(--warn-ink); }
+.pill.pend{ background:color-mix(in srgb, var(--pend) var(--pill-tinte), var(--mix-tint)); color:var(--pend-ink); }
+.pill.crit{ background:color-mix(in srgb, var(--crit) var(--pill-tinte), var(--mix-tint)); color:var(--crit-ink); }
 
 /* --- Formularios --------------------------------------------------------- */
 .campo{
@@ -894,12 +898,12 @@ a{ color:inherit; }
   font-weight:600;
 }
 .mensaje-error{
-  background:color-mix(in srgb, var(--crit) 15%, var(--mix-tint));
-  color:color-mix(in srgb, var(--crit) 80%, var(--mix-ink));
+  background:color-mix(in srgb, var(--crit) var(--pill-tinte), var(--mix-tint));
+  color:var(--crit-ink);
 }
 .mensaje-exito{
-  background:color-mix(in srgb, var(--ok) 15%, var(--mix-tint));
-  color:color-mix(in srgb, var(--ok) 78%, var(--mix-ink));
+  background:color-mix(in srgb, var(--ok) var(--pill-tinte), var(--mix-tint));
+  color:var(--ok-ink);
 }
 .mensaje-error svg,
 .mensaje-exito svg{ width:16px; height:16px; flex:none; }

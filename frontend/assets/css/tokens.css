@@ -26,13 +26,19 @@
 :root{
   /* --- Neutros y superficies ------------------------------------------- */
   /* --bg-1/--bg-2: degrade de fondo de pagina, nunca un color plano.       */
-  --bg-1:#f1f2f3;
-  --bg-2:#e9ebec;
+  --bg-1:#f0f2f4;
+  --bg-2:#e8ebed;
 
   /* Manchas radiales sutiles detras del vidrio: dan profundidad
      atmosferica al fondo. Nunca como fondo de un componente.               */
-  --wash-a:#d6dee3;
-  --wash-b:#e6e2d8;
+  /* Revision del 2026-11-01: el croma de estas dos manchas se multiplico por
+     2,3. Eran practicamente grises (croma OkLCh 0,011 y 0,014) y son el fondo
+     de pagina detras de TODO el vidrio: su falta de color era la causa
+     principal de que la aplicacion se viera lavada. Se conservo la
+     luminosidad y el tono exactos de cada una, asi que el fondo no cambio de
+     color ni de claridad — solo dejo de estar desteñido. */
+  --wash-a:#cde0eb;
+  --wash-b:#ebe2cb;
 
   /* Texto, de mas a menos enfasis: titulares y valores, cuerpo,
      labels y metadata, iconografia apagada y placeholder.                  */
@@ -69,27 +75,56 @@
   --glass-sheen:linear-gradient(120deg,rgba(255,255,255,.55),transparent 45%);
 
   /* Unico uso: el remate oscuro del techo del edificio en el Dashboard Visual */
-  --navy:#15181b;
+  --navy:#14181d;
 
   /* --- Acento de marca -------------------------------------------------- */
   /* Acero/grafito, deliberadamente FUERA de la familia del semaforo. Si el
      acento se pareciera a "verde" o "rojo", el usuario confundiria una
      interaccion de marca (un boton activo, un enlace) con un estado real
      del edificio. Es una decision funcional, no estetica.                  */
-  --accent:#57768c;
-  --accent-2:#3e5a6d;
-  --accent-soft:#e2e9ed;
-  --accent-ring:rgba(87,118,140,.28);
+  /* Croma x1,45, con L y H intactos. El contraste del boton primario (texto
+     blanco sobre el degrade) no se movio: 4,80:1 antes, 4,81:1 ahora. */
+  --accent:#487798;
+  --accent-2:#305b77;
+  --accent-soft:#dceaf3;
+  --accent-ring:rgba(72,119,152,.30);
 
   /* --- Semaforo funcional ----------------------------------------------- */
   /* No es una paleta: es una regla de negocio. EXCLUSIVO para estado real,
      nunca decorativo. Precedencia: ok < warn < pend < crit.                */
-  --ok:#2e8067;    /* verde    — todo correcto                             */
-  --warn:#ba8c1f;  /* amarillo — reclamo leve/medio, 1 mes de deuda,
+  /* Croma x1,08 en los cuatro, y no mas, por dos razones medidas:
+     (1) el amarillo ya estaba casi en el techo del gamut sRGB para su tono y
+         su luminosidad — admitia x1,08 y nada mas;
+     (2) el rojo si tenia margen para x1,37, pero subirlo solo a el
+         desbalancea la familia: pasaria a gritar al lado de un amarillo que
+         no se puede mover. El semaforo es un sistema de cuatro, no cuatro
+         colores sueltos, y se sube lo que permite el mas limitado.
+     Donde el estado SI se ve mas vivo es en las pills, via --pill-tinte. */
+  --ok:#238166;    /* verde    — todo correcto                             */
+  --warn:#bd8b00;  /* amarillo — reclamo leve/medio, 1 mes de deuda,
                                  activo por vencer (<=30 dias)              */
-  --pend:#bd6c2c;  /* naranja  — orden de trabajo EN CURSO, nada mas        */
-  --crit:#b13c47;  /* rojo     — reclamo critico, mas de 1 mes de deuda,
+  --pend:#c1691f;  /* naranja  — orden de trabajo EN CURSO, nada mas        */
+  --crit:#b63544;  /* rojo     — reclamo critico, mas de 1 mes de deuda,
                                  activo vencido                             */
+
+  /* Color del TEXTO de una pill de estado, uno por estado.
+     Antes el texto se derivaba mezclando el color contra la tinta neutra
+     (color-mix(... 78%, var(--mix-ink))). Eso no llegaba a 4,5:1 en cuatro de
+     los ocho casos (estado x tema), y el peor —.warn en claro— quedaba en
+     3,72:1. El amarillo es intrinsecamente claro, asi que para oscurecerlo
+     hay que mezclarlo tanto contra el gris que deja de leerse como amarillo.
+     Estos valores se derivaron bajando (o subiendo, en oscuro) SOLO la
+     luminosidad del propio color del estado, conservando tono y croma: el
+     texto sigue siendo verde o rojo, y los ocho casos pasan 4,5:1. */
+  --ok-ink:#106e56;
+  --warn-ink:#825e00;
+  --pend-ink:#984c00;
+  --crit-ink:#a9303e;
+
+  /* Cuanto color lleva el fondo de una pill. Era 15-16%: casi blanco, que es
+     lo que hacia que un estado se viera apagado incluso cuando el color del
+     token estaba bien. */
+  --pill-tinte:22%;
 
   /* --- Mezclas y sombras ------------------------------------------------ */
   /* Los dos extremos que usa color-mix() para derivar el fondo y el texto
@@ -119,10 +154,13 @@
    de tema claro antes de pasar a oscuro. */
 
 html[data-theme="dark"]{
-  --bg-1:#0c0d0e;
-  --bg-2:#0f1011;
-  --wash-a:#1c2529;
-  --wash-b:#221f18;
+  --bg-1:#0b0d0f;
+  --bg-2:#0e1012;
+  /* Mismo tratamiento que en claro: croma x2,3 conservando L y H. En oscuro
+     el efecto es mas notorio todavia, porque sobre un fondo casi negro una
+     mancha gris no se distingue de la nada. */
+  --wash-a:#0f2730;
+  --wash-b:#261e0d;
 
   --ink:#eef0f1;
   --ink-2:#bcc0c4;
@@ -140,12 +178,23 @@ html[data-theme="dark"]{
   --glass-in:inset 0 1px 0 rgba(255,255,255,.07),inset 0 0 0 1px rgba(255,255,255,.05);
   --glass-sheen:linear-gradient(120deg,rgba(255,255,255,.07),transparent 45%);
 
-  --navy:#050607;
+  --navy:#050608;
 
-  --accent:#7ea3ba;
-  --accent-2:#9bc0d4;
-  --accent-soft:#151e23;
-  --accent-ring:rgba(126,163,186,.3);
+  --accent:#6da5c7;
+  --accent-2:#8bc2e0;
+  --accent-soft:#0a1f2a;
+  --accent-ring:rgba(109,165,199,.32);
+
+  /* El texto de las pills SI se redefine en oscuro, al contrario que los
+     cuatro colores de estado: el color del estado no cambia con el tema, pero
+     el texto tiene que contrastar contra un fondo que si cambio. En claro se
+     oscurece; en oscuro se aclara. */
+  --ok-ink:#56a88d;
+  --warn-ink:#cb9b32;
+  --pend-ink:#dc8647;
+  --crit-ink:#eb6c74;
+
+  --pill-tinte:24%;
 
   --mix-tint:#181b1e;
   --mix-ink:#f2f4f5;
