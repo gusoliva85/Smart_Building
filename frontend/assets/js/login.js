@@ -11,15 +11,19 @@
      3. Verifica con GET /auth/me que el token sirve de verdad, y muestra
         quien entro.
 
-   SOBRE LA REDIRECCION QUE TODAVIA NO ESTA. El plan para esta tarea decia
-   "token en localStorage y redireccion". No hay a donde redirigir: la
-   primera pantalla autenticada (usuarios.html) llega en F1-T13 y la regla
-   del proyecto prohibe enlazar un archivo que no existe. En vez de dejar un
-   enlace roto, el login muestra el resultado del pedido autenticado, que es
-   lo que hay que poder verificar hoy. Cuando exista la pantalla, se cambia
-   `mostrarSesion` por la redireccion: es un solo lugar.
+   LA REDIRECCION, QUE ENTRO EN F1-T13. El destino no es una constante: es
+   la primera pantalla construida que el rol del usuario puede ver, leida de
+   la tabla de accesos de layout.js. Dos razones por las que sale de ahi:
 
-   Depende de config.js y api.js, cargados antes.
+     - No hay una pantalla de inicio unica todavia. El dashboard llega en la
+       Fase 5; hasta entonces "la pantalla inicial" es la primera del menu, y
+       eso cambia en cada fase.
+     - Un rol puede no tener ninguna pantalla construida. Hoy les pasa a
+       siete de los ocho. Mandarlos igual a usuarios.html seria mandarlos a
+       una pantalla que les va a decir que no es para ellos. Para esos, el
+       login sigue mostrando la tarjeta de sesion, que ahora explica eso.
+
+   Depende de config.js, api.js y layout.js, cargados antes.
    ========================================================================== */
 
 (function () {
@@ -38,6 +42,9 @@
     pantalla.tarjetaSesion.hidden = true;
   }
 
+  /* La tarjeta de sesion es ahora el caso excepcional: solo la ve un rol que
+     no tiene ninguna pantalla construida todavia. El texto lo explica, porque
+     si no, quedarse en el login despues de entrar bien se lee como un fallo. */
   function mostrarSesion(usuario) {
     /* rol_etiqueta lo calcula el backend desde la matriz de roles. El
        frontend NO tiene su propia tabla de nombres de rol: seria una
@@ -46,8 +53,27 @@
     pantalla.sesionRol.textContent = usuario.rol_etiqueta;
     pantalla.sesionEmail.textContent = usuario.email;
 
+    pantalla.sesionNota.textContent =
+      'Entraste bien, pero todavía no hay ninguna pantalla para el rol ' +
+      usuario.rol_etiqueta + '. Se van a ir sumando a medida que el sistema ' +
+      'crezca; mientras tanto, esto confirma que la cuenta funciona.';
+
     pantalla.tarjetaLogin.hidden = true;
     pantalla.tarjetaSesion.hidden = false;
+  }
+
+  /* Manda al usuario a su primera pantalla, o muestra la tarjeta si no tiene
+     ninguna. Es el UNICO lugar del archivo que decide eso: cuando exista el
+     dashboard de la Fase 5, se cambia aca y en ningun otro lado. */
+  function entrarALaAplicacion(usuario) {
+    var destino = window.Layout.paginaInicialDe(usuario.rol);
+
+    if (destino) {
+      window.location.href = destino;
+      return;
+    }
+
+    mostrarSesion(usuario);
   }
 
   function mostrarError(mensaje) {
@@ -112,7 +138,7 @@
       return window.Api.get('/auth/me', { redirigirEn401: false });
     }).then(function (usuario) {
       pantalla.formulario.reset();
-      mostrarSesion(usuario);
+      entrarALaAplicacion(usuario);
     }).catch(function (error) {
       /* Si el login funciono pero /auth/me fallo, el token guardado no
          sirve: se descarta para no dejar una sesion a medias que despues
@@ -150,7 +176,7 @@
 
     window.Api.get('/auth/me', { redirigirEn401: false }).then(
       function (usuario) {
-        mostrarSesion(usuario);
+        entrarALaAplicacion(usuario);
       },
       function () {
         window.Api.Sesion.limpiar();
@@ -172,7 +198,8 @@
       textoError: document.querySelector('[data-texto-error]'),
       sesionNombre: document.querySelector('[data-sesion-nombre]'),
       sesionRol: document.querySelector('[data-sesion-rol]'),
-      sesionEmail: document.querySelector('[data-sesion-email]')
+      sesionEmail: document.querySelector('[data-sesion-email]'),
+      sesionNota: document.querySelector('[data-sesion-nota]')
     };
 
     /* Este archivo se carga solo desde index.html, pero la guarda es barata:

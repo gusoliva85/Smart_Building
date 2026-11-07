@@ -130,6 +130,14 @@
               <!-- Estructura obligatoria de TODO campo de contrasenia del
                    proyecto. El ojo lo engancha formularios.js solo: esta
                    pantalla no inicializa nada. -->
+              <!-- El boton del ojo lo genera formularios.js en todo
+                   .campo-password-wrap. Antes estaba escrito aca, y al
+                   construir el alta de usuarios quedo claro el problema de
+                   eso: la regla "todo campo de contrasenia lleva toggle"
+                   dependia de que nadie se olvidara de copiar ocho lineas de
+                   SVG, y olvidarlas no falla, deja un campo sin forma de ver
+                   lo que se escribe. Generandolo, la regla se cumple con solo
+                   poner este envoltorio, que hace falta igual para el CSS. -->
               <div class="campo-password-wrap">
                 <input
                   type="password"
@@ -137,12 +145,6 @@
                   name="password"
                   autocomplete="current-password"
                   required>
-                <button type="button" class="campo-password-toggle" aria-label="Mostrar contraseña">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/>
-                    <circle cx="12" cy="12" r="3"/>
-                  </svg>
-                </button>
               </div>
             </div>
 
@@ -166,13 +168,14 @@
              exista la pantalla de usuarios, esta tarjeta se reemplaza por
              la redireccion y no queda nada muerto.
              ============================================================== -->
+<!-- Esta tarjeta ya NO es el final normal del login: desde F1-T13 el login
+           redirige a la primera pantalla del rol. Queda para el unico caso en
+           que no hay a donde redirigir — un rol sin ninguna pantalla
+           construida todavia, que hoy son siete de los ocho. El texto lo
+           escribe login.js, porque depende de cual sea ese rol. -->
         <section class="tarjeta-auth shell" id="tarjeta-sesion" hidden>
           <h1>Sesión iniciada</h1>
-          <p class="tarjeta-auth-sub">
-            El token quedó guardado en este navegador y el servidor lo aceptó.
-            Todavía no hay pantallas internas para recorrer: la primera llega
-            con el módulo de usuarios.
-          </p>
+          <p class="tarjeta-auth-sub" data-sesion-nota></p>
 
           <div class="auth-sesion content-glass">
             <b data-sesion-nombre></b>
@@ -200,6 +203,13 @@
   <script src="assets/js/config.js"></script>
   <script src="assets/js/api.js"></script>
   <script src="assets/js/formularios.js"></script>
+  <!-- layout.js en el LOGIN puede sorprender, asi que vale la aclaracion: no
+       se incluye para montar el esqueleto —esta pagina no tiene sidebar— sino
+       por una sola funcion, paginaInicialDe(), que dice a donde mandar a cada
+       rol. Ese dato sale de la tabla de accesos, y la tabla vive ahi. Incluirlo
+       es inofensivo porque este modulo NO se auto-engancha: no hace nada hasta
+       que alguien lo llama. -->
+  <script src="assets/js/layout.js"></script>
   <script src="assets/js/login.js"></script>
   <script src="assets/js/conexion.js"></script>
   <script src="assets/js/theme.js"></script>

@@ -158,15 +158,56 @@ Material de apoyo:
 
 ## Usuarios de prueba
 
-Se completa a medida que el seed y las pruebas los vayan creando.
+Hay **uno de cada rol**, los ocho. El primero lo crea el seed; los otros siete
+los creé desde la pantalla de usuarios al cerrar `F1-T16`, que es la prueba de
+punta a punta de este tema.
 
 | Nombre | Email | Contraseña | Rol |
 |---|---|---|---|
 | Administrador General | `administrador@test.com` | `Test1234!` | `admin_general` |
+| Prueba Administrador de Consorcio | `adminconsorcio@test.com` | `Test1234!` | `admin_consorcio` |
+| Prueba Encargado | `encargado@test.com` | `Test1234!` | `encargado` |
+| Prueba Propietario | `propietario@test.com` | `Test1234!` | `propietario` |
+| Prueba Inquilino | `inquilino@test.com` | `Test1234!` | `inquilino` |
+| Prueba Proveedor | `proveedor@test.com` | `Test1234!` | `proveedor` |
+| Prueba Auditor | `auditor@test.com` | `Test1234!` | `auditor` |
+| Prueba Seguridad | `seguridad@test.com` | `Test1234!` | `seguridad` |
 
-Lo crea `python -m app.seed`. Es el único usuario que existe hasta que se
-construya el alta de usuarios (`F1-T13`), y es el que da de alta a todos los
-demás: no hay forma de crear el primero desde la aplicación.
+**La misma contraseña para los ocho, a propósito.** Ocho contraseñas distintas
+no prueban nada que esta no pruebe, y multiplican por ocho la posibilidad de
+que alguna quede mal anotada — que es exactamente el error que dejó una cuenta
+inutilizable en la iteración anterior. Cumple la política del sistema: ocho
+caracteres, mayúscula, minúscula, número y símbolo.
+
+**Hoy siete de los ocho entran y no ven ninguna pantalla**, y está bien: la
+única construida es Usuarios, que es solo del Administrador General. El login
+se los dice con palabras en vez de mandarlos a un error. Sirven para
+verificar, desde ahora y en cada fase, que cada rol ve únicamente lo que le
+toca.
+
+El primero lo crea `python -m app.seed`, y es el único que no puede crear
+nadie desde la aplicación: todos los demás los da de alta un Administrador
+General.
+
+> **Estos ocho viven solo en la base local.** `smart_building.db` no se
+> versiona, así que en una máquina recién clonada hay que correr el seed y dar
+> de alta los otros siete a mano. En producción está sembrado únicamente el
+> Administrador General.
+
+### Los usuarios que crean las pruebas automáticas
+
+Los arneses de prueba crean usuarios al correr, y **se los distingue por el
+dominio del email**: todo lo que crea una prueba usa `@ejemplo.com`, y los
+ocho de la tabla de arriba usan `@test.com`. Sin esa convención no hay forma
+mecánica de separar lo que hay que conservar de lo que se puede borrar.
+
+Lo aprendí de la forma incómoda: al llegar a `F1-T16` la base de desarrollo
+tenía **veinticinco** usuarios dejados por los arneses de `F1-T13`, `F1-T14` y
+`F1-T15`, mezclados con el administrador. Ninguno molestaba al correr las
+pruebas, pero el listado de la pantalla era ilegible y la verificación de "cada
+rol ve lo que le toca" no se podía hacer sobre esa base. Se borran con una
+consulta por dominio; no hay endpoint de borrado, y es correcto que no lo haya
+— el sistema desactiva, no borra.
 
 **Este mismo usuario existe también en producción**, y es una decisión tomada
 a conciencia, no un descuido. Mientras el sistema no tenga un solo dato real

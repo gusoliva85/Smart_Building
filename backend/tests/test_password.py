@@ -42,10 +42,10 @@ def test_validar_una_contrasenia_valida_no_levanta_nada():
     "password, falta",
     [
         ("Corta1!", "al menos 8 caracteres"),
-        ("segura123!", "una letra mayuscula"),
-        ("SEGURA123!", "una letra minuscula"),
-        ("SeguraSegura!", "un numero"),
-        ("Segura123456", "un caracter especial"),
+        ("segura123!", "una letra mayúscula"),
+        ("SEGURA123!", "una letra minúscula"),
+        ("SeguraSegura!", "un número"),
+        ("Segura123456", "un carácter especial"),
     ],
 )
 def test_cada_requisito_se_reporta_cuando_falta(password, falta):
@@ -65,7 +65,10 @@ def test_se_reportan_TODOS_los_faltantes_juntos_y_no_solo_el_primero():
 
     assert len(excepcion.value.faltantes) == 4  # largo, mayuscula, numero, especial
     mensaje = str(excepcion.value)
-    for esperado in ("8 caracteres", "mayuscula", "numero", "caracter especial"):
+    # Con acento, porque son los textos que lee la persona: este modulo es el
+    # unico lugar del backend donde los mensajes van acentuados, y los tests lo
+    # fijan para que no se "corrijan" al estilo del resto del codigo.
+    for esperado in ("8 caracteres", "mayúscula", "número", "carácter especial"):
         assert esperado in mensaje
 
 
@@ -140,7 +143,7 @@ def test_el_alta_rechaza_una_contrasenia_debil_con_el_detalle_completo():
         _alta(password="abc")
 
     mensaje = str(excepcion.value)
-    for esperado in ("8 caracteres", "mayuscula", "numero", "caracter especial"):
+    for esperado in ("8 caracteres", "mayúscula", "número", "carácter especial"):
         assert esperado in mensaje
 
 

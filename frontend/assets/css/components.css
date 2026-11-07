@@ -861,8 +861,23 @@ a{ color:inherit; }
   font-size:13px;
   color:var(--ink-3);
 }
+/* La fila de dos botones la usan los DOS modales, asi que la regla no puede
+   quedar colgada del modal de formulario. .modal-formulario-acciones se
+   mantiene como nombre vigente, para no tocar el HTML que ya lo usa. */
+.modal-acciones,
 .modal-formulario-acciones{ display:flex; gap:10px; margin-top:6px; }
+.modal-acciones .boton-primario,
 .modal-formulario-acciones .boton-primario{ width:auto; flex:1; }
+
+/* En pantallas angostas los dos botones se apilan: "Confirmar y desactivar" no
+   entra al lado de "Cancelar" sin partirse en dos lineas. Y column-reverse, no
+   column: en el HTML Cancelar va primero —es el orden correcto para el
+   teclado, el foco arranca en la salida segura—, pero apilado tiene que quedar
+   ABAJO, que es donde cae el pulgar y donde se espera la accion principal. */
+@media (max-width: 420px){
+  .modal-acciones{ flex-direction:column-reverse; }
+  .modal-acciones .boton-primario{ width:100%; }
+}
 
 .modal-cerrar{
   position:absolute;
@@ -882,6 +897,51 @@ a{ color:inherit; }
 }
 .modal-cerrar:hover{ transform:translateY(-1px); }
 .modal-cerrar svg{ width:14px; height:14px; }
+
+/* --- Modal de confirmacion ------------------------------------------------ */
+/* Variante angosta y centrada, para preguntar antes de una accion que no se
+   deshace con otro toque. Usa el .modal base tal cual (360px, centrado) y solo
+   acomoda la tipografia del titulo y del mensaje.
+
+   El HTML de este modal NO lo escribe ninguna pantalla: lo genera confirmar.js
+   una sola vez y lo cuelga del <body>. Catorce pantallas copiando el mismo
+   bloque serian catorce lugares para arreglar el dia que cambie algo. */
+.modal-confirmar h3{
+  margin:0 0 8px;
+  font-family:Outfit,ui-sans-serif,system-ui,sans-serif;
+  font-size:17px;
+  font-weight:700;
+  letter-spacing:-.015em;
+  color:var(--ink);
+}
+.modal-confirmar p{
+  margin:0 0 18px;
+  font-size:13.5px;
+  line-height:1.55;
+  color:var(--ink-2);
+  /* El titulo va centrado (lo hereda de .modal) pero el texto que explica la
+     consecuencia se lee bastante mejor alineado a la izquierda: son dos o tres
+     renglones y centrados obligan a buscar el comienzo de cada uno. */
+  text-align:left;
+}
+
+/* Boton de accion destructiva.
+
+   SEGUNDA licencia para usar un color del semaforo como fondo de texto, y la
+   razon es la misma que la del boton de estado: no es decoracion. Este boton
+   desactiva una cuenta, y mas adelante va a borrar un reclamo o reescribir
+   expensas ya emitidas — --crit significa exactamente eso. Va siempre con el
+   verbo explicito al lado ("Confirmar y desactivar"), asi que el color nunca
+   es la unica forma de saber lo que hace. Medido: blanco sobre --crit da
+   5,86:1.
+
+   Se apoya en .boton-primario y solo le cambia el fondo: tamanio, tipografia,
+   sombra, hover y estado deshabilitado son los mismos de siempre. Y el hover
+   NO oscurece el fondo con color-mix contra --mix-ink: ese token se invierte
+   en tema oscuro (ahi es casi blanco), asi que la misma regla aclararia el
+   boton y bajaria el contraste del texto. Es la trampa que ya esta anotada en
+   tokens.css para el texto de las pills. El hover es el levante de siempre. */
+.boton-peligro{ background:var(--crit); }
 
 /* --- Mensajes en linea ---------------------------------------------------- */
 /* Los errores se muestran DONDE ocurrio la accion, nunca en un lugar
@@ -907,3 +967,305 @@ a{ color:inherit; }
 }
 .mensaje-error svg,
 .mensaje-exito svg{ width:16px; height:16px; flex:none; }
+
+
+/* --- Panel de contenido de una pantalla ----------------------------------- */
+/* La caja de vidrio grande donde vive el contenido de una pantalla de gestion.
+
+   OJO, porque es la trampa que me comi al armar el listado de usuarios: .shell
+   y .content-glass declaran UNICAMENTE la superficie de vidrio —fondo, blur,
+   borde, sombra, brillo— y ni una ni otra pone radio ni padding. Es a
+   proposito, porque un chip, una fila y un modal necesitan medidas distintas;
+   pero significa que todo lo que se apoya en ellas tiene que poner las suyas.
+   Si no, queda una caja cuadrada con el texto pegado al borde, que es
+   exactamente lo que se veia. */
+.panel-contenido{
+  padding:18px 16px;
+  border-radius:var(--r-card);
+}
+@media (min-width:640px){
+  .panel-contenido{ padding:22px 20px; }
+}
+
+/* --- Cabecera de pantalla ------------------------------------------------- */
+/* El titulo de la seccion mas su accion principal. El titulo de la pantalla
+   en si lo escribe layout.js en el topbar; esto es el encabezado del
+   contenido, que ademas aloja el boton de "Nuevo ...". */
+.pagina-cabecera{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+  margin-bottom:14px;
+}
+.pagina-cabecera h2{
+  margin:0;
+  font-size:18px;
+  letter-spacing:-.015em;
+}
+.pagina-cabecera p{
+  margin:3px 0 0;
+  font-size:12.5px;
+  color:var(--ink-3);
+}
+/* El boton de la cabecera no es de ancho completo como el de un formulario:
+   acompania al titulo. En mobile, cuando la cabecera envuelve, si pasa a
+   ocupar todo el ancho — un boton angosto perdido a la izquierda de una
+   linea vacia se ve como un error de maquetado. */
+.pagina-cabecera .boton-primario{ width:auto; padding:10px 16px; }
+@media (max-width:519px){
+  .pagina-cabecera .boton-primario{ width:100%; }
+}
+
+/* --- Fila de listado ------------------------------------------------------ */
+/* El patron de "lista de cosas + alta en modal": usuarios hoy, y despues
+   edificios, proveedores, reclamos, activos. Se usa siempre junto con
+   .content-glass, igual que cualquier contenido denso dentro de un shell. */
+.lista-filas{ display:flex; flex-direction:column; gap:8px; }
+
+/* Mismas medidas que .detail-item del panel de detalle: es el mismo nivel de
+   vidrio y el mismo tipo de contenido, asi que una fila de listado y un item
+   de la ficha tienen que leerse como el mismo componente. */
+.fila-lista{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+  padding:12px 14px;
+  border-radius:var(--r-sm);
+  transition:border-color .18s ease-out, transform .18s ease-out;
+}
+/* Se ilumina el borde, no se levanta ni se agranda: una fila es parte de una
+   lista, y moverla descoloca visualmente a las de al lado. El hover sutil es
+   el lenguaje del proyecto; el rebote esta prohibido. */
+.fila-lista:hover{ border-color:var(--line); }
+
+/* El dato principal de la fila: nombre arriba, datos secundarios abajo.
+   min-width:0 es lo que permite que un email largo se recorte en vez de
+   estirar la fila y empujar las acciones fuera de la tarjeta. */
+.fila-lista-dato{ min-width:0; }
+
+/* El dato principal va en Outfit, igual que .detail-field b del panel de
+   detalle. Inter queda para la linea de datos secundarios, que es texto de
+   cuerpo. La regla general del proyecto —Outfit para titulares y numeros,
+   Inter para cuerpo y labels— se aplica tambien adentro de una fila: el
+   nombre es el titulo de ese item, no un dato mas. */
+.fila-lista-dato b{
+  display:block;
+  font-family:Outfit,ui-sans-serif,system-ui,sans-serif;
+  font-size:14px;
+  font-weight:700;
+  letter-spacing:-.015em;
+  margin-bottom:2px;
+  color:var(--ink);
+}
+.fila-lista-dato span{
+  display:block;
+  font-size:11.5px;
+  color:var(--ink-3);
+  overflow-wrap:anywhere;
+}
+
+/* El contenedor de lo que va a la derecha del dato.
+
+   Las tres cosas de esta regla salieron de un mismo bug, en tres vueltas:
+
+   1. flex-wrap, para que sus hijos puedan caer a mas de una linea cuando un
+      badge de texto largo ("Administrador de Consorcio") no entra.
+   2. min-width:0 y NO flex:none. Con flex:none el contenedor crece a su
+      ancho de contenido completo, asi que nunca *necesita* envolver: se sale
+      de la tarjeta igual, con el flex-wrap puesto y todo.
+   3. margin-left:auto, para el ancho intermedio (~480-600px) en el que la
+      fila ENTERA envuelve y este contenedor cae solo a su propia linea: con
+      un unico hijo, el space-between de .fila-lista no tiene nada que
+      distribuir y lo deja pegado a la izquierda. */
+.fila-lista-acciones{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  min-width:0;
+  margin-left:auto;
+}
+
+/* Cuando la fila tiene botones de accion (desde F1-T14), el badge de rol y
+   los botones son DOS grupos independientes: el rol se ancla al nombre y los
+   botones se van al borde derecho. Empujar el contenedor entero con el
+   margin-left:auto de arriba se llevaria el badge con el.
+
+   :has() permite distinguir "esto es una fila con botones" por su contenido,
+   sin agregar una clase mas al HTML. */
+.fila-lista-acciones:has(.fila-lista-botones){
+  flex:1 1 auto;
+  justify-content:space-between;
+  margin-left:0;
+}
+.fila-lista-botones{ display:flex; align-items:center; gap:8px; }
+
+/* Etiqueta neutra de clasificacion: un rol, una categoria, un rubro.
+
+   NO es una .pill, y la distincion es de fondo: las pills son el semaforo de 4
+   estados, y el semaforo es una regla de negocio sobre el estado del edificio,
+   no una paleta para etiquetar cualquier cosa. Un rol no es un estado. Asi que
+   esto lleva el vidrio y la tinta neutra del sistema, sin color de semaforo.
+
+   Se separa de .fila-lista-estado a proposito: esta clase es el ASPECTO y sirve
+   fuera de un listado; .fila-lista-estado es la RANURA dentro de la fila. En la
+   fila de usuarios van las dos juntas. */
+.rol-badge{
+  display:inline-flex;
+  align-items:center;
+  padding:3px 10px;
+  border-radius:99px;
+  background:var(--glass-content-bg);
+  border:1px solid var(--line);
+  color:var(--ink-2);
+  font-size:11px;
+  font-weight:700;
+  white-space:nowrap;
+}
+
+/* La ranura de la izquierda del grupo de acciones: lo que queda anclado al
+   nombre cuando los botones se van al borde derecho. Solo posiciona. */
+.fila-lista-estado{ flex:none; }
+
+/* Un usuario dado de baja. La baja de este sistema es logica, asi que la
+   persona sigue apareciendo en el listado y hace falta que se vea de un
+   golpe de vista cual no puede entrar.
+
+   El dato atenuado acompania al boton de estado, que es el que dice la
+   palabra "Inactivo". Nunca se comunica solo con la opacidad: es la misma
+   regla que el semaforo —ningun estado se comunica unicamente con color o
+   con intensidad. */
+.fila-lista.inactiva .fila-lista-dato{ opacity:.55; }
+
+/* --- Boton de estado con ripple ------------------------------------------- */
+/* Un solo elemento que MUESTRA el estado y lo ALTERNA al tocarlo.
+
+   Antes eran dos —una pill de solo lectura y un boton aparte—, y en mobile
+   cuatro elementos en una fila (badge de rol + pill + icono + boton) no
+   entraban. Primer uso: activo/inactivo de un usuario; sirve para cualquier
+   estado binario con la misma necesidad.
+
+   Es la unica licencia que tiene algo fuera del Dashboard Visual para usar
+   los colores del semaforo: no es decoracion, es el estado real de la cuenta,
+   y va siempre con la palabra al lado. Medido: blanco sobre --ok da 4,77:1 y
+   sobre --crit 5,86:1. */
+.boton-estado-usuario{
+  position:relative;
+  overflow:hidden;
+  flex:none;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:8px 16px;
+  border:0;
+  border-radius:99px;
+  color:#fff;
+  font-family:inherit;
+  font-size:12.5px;
+  font-weight:700;
+  cursor:pointer;
+
+  /* La transicion del fondo es MAS LENTA que el ripple (700ms contra 550ms),
+     y eso no es un numero al azar: si llegan juntos, el ripple y el fondo
+     aterrizan en el mismo color al mismo tiempo y se anulan visualmente. Mas
+     lenta, el ripple "pinta" primero y el fondo lo alcanza despues. */
+  transition:background-color .7s ease, transform .18s ease-out, opacity .18s;
+}
+.boton-estado-usuario.activo{ background:var(--ok); }
+.boton-estado-usuario.inactivo{ background:var(--crit); }
+.boton-estado-usuario:hover:not(:disabled){ transform:translateY(-1px); }
+
+/* Deshabilitado en la fila del propio usuario logueado. No alcanza con esto
+   —el backend lo rechaza igual con un 400—, pero evita que se intente. */
+.boton-estado-usuario:disabled{ opacity:.5; cursor:not-allowed; transform:none; }
+
+/* El texto va en su propio span y por encima del ripple. Escribirlo directo
+   sobre el boton borraria los ripples que esten animando: textContent
+   reemplaza TODOS los hijos. */
+.boton-estado-texto{ position:relative; z-index:1; }
+
+.boton-estado-usuario .ripple{
+  position:absolute;
+  border-radius:50%;
+  transform:scale(0);
+  opacity:.95;
+  pointer-events:none;
+  animation:ripple-expandir .55s ease-out forwards;
+}
+
+/* Se mantiene OPACO durante todo el crecimiento y se desvanece recien al
+   final, cuando ya cubrio el boton. La primera version crecia y se
+   desvanecia a la vez, asi que para cuando cubria el boton ya era invisible
+   —se reporto como "no hace el efecto"—. */
+@keyframes ripple-expandir{
+  0%{   transform:scale(0); opacity:.95; }
+  70%{  transform:scale(1); opacity:.95; }
+  100%{ transform:scale(1); opacity:0; }
+}
+
+/* Quien prefiere no ver animaciones no ve el ripple. El cambio de estado se
+   sigue comunicando con el color y con la palabra, asi que no se pierde
+   informacion. */
+@media (prefers-reduced-motion: reduce){
+  .boton-estado-usuario{ transition:none; }
+  .boton-estado-usuario .ripple{ display:none; }
+}
+
+/* --- Estado vacio de un listado ------------------------------------------- */
+/* Un listado sin elementos no muestra una lista en blanco: explica por que
+   esta vacio y, cuando corresponde, que hacer. */
+.lista-vacia{
+  padding:26px 20px;
+  text-align:center;
+  font-size:13px;
+  color:var(--ink-3);
+}
+.lista-vacia b{
+  display:block;
+  margin-bottom:4px;
+  font-size:14px;
+  font-weight:700;
+  color:var(--ink-2);
+}
+
+/* --- Indicador de carga --------------------------------------------------- */
+/* No fija tamanio ni color: los hereda del contenedor donde se lo inserte.
+   El texto y los puntos los escribe cargando.js. */
+.cargando-rotativo{ display:inline-flex; gap:1px; }
+.cargando-texto{ transition:opacity .22s ease-out; }
+.cargando-rotativo.cambiando .cargando-texto{ opacity:0; }
+
+/* --- Lista de requisitos de un campo -------------------------------------- */
+/* La ayuda bajo el campo de contrasenia. Los textos NO estan escritos aca ni
+   en el JavaScript de la pantalla: los manda el backend, que es el mismo que
+   despues rechaza la contrasenia. Asi lo que se lee antes de escribir y lo
+   que se lee al ser rechazado son la misma frase. */
+.campo-requisitos{
+  list-style:none;
+  margin:2px 0 0;
+  padding:0;
+  display:flex;
+  flex-wrap:wrap;
+  gap:3px 10px;
+}
+.campo-requisitos li{
+  font-size:11px;
+  color:var(--ink-3);
+  display:flex;
+  align-items:center;
+  gap:4px;
+}
+/* El punto delante de cada requisito no es un emoji ni un caracter de lista:
+   es un cuadradito dibujado con el borde redondeado del sistema. */
+.campo-requisitos li::before{
+  content:"";
+  width:4px;
+  height:4px;
+  border-radius:50%;
+  background:var(--ink-3);
+  flex:none;
+}

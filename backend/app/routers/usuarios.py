@@ -1,9 +1,10 @@
 """CRUD de usuarios.
 
-Cinco endpoints:
+Seis endpoints:
 
 - ``POST   /api/usuarios``             — alta
 - ``GET    /api/usuarios``             — listado
+- ``GET    /api/usuarios/opciones``    — roles y politica de contrasenia
 - ``GET    /api/usuarios/{id}``        — detalle
 - ``PATCH  /api/usuarios/{id}``        — edicion parcial
 - ``POST   /api/usuarios/{id}/estado`` — alta o baja logica
@@ -52,10 +53,14 @@ from app.core.dependencies import SesionDB, SoloAdminGeneral
 from app.models.usuario import Usuario
 from app.schemas.usuario import (
     CambioDeEstado,
+    OpcionesDeAlta,
+    PoliticaDePassword,
+    RolDisponible,
     UsuarioCrear,
     UsuarioEditar,
     UsuarioRespuesta,
 )
+from app.services import autorizacion
 
 router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
 
@@ -106,8 +111,8 @@ def _verificar_que_no_se_desactiva_a_si_mismo(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
-                "No podes desactivar tu propia cuenta. Si lo hicieras no "
-                "podrias volver a iniciar sesion, y hace falta otro "
+                "No podés desactivar tu propia cuenta. Si lo hicieras no "
+                "podrías volver a iniciar sesión, y hace falta otro "
                 "administrador para reactivarla."
             ),
         )
@@ -134,8 +139,8 @@ def _verificar_que_no_se_cambia_el_rol_a_si_mismo(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=(
-                "No podes cambiarte el rol a vos mismo. Al dejar de ser "
-                "Administrador General perderias el permiso para volver a "
+                "No podés cambiarte el rol a vos mismo. Al dejar de ser "
+                "Administrador General perderías el permiso para volver a "
                 "cambiarlo."
             ),
         )
@@ -228,6 +233,69 @@ def listar(
     campo `activo` y es el frontend el que lo muestra como corresponda.
     """
     return list(db.scalars(select(Usuario).order_by(Usuario.nombre)).all())
+
+
+@router.get(
+    "/opciones",
+    response_model=OpcionesDeAlta,
+    summary="Opciones que necesita el formulario de alta",
+)
+def opciones(
+    quien_consulta: SoloAdminGeneral,
+) -> OpcionesDeAlta:
+    """El catalogo de roles y la politica de contrasenia, para armar el formulario.
+
+    ========================================================================
+    POR QUE ESTE ENDPOINT EXISTE
+    ========================================================================
+
+    El `<select>` de rol del alta necesita los 8 roles con su etiqueta legible
+    ("Administrador de Consorcio", no `admin_consorcio`). Esas etiquetas viven
+    en la matriz de `services/autorizacion.py` y hasta ahora no salian del
+    backend.
+
+    Escribirlas a mano en el JavaScript habria sido tener la matriz de roles en
+    dos lugares, que es exactamente lo que la matriz existe para evitar: el dia
+    que la Fase 11 agregue un rol, la pantalla seguiria ofreciendo ocho. Lo
+    mismo con la politica de contrasenia: el texto de ayuda bajo el campo tiene
+    que decir lo mismo que el 422 que la rechaza, con las mismas palabras.
+
+    No lleva `db`: no toca la base. Lee dos modulos de constantes. Igual pide
+    sesion de Administrador General, porque el catalogo de roles es informacion
+    de la estructura interna del sistema y no hay motivo para regalarla sin
+    autenticar.
+
+    ========================================================================
+    LA RUTA VA DECLARADA ANTES QUE `/{usuario_id}` Y NO ES CASUAL
+    ========================================================================
+
+    FastAPI resuelve las rutas en orden de declaracion. Si esta quedara
+    despues, `/api/usuarios/opciones` entraria por el endpoint de detalle con
+    `usuario_id="opciones"` y devolveria un 422 de tipo invalido — un error que
+    no menciona en ningun momento el problema real, que es el orden de dos
+    decoradores. Cualquier ruta literal nueva de este router va arriba de las
+    que tienen parametro.
+    """
+    return OpcionesDeAlta(
+        roles=[
+            RolDisponible(
+                nombre=rol.nombre,
+                etiqueta=rol.etiqueta,
+                alcance=rol.alcance,
+                solo_lectura=rol.solo_lectura,
+            )
+            # Se recorre `ROLES` y no el diccionario interno para conservar el
+            # orden de la matriz, que va de mas permisos a menos. Un `<select>`
+            # alfabetico pondria "Auditor" primero, y el rol que mas se elige
+            # en la practica —Propietario— quedaria perdido en el medio.
+            for rol in (autorizacion.obtener(nombre) for nombre in autorizacion.ROLES)
+        ],
+        password=PoliticaDePassword(
+            minimo_caracteres=security.MIN_CARACTERES_PASSWORD,
+            maximo_bytes=security.MAX_BYTES_PASSWORD,
+            requisitos=list(security.textos_de_requisitos()),
+        ),
+    )
 
 
 @router.get("/{usuario_id}", response_model=UsuarioRespuesta, summary="Ver un usuario")

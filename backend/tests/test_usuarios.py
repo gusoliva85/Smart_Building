@@ -583,3 +583,88 @@ def test_el_alta_no_acepta_fijar_el_estado(cliente, admin):
     respuesta = _crear(cliente, admin, activo=False)
 
     assert respuesta.status_code == 422
+
+
+# -------------------------------------------- opciones del formulario de alta ----
+#
+# El endpoint que le da al formulario los roles y la politica de contrasenia.
+# Lo que se prueba aca no es que devuelva datos: es que NO los duplique. Cada
+# test de abajo falla si alguien decide escribir esa informacion a mano en vez
+# de leerla de donde ya vive.
+
+
+def test_las_opciones_traen_los_ocho_roles_en_el_orden_de_la_matriz(cliente, admin):
+    """El orden importa: la matriz va de mas permisos a menos, y el `<select>`
+    lo respeta. Alfabetico pondria "Auditor" primero y dejaria "Propietario"
+    —el rol que mas se elige— perdido en el medio."""
+    respuesta = cliente.get(f"{USUARIOS}/opciones", headers=admin)
+
+    assert respuesta.status_code == 200
+    nombres = [rol["nombre"] for rol in respuesta.json()["roles"]]
+    assert nombres == list(autorizacion.ROLES)
+
+
+def test_las_etiquetas_de_los_roles_salen_de_la_matriz(cliente, admin):
+    """Si alguien escribe las etiquetas a mano en el router, este test lo
+    agarra: compara contra la unica fuente que las declara."""
+    respuesta = cliente.get(f"{USUARIOS}/opciones", headers=admin)
+
+    etiquetas = {rol["nombre"]: rol["etiqueta"] for rol in respuesta.json()["roles"]}
+    assert etiquetas == {
+        nombre: autorizacion.etiqueta(nombre) for nombre in autorizacion.ROLES
+    }
+
+
+def test_la_politica_de_contrasenia_sale_de_security(cliente, admin):
+    """El texto de ayuda bajo el campo tiene que decir lo mismo que el 422 que
+    rechaza la contrasenia, con las mismas palabras. Eso solo se cumple si los
+    dos leen la misma tupla."""
+    politica = cliente.get(f"{USUARIOS}/opciones", headers=admin).json()["password"]
+
+    assert politica["minimo_caracteres"] == security.MIN_CARACTERES_PASSWORD
+    assert politica["maximo_bytes"] == security.MAX_BYTES_PASSWORD
+    assert politica["requisitos"] == list(security.textos_de_requisitos())
+
+
+def test_los_requisitos_que_se_anuncian_son_los_que_se_exigen(cliente, admin):
+    """La prueba de fondo del punto anterior, hecha de punta a punta: se pide
+    una contrasenia que no cumple NINGUN requisito y se comprueba que el 422
+    enumere exactamente los mismos textos que el formulario anuncia.
+
+    La contrasenia de prueba es la cadena vacia y no algo como `"a"`: una `a`
+    ya cumple el requisito de minuscula, asi que ese requisito no apareceria en
+    el rechazo y el test fallaria sin que nada estuviera mal."""
+    anunciados = cliente.get(f"{USUARIOS}/opciones", headers=admin).json()["password"][
+        "requisitos"
+    ]
+
+    rechazo = _crear(cliente, admin, password="").text
+
+    for requisito in anunciados:
+        assert requisito in rechazo
+
+
+def test_la_ruta_de_opciones_no_la_captura_el_endpoint_de_detalle(cliente, admin):
+    """FastAPI resuelve por orden de declaracion. Si `/opciones` quedara
+    despues de `/{usuario_id}`, entraria por el detalle con un id de texto y
+    daria 422 — un error que no menciona el problema real, que es el orden de
+    dos decoradores. Este test es la guarda contra reordenar el archivo."""
+    respuesta = cliente.get(f"{USUARIOS}/opciones", headers=admin)
+
+    assert respuesta.status_code == 200
+    assert "roles" in respuesta.json()
+
+
+def test_las_opciones_no_se_entregan_sin_sesion(cliente):
+    """El catalogo de roles describe la estructura interna de permisos del
+    sistema. No hay motivo para regalarla sin autenticar."""
+    assert cliente.get(f"{USUARIOS}/opciones").status_code == 401
+
+
+@pytest.mark.parametrize(
+    "rol",
+    [r for r in autorizacion.ROLES if r != autorizacion.ADMIN_GENERAL],
+)
+def test_las_opciones_son_solo_del_administrador_general(cliente, como, rol):
+    """Mismo criterio que el resto del modulo en esta fase."""
+    assert cliente.get(f"{USUARIOS}/opciones", headers=como(rol)).status_code == 403

@@ -28,6 +28,12 @@ h1,h2,h3,.display{ font-family:Outfit,sans-serif; letter-spacing:-.015em; }
 
 ## Vidrio en dos capas: `.shell` y `.content-glass`
 
+> **Antes que nada, la trampa que estas dos clases esconden.** Declaran **solo la superficie de vidrio** —fondo, blur, borde, sombra, brillo especular— y **ninguna de las dos pone `border-radius` ni `padding`.** Es a propósito: un chip de activo, una fila de listado, un panel de pantalla y un modal necesitan medidas distintas, así que ponerlas en la clase base obligaría a pisarlas en todos los casos menos uno.
+>
+> La consecuencia es que **todo** lo que se combine con `.shell` o `.content-glass` tiene que declarar su radio y su padding, y si no lo hace **no falla nada**: queda una caja cuadrada con el texto pegado al borde, que se lee como HTML sin estilo. Pasó con el listado de `usuarios.html` —en la fila y en el panel que la contenía— y lo reportó el usuario, no un test. Las medidas de referencia de lo ya construido: `.detail-item` y `.fila-lista` van en `var(--r-sm)` con `padding:11-12px 12-14px`; `.panel-contenido` y las tarjetas grandes en `var(--r-card)`; `.topbar`, `.sidebar` y `.modal` en `var(--r-lg)`.
+>
+> Y la tipografía va junto con eso: **el dato principal de una pieza de vidrio va en Outfit**, no en Inter (`.detail-field b`, `.fila-lista-dato b`, `.floor-num`, `.kpi-num`). Inter queda para la línea de datos secundarios. La regla general del proyecto —Outfit para titulares y números— se aplica también adentro de una fila: el nombre es el título de ese ítem, no un dato más.
+
 ```css
 .shell{
   position:relative; overflow:hidden;
@@ -145,6 +151,109 @@ Para cualquier pantalla "lista de cosas + alta en modal" (usuarios hoy, después
 ```
 
 En vez de empujar el contenedor entero, se lo hace crecer para ocupar toda la línea disponible (`flex:1`) y se reparten sus dos hijos con `space-between` — el rol ancla al principio de la línea que le toque (junto al nombre en desktop, solo en su propia línea en mobile angosto), los botones al final, siempre. `:has()` es lo que permite distinguir "esto es una fila de usuario" por su contenido, sin agregar una clase nueva al HTML — moderno pero ya bien soportado (Chrome/Edge/Safari/Firefox, todos desde 2023/2024).
+
+### El resto de la pantalla de listado (construido en `usuarios.html`, F1-T13)
+
+Las filas no van sueltas: hay cuatro piezas más que toda pantalla "lista + alta" necesita, y conviene tomarlas de acá en vez de improvisarlas.
+
+```css
+/* El contenedor de las filas. */
+.lista-filas{ display:flex; flex-direction:column; gap:8px; }
+
+/* El dato principal: nombre arriba, datos secundarios abajo. El min-width:0 es
+   lo que permite que un email largo se recorte en vez de estirar la fila y
+   empujar las acciones fuera de la tarjeta. */
+.fila-lista-dato{ min-width:0; }
+.fila-lista-dato b{ display:block; font-size:13.5px; font-weight:700; margin-bottom:2px; }
+.fila-lista-dato span{ display:block; font-size:11.5px; color:var(--ink-3); overflow-wrap:anywhere; }
+
+/* Etiqueta neutra de clasificación: un rol, una categoría, un rubro.
+   NO es una .pill — las pills son el semáforo, y el semáforo es estado real
+   del edificio, no una paleta para etiquetar cualquier cosa. */
+.rol-badge{
+  display:inline-flex; align-items:center; padding:3px 10px; border-radius:99px;
+  background:var(--glass-content-bg); border:1px solid var(--line);
+  color:var(--ink-2); font-size:11px; font-weight:700; white-space:nowrap;
+}
+
+/* La ranura de la izquierda del grupo de acciones. Solo posiciona: el aspecto
+   lo pone .rol-badge. En la fila de usuarios van las dos juntas. */
+.fila-lista-estado{ flex:none; }
+
+/* Un registro dado de baja: atenúa sus datos. La palabra "Inactivo" la dice
+   el botón de estado, no un chip aparte — ver su sección más abajo. */
+.fila-lista.inactiva .fila-lista-dato{ opacity:.55; }
+
+/* Listado sin elementos, y también el contenedor del indicador de carga. */
+.lista-vacia{ padding:26px 20px; text-align:center; font-size:13px; color:var(--ink-3); }
+.lista-vacia b{ display:block; margin-bottom:4px; font-size:14px; font-weight:700; color:var(--ink-2); }
+
+/* El panel de vidrio donde vive el contenido de una pantalla de gestión.
+   .shell no pone radio ni padding: este los pone. */
+.panel-contenido{ padding:18px 16px; border-radius:var(--r-card); }
+@media (min-width:640px){ .panel-contenido{ padding:22px 20px; } }
+
+/* El encabezado del contenido: título, bajada y la acción principal. */
+.pagina-cabecera{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:12px; flex-wrap:wrap; margin-bottom:14px;
+}
+.pagina-cabecera h2{ margin:0; font-size:18px; letter-spacing:-.015em; }
+.pagina-cabecera p{ margin:3px 0 0; font-size:12.5px; color:var(--ink-3); }
+.pagina-cabecera .boton-primario{ width:auto; padding:10px 16px; }
+@media (max-width:519px){ .pagina-cabecera .boton-primario{ width:100%; } }
+```
+
+```html
+<section class="shell panel-contenido">
+<div class="pagina-cabecera">
+  <div>
+    <h2>Usuarios del sistema</h2>
+    <p>Se listan los activos y los inactivos.</p>
+  </div>
+  <button type="button" class="boton-primario" id="boton-nuevo">Nuevo usuario</button>
+</div>
+
+<div class="lista-filas">
+  <article class="fila-lista content-glass">
+    <div class="fila-lista-dato">
+      <b>Ana Suárez</b>
+      <span>ana@ejemplo.com · 11 5555 4444</span>
+    </div>
+    <div class="fila-lista-acciones">
+      <span class="fila-lista-estado rol-badge">Administrador de Consorcio</span>
+      <div class="fila-lista-botones"><!-- editar + estado --></div>
+    </div>
+  </article>
+</div>
+</section>
+```
+
+**Tres reglas que no son de aspecto y conviene no perder:**
+
+1. **El badge de rol no usa el semáforo.** Un rol no es un estado. Las cuatro clases `.pill.*` quedan reservadas para severidad real del edificio; para clasificar algo hay `.rol-badge`, con vidrio y tinta neutra.
+2. **Un registro inactivo se marca con la palabra "Inactivo" Y con la opacidad, nunca solo con el tono.** Es la misma regla que el semáforo: ningún estado se comunica únicamente con color o intensidad. La baja del sistema es lógica, así que el registro sigue en el listado y hace falta que se vea de un golpe de vista cuál no está activo. La palabra la pone el botón de estado (sección propia más abajo), no un chip aparte: dos elementos diciendo el mismo estado en la misma fila es lo que este componente vino a resolver.
+3. **Un listado vacío explica por qué está vacío**, y cuando corresponde dice qué hacer. Nunca una lista en blanco. El mismo contenedor aloja el indicador de carga mientras se espera.
+
+**El botón de la cabecera pasa a ancho completo por debajo de 520 px**, que es donde la cabecera envuelve: un botón angosto perdido a la izquierda de una línea vacía se lee como un error de maquetado.
+
+### De dónde salen las opciones de un formulario de alta
+
+Regla que fijó el alta de `usuarios.html` y que vale para cualquier formulario que ofrezca elegir entre valores que el backend define: **el catálogo lo pide el frontend, no lo escribe.**
+
+El `<select>` de rol necesita los 8 roles con su etiqueta legible, y esas etiquetas viven en la matriz de roles del backend. Escribirlas en el JavaScript sería tener la matriz en dos lugares: el día que la Fase 11 agregue un rol, la pantalla seguiría ofreciendo ocho. Lo mismo con la ayuda de requisitos bajo el campo de contraseña — tiene que decir **lo mismo que el 422 que la rechaza, con las mismas palabras**, y eso solo se cumple si los dos leen la misma lista.
+
+Por eso hay un endpoint que devuelve las dos cosas juntas (`GET /api/usuarios/opciones`), y se piden **al abrir el modal**, no al cargar la pantalla: la mayoría de las visitas a un listado no dan de alta a nadie. Mientras no llegan, el `<select>` y el botón de guardar quedan deshabilitados, así no se puede enviar un alta sin elegir.
+
+```css
+/* La lista de requisitos bajo el campo. Los textos NO están acá: llegan del
+   backend. La viñeta se dibuja con CSS, nunca con un carácter de lista. */
+.campo-requisitos{ list-style:none; margin:2px 0 0; padding:0; display:flex; flex-wrap:wrap; gap:3px 10px; }
+.campo-requisitos li{ font-size:11px; color:var(--ink-3); display:flex; align-items:center; gap:4px; }
+.campo-requisitos li::before{
+  content:""; width:4px; height:4px; border-radius:50%; background:var(--ink-3); flex:none;
+}
+```
 
 ## Grilla de KPIs (bento, no tarjetas idénticas)
 
@@ -665,7 +774,7 @@ Usado por primera vez para avisar que una dirección no se pudo geocodificar (al
   display:flex; align-items:center; justify-content:center; padding:20px;
   opacity:0; pointer-events:none; transition:opacity .22s ease;
 }
-.modal-backdrop.open{ opacity:1; pointer-events:auto; }
+.modal-backdrop.abierto{ opacity:1; pointer-events:auto; }
 .modal{
   max-width:360px; width:100%; padding:24px 22px; text-align:center;
   transform:scale(.96); transition:transform .22s ease;
@@ -679,7 +788,7 @@ Usado por primera vez para avisar que una dirección no se pudo geocodificar (al
   overflow-y:auto;
   -webkit-overflow-scrolling:touch;
 }
-.modal-backdrop.open .modal{ transform:scale(1); }
+.modal-backdrop.abierto .modal{ transform:scale(1); }
 .modal-icono{
   width:44px; height:44px; margin:0 auto 12px; border-radius:50%; display:grid; place-items:center;
   background:color-mix(in srgb, var(--warn) var(--pill-tinte), var(--mix-tint)); color:var(--warn-ink);
@@ -697,7 +806,9 @@ Decisión de reutilización que quedó fijada en la Fase 1 (alta de usuarios), a
 ```html
 <div class="modal-backdrop" id="modal-alta">
   <div class="modal modal-formulario shell">
-    <button type="button" class="modal-close" id="modal-alta-cerrar" aria-label="Cerrar">✕</button>
+    <button type="button" class="modal-cerrar" id="boton-cerrar-modal" aria-label="Cerrar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
     <h3>Nuevo usuario</h3>
     <span class="modal-formulario-sub">Se crea con la contraseña que definas acá — se la comunicás vos.</span>
     <form id="form-alta">
@@ -715,25 +826,34 @@ Decisión de reutilización que quedó fijada en la Fase 1 (alta de usuarios), a
 .modal.modal-formulario{ max-width:560px; padding:28px 26px 26px; text-align:left; position:relative; }
 .modal-formulario h3{ margin:0 0 4px; padding-right:34px; }
 .modal-formulario .modal-formulario-sub{ display:block; margin:0 0 18px; font-size:13px; color:var(--ink-3); }
-.modal-close{
+.modal-cerrar{
   position:absolute; top:18px; right:18px; width:30px; height:30px; border-radius:10px; border:0;
   background:var(--glass-content-bg); box-shadow:var(--glass-in); color:var(--ink-2); font-size:13px;
   display:grid; place-items:center; cursor:pointer; transition:transform .18s ease-out;
 }
-.modal-close:hover{ transform:translateY(-1px); }
+.modal-cerrar:hover{ transform:translateY(-1px); }
+.modal-cerrar svg{ width:14px; height:14px; }
 .modal-formulario-acciones{ display:flex; gap:10px; margin-top:6px; }
 .modal-formulario-acciones .boton-primario{ width:auto; flex:1; }
 ```
 
 ```js
-function abrirModal(){ modalAlta.classList.add('open'); primerCampo.focus(); }
-function cerrarModal(){ modalAlta.classList.remove('open'); formulario.reset(); }
+function abrirModal(){ modalAlta.classList.add('abierto'); primerCampo.focus(); }
+function cerrarModal(){ modalAlta.classList.remove('abierto'); formulario.reset(); }
 botonNuevo.addEventListener('click', abrirModal);
 botonCerrarX.addEventListener('click', cerrarModal);
 botonCancelar.addEventListener('click', cerrarModal);
 // A propósito: SIN listener de click en el backdrop — este modal no se
 // cierra tocando afuera, a diferencia de .detail/.sidebar.
 ```
+
+> **Las clases de estado van en castellano, igual que el resto del dominio.** `.abierto` / `.abierta`, `.activo`, `.inactiva`, `.selected` no — esa última es la excepción heredada del Dashboard Visual. Esta sección decía `.modal-close` y `.open`, y el CSS real dice `.modal-cerrar` y `.abierto`: se corrigió al construir el alta de `usuarios.html`, donde copiar de acá habría dado un modal que no se abre y un botón sin estilo. **Al tomar un patrón de este documento conviene verificar el nombre contra `frontend/assets/css/components.css`**, que es lo que efectivamente se sirve.
+
+Tres cosas más que fijó el alta de `usuarios.html`:
+
+- **La X del modal es un SVG a trazo**, no el carácter `✕`. Todo ícono del proyecto es SVG dibujado a mano; un carácter tipográfico se ve distinto en cada sistema operativo y no hereda el grosor de trazo del resto.
+- **Escape cierra el modal, el backdrop no.** El backdrop no cierra porque perder un alta a medio tipear es un problema real; Escape sí, porque es una acción intencional y es lo que cualquiera espera de un diálogo. Al cerrar, el foco **vuelve al botón que lo abrió** — si no, se va al `<body>` y el siguiente Tab arranca desde el principio de la página.
+- **Un error del servidor se muestra DENTRO del modal, que queda abierto con todo lo tipeado en su lugar.** Cerrarlo ante un email repetido obligaría a escribir el alta de nuevo.
 
 Para dos campos "cortos" lado a lado dentro del formulario (Rol + Teléfono, CP + CUIT...), envolverlos en `.form-grid-2` — 1 columna en mobile, 2 columnas recién desde 480px, para que nunca deforme un input angosto en pantallas chicas:
 
@@ -758,19 +878,23 @@ Tres exclusiones, todas necesarias:
 
 ## Campo de contraseña con mostrar/ocultar
 
-Cualquier `<input type="password">` de la app usa esta estructura — nunca `type="text"` a secas (ni siquiera "porque es modo test", que fue el error real que corrigió este patrón). Se auto-conecta solo: `assets/js/formularios.js` engancha el ícono y el toggle a cualquier `.campo-password-toggle` que encuentre en la página, sin que la pantalla llame nada.
+Cualquier `<input type="password">` de la app usa esta estructura — nunca `type="text"` a secas (ni siquiera "porque es modo test", que fue el error real que corrigió este patrón).
+
+**El botón del ojo NO se escribe en el HTML: lo genera `assets/js/formularios.js`** en todo `.campo-password-wrap` que no lo tenga. Alcanza con el envoltorio, que hace falta igual para el CSS:
 
 ```html
 <div class="campo">
   <label for="campo-password">Contraseña</label>
+  <!-- El <button> del ojo lo agrega formularios.js. No hace falta escribirlo. -->
   <div class="campo-password-wrap">
     <input type="password" id="campo-password" required>
-    <button type="button" class="campo-password-toggle" aria-label="Mostrar contraseña">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
-    </button>
   </div>
 </div>
 ```
+
+**Por qué cambió esto (corrección del 2026-11-06, al construir el alta de `usuarios.html`).** Antes el botón se escribía a mano en cada HTML y este documento lo mostraba así. El problema apareció enseguida: la regla "todo campo de contraseña lleva toggle" dependía de que nadie se olvidara de copiar ocho líneas de SVG, y olvidarlas **no falla nada** — deja un campo sin forma de ver lo que se escribe, y no se nota hasta que alguien se queja. Pasó exactamente eso en el primer campo de contraseña nuevo después del login. Generándolo, la regla se cumple por construcción. Es idempotente: si el botón ya está escrito, no se duplica.
+
+Y el `aria-label` lleva eñe. Parece un detalle y no lo es: decía "Mostrar contrasenia", con la convención sin acentos del código, pero un `aria-label` no es código — es la frase que un lector de pantalla dice en voz alta.
 
 ```css
 .campo-password-wrap{ position:relative; }
@@ -826,8 +950,12 @@ Reemplaza cualquier "Cargando…" estático — dos frases alternando ("Cargando
 
 ```html
 <!-- window.Cargando.html() devuelve exactamente esto -->
-<span class="cargando-rotativo"><span class="cargando-texto"></span></span>
+<span class="cargando-rotativo" role="status" aria-live="polite"><span class="cargando-texto"></span></span>
 ```
+
+`role="status"` y `aria-live="polite"`: un lector de pantalla tiene que anunciar que se está esperando, si no la pantalla queda en silencio hasta que llegan los datos. `polite` y no `assertive` porque no interrumpe lo que la persona esté escuchando.
+
+**Construido en `F1-T13`.** Dos detalles que no estaban en esta especificación y que importan: el intervalo **se apaga solo** cuando no queda ningún indicador en pantalla y se vuelve a prender con el siguiente —un intervalo vivo para siempre en una pestaña abierta todo el día es exactamente lo que después nadie encuentra—, y el primer pintado se dispara en el `requestAnimationFrame` siguiente a `html()`, porque quien la llamó todavía no insertó el elemento en el DOM; sin eso el indicador aparece vacío casi medio segundo.
 
 ```js
 listaAlgo.innerHTML = `<p style="font-size:12.5px;color:var(--ink-3);padding:10px 0;">${window.Cargando.html()}</p>`;
@@ -835,7 +963,49 @@ listaAlgo.innerHTML = `<p style="font-size:12.5px;color:var(--ink-3);padding:10p
 
 No fija tamaño ni color — los hereda del contenedor donde se lo inserte (un `<p>` chico para un listado, directo dentro de un `<h1>` para un título de detalle). Cada 6 ticks (~2,7s) cambia de frase con una transición de desvanecido; los ticks intermedios solo actualizan los puntos, sin transición — un parpadeo constante de "cargando" se sentiría mal si TODO se desvaneciera cada 450ms.
 
+## Confirmación de una acción destructiva (`Confirmar.pedir`)
+
+> **Construido en `F1-T15` (2026-11-07).** Es el único patrón de confirmación para una acción sin formulario. `window.confirm()` está prohibido en todo el proyecto.
+
+**No se escribe el HTML de este modal en ninguna pantalla.** Se pide así, y listo:
+
+```js
+window.Confirmar.pedir({
+  titulo: 'Desactivar la cuenta',
+  mensaje: nombre + ' no va a poder volver a iniciar sesión. Sus datos no se ' +
+           'borran y la cuenta se puede reactivar desde este mismo listado ' +
+           'cuando haga falta.',
+  textoAccion: 'Confirmar y desactivar'
+}).then(function (confirmo) {
+  if (!confirmo) return;
+  // la acción
+});
+```
+
+La promesa **siempre** se resuelve: cancelar devuelve `false`, no un rechazo. `destructiva: false` deja el botón con el acento en vez de rojo, para una confirmación que no destruye nada.
+
+**Lo que hay que acertar es el texto, no el CSS.** Tres reglas:
+
+1. **Nunca "¿Estás seguro?".** El mensaje dice QUÉ va a pasar, con el nombre de lo afectado adentro.
+2. **Si se puede deshacer, decirlo.** Sin esa frase, "desactivar" se lee como "borrar" y la respuesta honesta pasa a ser cancelar siempre.
+3. **El botón lleva el verbo**, no "Aceptar": leído solo, tiene que alcanzar para saber lo que hace.
+
+**Y se pregunta solo cuando hace falta.** Desactivar pregunta, reactivar no: no destruye nada y se deshace con otro toque. Un modal que aparece siempre se cierra sin leerlo.
+
+**Lo que ya está resuelto adentro del módulo** y no hay que volver a escribir: el foco arranca en **Cancelar** (no en la acción: un Enter de más confirmaría sin leer), Escape cancela, el velo cancela —a diferencia del modal de formulario, acá no hay nada que perder—, el foco queda atrapado entre los dos botones, y al cerrar vuelve a donde estaba. Cerrado, el modal queda `inert`: escondido con `opacity` seguía siendo alcanzable con Tab.
+
+**`.boton-peligro`** se apoya en `.boton-primario` y solo le cambia el fondo a `var(--crit)`. Es la **segunda** licencia para usar un color del semáforo como fondo de texto (la primera es el botón de estado), y vale por lo mismo: no es decoración, y va siempre con el verbo al lado. Blanco sobre `--crit` da 5,86:1. **Su hover NO oscurece el fondo con `color-mix` contra `--mix-ink`:** ese token se invierte en tema oscuro, así que la misma regla aclararía el botón y bajaría el contraste — es la trampa que ya está anotada en `tokens.css` para el texto de las pills. El hover es el levante de siempre.
+
 ## Botón de estado con ripple (`boton-estado-usuario`)
+
+> **Construido en `F1-T14` (2026-11-06), y esta especificación se verificó entera.** Las dos lecciones de abajo —el ripple opaco durante el crecimiento, y la transición del fondo más lenta que el ripple— se implementaron tal cual y hay comprobaciones automáticas que las fijan: una lee los `@keyframes` y verifica que al 70% ya llegó a `scale(1)` y **sigue** en `opacity:.95`; otra compara las dos duraciones como decimales y falla si la del fondo no es mayor. Sin esas guardas, alguien "limpia" el keyframe a un fade normal y el efecto vuelve a desaparecer sin que nada avise.
+>
+> **Tres cosas que se agregaron y que esta sección no tenía:**
+> - **`prefers-reduced-motion`**: quien pide menos animación no ve el ripple. No se pierde información, porque el estado se comunica igual con el color y con la palabra.
+> - **El botón se bloquea mientras viaja el pedido.** Dos clics rápidos mandarían dos cambios y el estado final dependería de cuál contestara último.
+> - **Al llegar la respuesta se repinta con lo que contestó el backend**, no con lo que se supuso al hacer el cambio optimista. Si otra pestaña cambió algo en el medio, manda el servidor.
+>
+> Y se quitó el chip punteado de "Inactivo" que tenía la fila: este botón ya dice la palabra, y dos elementos comunicando el mismo estado en la misma fila es justamente lo que este componente vino a resolver.
 
 Fusiona en un solo elemento lo que antes eran DOS (un `.pill` de solo lectura + un botón de acción aparte) — a pedido explícito para aliviar el mobile, donde cuatro elementos sueltos en una fila (badge + pill + ícono + botón) no entraban bien. El mismo botón **muestra** el estado actual (color + texto) Y lo **alterna** al hacer click. Primer uso: activo/inactivo en `usuarios.html` — reutilizable para cualquier estado binario futuro con la misma necesidad (verde/rojo, texto que cambia, acción = toggle).
 

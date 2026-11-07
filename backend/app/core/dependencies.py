@@ -81,7 +81,7 @@ esquema_oauth2 = OAuth2PasswordBearer(
 # quien prueba credenciales cual de sus intentos estuvo mas cerca.
 _NO_AUTORIZADO = HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED,
-    detail="No se pudo validar la sesion. Volve a iniciar sesion.",
+    detail="No se pudo validar la sesión. Volvé a iniciar sesión.",
     # Sin este header la respuesta no cumple el estandar de HTTP para un 401, y
     # el boton "Authorize" de /docs no se da cuenta de que tiene que volver a
     # pedir credenciales.
@@ -195,7 +195,7 @@ def exigir_roles(*roles: str) -> Callable[[Usuario], Usuario]:
 
     def verificar(usuario: UsuarioActual) -> Usuario:
         if usuario.rol not in permitidos:
-            raise _prohibido(f"Esta accion es solo para: {etiquetas}.")
+            raise _prohibido(f"Esta acción es solo para: {etiquetas}.")
         return usuario
 
     return verificar
@@ -224,7 +224,7 @@ def exigir_que_pueda_escribir(usuario: UsuarioActual) -> Usuario:
     if autorizacion.es_solo_lectura(usuario.rol):
         raise _prohibido(
             f"{autorizacion.etiqueta(usuario.rol)} es un rol de consulta: "
-            "puede ver la informacion pero no modificarla."
+            "puede ver la información pero no modificarla."
         )
     return usuario
 

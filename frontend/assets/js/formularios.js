@@ -104,9 +104,12 @@
     var svg = boton.querySelector('svg');
     if (svg) svg.innerHTML = visible ? ICONO_OJO_TACHADO : ICONO_OJO;
 
+    /* Con enie: esto no es un comentario de codigo, es la frase que lee en voz
+       alta un lector de pantalla. El resto del archivo va sin acentos porque
+       es codigo; los textos que escucha o lee una persona, nunca. */
     boton.setAttribute(
       'aria-label',
-      visible ? 'Ocultar contrasenia' : 'Mostrar contrasenia'
+      visible ? 'Ocultar contraseña' : 'Mostrar contraseña'
     );
   }
 
@@ -149,10 +152,56 @@
     if (boton) alternarVisibilidad(boton);
   }
 
+  /* Crea el boton del ojo en todo .campo-password-wrap que no lo tenga.
+
+     POR QUE LO GENERA EL JAVASCRIPT Y NO LO ESCRIBE CADA HTML. La regla del
+     proyecto es que TODO campo de contrasenia lleva el toggle, sin excepciones.
+     Si el boton se escribe a mano, esa regla depende de que nadie se olvide
+     ocho lineas de SVG, y el dia que alguien las olvida no falla nada: queda
+     un campo de contrasenia sin forma de verla, que es justamente la clase de
+     cosa que no se nota hasta que un usuario se queja.
+
+     Generandolo, la regla pasa a cumplirse por construccion: alcanza con
+     envolver el input en .campo-password-wrap. Ese envoltorio hace falta igual
+     para el CSS, asi que no se agrega nada que no estuviera.
+
+     Es idempotente: si el boton ya existe —porque un HTML lo trae escrito— no
+     se duplica. */
+  function crearTogglesFaltantes(raiz) {
+    var contenedores = (raiz || document).querySelectorAll('.campo-password-wrap');
+
+    Array.prototype.forEach.call(contenedores, function (contenedor) {
+      if (contenedor.querySelector('.campo-password-toggle')) return;
+      if (!contenedor.querySelector('input')) return;
+
+      var boton = document.createElement('button');
+      /* type="button" explicito: un <button> dentro de un <form> es submit por
+         defecto, asi que sin esto tocar el ojo enviaria el formulario. */
+      boton.type = 'button';
+      boton.className = 'campo-password-toggle';
+      boton.setAttribute('aria-label', 'Mostrar contraseña');
+
+      /* El <svg> va vacio: lo llena pintarToggle, que es el unico lugar que
+         sabe que icono corresponde a cada estado. */
+      boton.innerHTML =
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+        'stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" ' +
+        'aria-hidden="true"></svg>';
+
+      contenedor.appendChild(boton);
+    });
+  }
+
   /* Sincroniza cada toggle con el type real de su campo. Importa porque el
      navegador restaura valores al volver atras, y porque asi el HTML de una
-     pantalla puede nacer con el campo visible sin que el icono mienta. */
+     pantalla puede nacer con el campo visible sin que el icono mienta.
+
+     Primero crea los que falten: de otro modo un campo insertado despues
+     —todo modal del proyecto— quedaria sin boton hasta que alguien lo escriba
+     a mano. */
   function sincronizarToggles(raiz) {
+    crearTogglesFaltantes(raiz);
+
     var botones = (raiz || document).querySelectorAll('.campo-password-toggle');
     Array.prototype.forEach.call(botones, function (boton) {
       var campo = campoDelToggle(boton);
@@ -178,6 +227,7 @@
        quiera dejar el icono coherente sin esperar al primer clic. El toggle
        ya funciona sin llamar esto. */
     sincronizarToggles: sincronizarToggles,
+    crearTogglesFaltantes: crearTogglesFaltantes,
     camposNavegables: camposNavegables
   };
 }());

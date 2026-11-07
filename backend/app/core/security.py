@@ -97,9 +97,9 @@ _REQUISITOS: tuple[tuple[str, Callable[[str], bool]], ...] = (
         f"al menos {MIN_CARACTERES_PASSWORD} caracteres",
         lambda p: len(p) >= MIN_CARACTERES_PASSWORD,
     ),
-    ("una letra mayuscula", lambda p: any(c.isupper() for c in p)),
-    ("una letra minuscula", lambda p: any(c.islower() for c in p)),
-    ("un numero", lambda p: any(c.isdigit() for c in p)),
+    ("una letra mayúscula", lambda p: any(c.isupper() for c in p)),
+    ("una letra minúscula", lambda p: any(c.islower() for c in p)),
+    ("un número", lambda p: any(c.isdigit() for c in p)),
     # "Especial" se define por exclusion —cualquier cosa que no sea letra ni
     # numero— y no con una lista fija de simbolos permitidos. Una lista fija
     # tiene el problema de rechazar caracteres perfectamente validos que no
@@ -107,7 +107,7 @@ _REQUISITOS: tuple[tuple[str, Callable[[str], bool]], ...] = (
     # simbolo del euro), y lo hace con un mensaje que no se entiende: la persona
     # puso un caracter especial y el sistema le dice que falta uno.
     (
-        "un caracter especial (cualquiera que no sea letra ni numero)",
+        "un carácter especial (cualquiera que no sea letra ni número)",
         lambda p: any(not c.isalnum() for c in p),
     ),
 )
@@ -129,7 +129,23 @@ class PasswordInsegura(ValueError):
 
     def __init__(self, faltantes: tuple[str, ...]) -> None:
         self.faltantes = faltantes
-        super().__init__("La contrasenia necesita " + ", ".join(faltantes) + ".")
+        super().__init__("La contraseña necesita " + ", ".join(faltantes) + ".")
+
+
+def textos_de_requisitos() -> tuple[str, ...]:
+    """Los requisitos de la politica, en texto, sin evaluar ninguna contrasenia.
+
+    Existe para que el formulario del frontend pueda mostrarlos como ayuda
+    ANTES de que la persona escriba algo. Lee la misma tupla que usa
+    `requisitos_faltantes`, asi que el texto de ayuda y el texto del rechazo
+    son literalmente la misma frase.
+
+    Deliberadamente NO incluye el tope de bytes: no es un requisito que se
+    cumpla, es un limite que casi nadie roza, y anunciarlo de entrada ("no mas
+    de 72 bytes") solo confunde. Aparece recien cuando se pasa, y ahi explica
+    la diferencia entre bytes y caracteres.
+    """
+    return tuple(texto for texto, _ in _REQUISITOS)
 
 
 def requisitos_faltantes(password: str) -> tuple[str, ...]:
@@ -145,8 +161,8 @@ def requisitos_faltantes(password: str) -> tuple[str, ...]:
     # lo primero que se lea sea lo que falta y no lo que sobra.
     if len(password.encode("utf-8")) > MAX_BYTES_PASSWORD:
         faltantes.append(
-            f"no mas de {MAX_BYTES_PASSWORD} bytes (tiene "
-            f"{len(password.encode('utf-8'))}; las letras acentuadas y la enie "
+            f"no más de {MAX_BYTES_PASSWORD} bytes (tiene "
+            f"{len(password.encode('utf-8'))}; las letras acentuadas y la eñe "
             "ocupan 2 bytes cada una)"
         )
 

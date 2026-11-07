@@ -167,6 +167,8 @@ navegador no dispara CORS.
 - **`400` vs `422`:** si el valor es sintácticamente inválido (un estado que no existe en el enum), lo rechaza Pydantic con 422 sin llegar al router. Si el valor es válido pero la operación no se puede hacer en ese contexto (una transición de estado no permitida, un departamento de otro edificio), es un 400 del router con un mensaje explicativo en español.
 - **`409` significa "necesito que confirmes"**, no "error". Se usa en las operaciones que van a sobrescribir algo: el servidor responde 409 con la explicación de qué va a pasar, y el cliente reenvía la misma petición con un campo booleano de confirmación (`confirmar_reemplazo: true`). Este mecanismo es el que permite no usar nunca un `confirm()` del navegador.
 - Todo endpoint que opera sobre un edificio recibe `edificio_id` y **resuelve el permiso con una dependencia**, nunca con un `if` escrito a mano en el cuerpo del endpoint (sección 4.3).
+- **Una ruta literal se declara siempre ANTES que una con parámetro, dentro del mismo router.** FastAPI resuelve en orden de declaración, así que `GET /usuarios/opciones` declarado después de `GET /usuarios/{usuario_id}` entra por el segundo con `usuario_id="opciones"` y devuelve un 422 de tipo inválido — un error que no menciona en ningún momento el problema real, que es el orden de dos decoradores. Cada ruta literal nueva lleva su test de que responde lo que corresponde, que es la única guarda contra reordenar el archivo.
+- **Todo texto que una persona lee va acentuado y con eñes.** El código del backend se escribe sin acentos a propósito —nombres, docstrings, comentarios—, pero el contenido de un `detail` o de un `ValueError` no es código: es lo que aparece en la pantalla. El login mostraba "Email o contrasenia incorrectos." Se corrigió en `F1-T13`, en los quince textos que llegan al frontend, y los tests de contraseña fijan los acentos para que no se "corrijan" al estilo del resto del archivo.
 - `/docs` (Swagger) siempre activo: es la herramienta con la que se prueba y se aprueba cada tarea de backend antes de que exista su pantalla.
 
 ### 2.2 Organización por dominio
@@ -454,10 +456,23 @@ Todo lo que cae en "No" requiere una migración pensada y escrita a mano para es
 
 **Qué se prueba y qué no.** No se escriben tests de CRUD trivial. Se prueba: toda lógica de servicio (siempre, en la misma tarea que la crea), toda regla de autorización, todo flujo de estados, y todo cálculo financiero. La referencia alcanzada en la primera construcción fue de **356 tests** al cierre de la Fase 3.
 
-**Dos niveles:**
+**Tres niveles:**
 
 1. **Tests de servicio** — lógica pura, sin base ni HTTP. Milisegundos. Se prueban con objetos de juguete (`@dataclass`) gracias al *duck typing* de la sección 2.3.
 2. **Tests de integración** — router completo contra base real en memoria.
+3. **Prueba de punta a punta, una por tema** (`tests/test_e2e_*.py`) — el recorrido completo en el orden en que lo hace una persona el primer día. La primera es `test_e2e_usuarios.py`, de `F1-T16`.
+
+**Por qué hace falta el tercer nivel si cada pieza ya está probada aparte:** porque los errores de integración no viven dentro de una pieza, viven en las juntas. Dos casos reales que ningún test de unidad vio:
+
+- `/usuarios/opciones` devolvía 422 porque la ruta parametrizada `/usuarios/{usuario_id}` estaba declarada antes y se comía la literal. Los dos endpoints funcionaban; lo que estaba mal era el orden **entre** ellos.
+- El primer usuario creado en la iteración anterior quedó inutilizable porque su contraseña nunca se anotó. Cada pieza funcionaba; lo que faltaba era el recorrido.
+
+**Dos reglas del e2e que lo diferencian de un test de integración:**
+
+- **Todo pasa por HTTP, con el login real.** El e2e **no** usa el fixture `como`: ese atajo inserta el usuario en la base y después se loguea, lo cual es perfecto para probar un endpoint pero acortaría justamente el camino que la prueba viene a recorrer. La única excepción es el administrador inicial, que se crea llamando a `sembrar()` porque es exactamente lo que hace el sistema real.
+- **Las listas salen de la fuente de verdad, no copiadas.** Los roles que recorre vienen de `autorizacion.ROLES`, así que el día que se agregue uno la prueba lo incluye sola y falla si el alta no lo soporta. Una lista escrita a mano envejecería en silencio.
+
+**Y una regla que vale para los tres niveles: un test que nació en verde y nunca falló no prueba nada.** Antes de dar por bueno un test que importa, se rompe a propósito el código que vigila y se confirma que falla. En `F1-T16` eso encontró dos cosas: que cubrir solo `/estado` dejaba abierta la vía de `PATCH` para desactivarse a uno mismo, y que una prueba de interfaz propia estaba midiendo el resultado (listado vacío) en vez del mecanismo (la guarda de rol) — el resultado lo lograba el 403 del backend, así que la prueba pasaba igual con la guarda desactivada.
 
 **Patrón del test de integración** (mismo en todos los archivos, conviene copiarlo tal cual):
 
@@ -486,6 +501,8 @@ Errores que ya se cometieron una vez, con su síntoma y su causa. Leer antes de 
 | La sincronización automática entre dos entidades "no hace nada" | La transición intermedia faltaba y la validación la rechazaba en silencio. | Sección 5.5. |
 | Suma de porcentajes que no da 100 | Redondeo con más decimales que los que guarda la columna. | Sección 5.1. |
 | En los tests, una tabla "no existe" | Falta en la lista explícita de `create_all`. | Agregarla al fixture. |
+| Una ruta literal nueva devuelve 422 de "tipo inválido" | Se declaró **después** de una ruta con parámetro del mismo router (`/usuarios/{usuario_id}`), y FastAPI resuelve en orden de declaración: el texto de la ruta entra como valor del parámetro. El mensaje de error no menciona nada de esto. | Las rutas literales van arriba de las que tienen parámetro, y cada una con su test de que responde lo que corresponde. |
+| Un mensaje de la interfaz aparece sin acentos ("contrasenia") | Se escribió con la convención del código, que es sin acentos. Pero un `detail` no es código: es lo que lee la persona. | Ver 2.1, penúltimo punto. |
 
 **Frontend** *(el catálogo completo está en `03_Documento_Frontend.md`, sección 8)*
 

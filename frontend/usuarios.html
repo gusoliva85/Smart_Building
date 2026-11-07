@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="es">
+<head>
+<!-- ============================================================================
+     Cabecera canonica: assets/plantilla-cabecera.html
+     El frontend es multi-pagina estatica sin build, asi que cada HTML repite
+     este bloque. Si cambia, se cambia primero en la plantilla.
+     ========================================================================= -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Usuarios · SMART Building</title>
+
+<!-- Tema: inline, sincrono y antes de las hojas de estilo. Si esperara al
+     script del final del body, se veria un destello claro antes de pasar a
+     oscuro. El try/catch cubre el modo privado, donde leer localStorage lanza. -->
+<script>try{if(localStorage.getItem('tema')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+
+<link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/components.css">
+</head>
+
+<!-- ============================================================================
+     PRIMERA PANTALLA AUTENTICADA DEL PROYECTO.
+
+     Todo el esqueleto —el sidebar, su backdrop, el contenido del topbar— lo
+     genera layout.js. Lo que este archivo escribe de esqueleto es unicamente
+     la columna y el <header> vacio de abajo: ese es el contrato completo, y es
+     el mismo que van a usar las otras trece pantallas.
+
+     data-titulo es lo que layout.js escribe como titulo en el topbar.
+     ========================================================================= -->
+<body class="layout-app" data-pantalla="usuarios" data-titulo="Usuarios">
+  <div class="main-column">
+    <header class="topbar shell" data-topbar></header>
+
+    <main class="page-content">
+      <!-- .panel-contenido pone el radio y el padding: .shell solo trae la
+           superficie de vidrio y deliberadamente no pone ninguno de los dos. -->
+      <section class="shell panel-contenido">
+
+        <div class="pagina-cabecera">
+          <div>
+            <h2>Usuarios del sistema</h2>
+            <p>Se listan los activos y los inactivos: la baja de este sistema
+               es lógica, así que nadie desaparece del registro.</p>
+          </div>
+          <button type="button" class="boton-primario" id="boton-nuevo">
+            Nuevo usuario
+          </button>
+        </div>
+
+        <!-- El error del listado se muestra DONDE ocurrio, no en un lugar
+             generico: si falla el pedido, el mensaje aparece arriba de la
+             lista que no se pudo traer. -->
+        <div class="mensaje-error" id="error-listado" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/>
+          </svg>
+          <span data-texto-error-listado></span>
+        </div>
+
+        <div class="lista-filas" id="lista-usuarios"></div>
+
+      </section>
+    </main>
+  </div>
+
+  <!-- ==========================================================================
+       MODAL DE ALTA.
+
+       Vive en el HTML y no lo genera el JavaScript: es markup fijo, y tenerlo
+       aca es lo que permite leer la pantalla completa sin abrir el .js.
+
+       NO SE CIERRA TOCANDO EL BACKDROP, y es una decision, no un olvido:
+       perder un alta a medio tipear por un clic al costado es un problema
+       real. Se cierra con la X, con Cancelar o con Escape. Una ficha de solo
+       lectura si cierra al tocar afuera, porque ahi no se pierde nada.
+       ======================================================================= -->
+  <div class="modal-backdrop" id="modal-alta">
+    <div class="modal modal-formulario shell" role="dialog" aria-modal="true"
+         aria-labelledby="modal-alta-titulo">
+
+      <button type="button" class="modal-cerrar" id="boton-cerrar-modal" aria-label="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18"/>
+        </svg>
+      </button>
+
+      <!-- El titulo y la bajada los escribe usuarios.js: el modal es UNO y
+           sirve para el alta y para la edicion. Tener dos modales seria el
+           mismo formulario escrito dos veces. -->
+      <h3 id="modal-alta-titulo">Nuevo usuario</h3>
+      <span class="modal-formulario-sub" data-modal-sub></span>
+
+      <div class="mensaje-error" id="error-alta" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/>
+        </svg>
+        <span data-texto-error-alta></span>
+      </div>
+
+      <!-- novalidate: los mensajes son los del proyecto, no los globos
+           nativos del navegador. -->
+      <form id="form-alta" novalidate>
+
+        <div class="campo">
+          <label for="campo-nombre">Nombre y apellido</label>
+          <!-- autocomplete off en TODO este formulario, al contrario del
+               login. Aca las credenciales son de OTRA persona: Chrome detecta
+               el par email + contrasenia como un login y, si se lo deja,
+               autocompleta con las del administrador que esta logueado. -->
+          <input type="text" id="campo-nombre" name="nombre" autocomplete="off"
+                 maxlength="120" placeholder="Ana Suárez">
+        </div>
+
+        <div class="campo">
+          <label for="campo-email-alta">Email</label>
+          <input type="email" id="campo-email-alta" name="email" autocomplete="off"
+                 placeholder="ana@ejemplo.com">
+        </div>
+
+        <!-- Al editar, este bloque entero se esconde: el esquema de edicion
+             del backend no acepta la contrasenia. Se esconde y no se
+             deshabilita, porque un campo gris que no se puede usar invita a
+             preguntarse por que. -->
+        <div class="campo" id="bloque-password">
+          <label for="campo-password-alta">Contraseña inicial</label>
+          <!-- La estructura con el toggle de mostrar/ocultar la completa
+               formularios.js, que engancha por delegacion: el boton y su
+               icono no se escriben aca. TODO campo de contrasenia del
+               proyecto usa esta estructura, sin excepciones. -->
+          <div class="campo-password-wrap">
+            <input type="password" id="campo-password-alta" name="password"
+                   autocomplete="new-password" placeholder="Mínimo 8 caracteres">
+          </div>
+          <!-- Los requisitos los llena usuarios.js con lo que manda el
+               backend. Vacio en el HTML a proposito: si estuvieran escritos
+               aca serian una segunda copia de la politica. -->
+          <ul class="campo-requisitos" id="requisitos-password"></ul>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="campo">
+            <label for="campo-rol">Rol</label>
+            <!-- Las opciones las llena usuarios.js desde
+                 GET /api/usuarios/opciones, que las lee de la matriz de
+                 roles. Escribirlas aca seria tener la matriz en dos lugares. -->
+            <select id="campo-rol" name="rol"></select>
+          </div>
+
+          <div class="campo">
+            <label for="campo-telefono">
+              Teléfono
+              <span style="font-weight:400;color:var(--ink-3)">(opcional)</span>
+            </label>
+            <input type="tel" id="campo-telefono" name="telefono" autocomplete="off"
+                   maxlength="40" placeholder="11 5555 4444">
+          </div>
+        </div>
+
+        <div class="modal-formulario-acciones">
+          <button type="button" class="boton-primario boton-secundario" id="boton-cancelar">
+            Cancelar
+          </button>
+          <button type="submit" class="boton-primario" id="boton-crear">
+            Crear usuario
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- El orden es de dependencia, no de gusto:
+       config.js define la URL de la API, api.js la usa, layout.js y
+       usuarios.js usan api.js, y usuarios.js usa layout.js, cargando.js y
+       confirmar.js. formularios.js y theme.js no dependen de ninguno. -->
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/cargando.js"></script>
+  <script src="assets/js/confirmar.js"></script>
+  <script src="assets/js/formularios.js"></script>
+  <script src="assets/js/layout.js"></script>
+  <script src="assets/js/usuarios.js"></script>
+  <script src="assets/js/theme.js"></script>
+</body>
+</html>

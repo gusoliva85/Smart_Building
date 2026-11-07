@@ -46,7 +46,7 @@ def validar_rol(valor: str) -> str:
     """
     if not autorizacion.es_rol_valido(valor):
         raise ValueError(
-            f"Rol invalido: {valor!r}. Los validos son: "
+            f"Rol inválido: {valor!r}. Los válidos son: "
             f"{', '.join(autorizacion.ROLES)}."
         )
     return valor
@@ -61,7 +61,7 @@ def limpiar_nombre(valor: str) -> str:
     """
     limpio = valor.strip()
     if len(limpio) < 2:
-        raise ValueError("El nombre no puede estar vacio.")
+        raise ValueError("El nombre no puede estar vacío.")
     return limpio
 
 
@@ -228,8 +228,8 @@ class UsuarioEditar(BaseModel):
         """
         if valor is None:
             raise ValueError(
-                f"'{info.field_name}' no se puede dejar vacio. "
-                "Si no queres cambiarlo, no lo mandes."
+                f"'{info.field_name}' no se puede dejar vacío. "
+                "Si no querés cambiarlo, no lo mandes."
             )
         return valor
 
@@ -351,3 +351,49 @@ class Token(BaseModel):
 
     access_token: str
     token_type: str = "bearer"
+
+
+class RolDisponible(BaseModel):
+    """Un rol tal como lo necesita el `<select>` del formulario de alta.
+
+    Es la fila de la matriz mas el `nombre`, que `PermisosRol` no lleva porque
+    ahi va implicito: en `/auth/me` el rol del usuario ya viaja en su propio
+    campo. Aca hacen falta los dos juntos — el `nombre` es lo que se manda al
+    crear, la `etiqueta` es lo que lee la persona.
+    """
+
+    nombre: str
+    etiqueta: str
+    alcance: str
+    solo_lectura: bool
+
+
+class PoliticaDePassword(BaseModel):
+    """Lo que el formulario necesita para explicar la contrasenia ANTES de que
+    el usuario la escriba.
+
+    Los `requisitos` son los mismos textos que arma `core/security.py` cuando
+    rechaza una, y salen de la misma tupla. Eso es a proposito y es lo unico
+    importante de este esquema: el texto de ayuda bajo el campo y el mensaje de
+    error del 422 dicen lo mismo con las mismas palabras. Si el frontend
+    escribiera su propia lista, el dia que la politica cambie la pantalla
+    seguiria pidiendo lo de antes, y la persona leeria un requisito y recibiria
+    el rechazo por otro.
+    """
+
+    minimo_caracteres: int
+    maximo_bytes: int
+    requisitos: list[str]
+
+
+class OpcionesDeAlta(BaseModel):
+    """Todo lo que el formulario de alta de usuario necesita saber de antemano.
+
+    Van juntos en un solo endpoint y no en dos porque la pantalla los necesita
+    al mismo tiempo, en el mismo momento: al abrir el modal. Dos pedidos
+    paralelos para llenar un formulario agregan un estado intermedio ("llegaron
+    los roles pero no la politica") que no le sirve a nadie.
+    """
+
+    roles: list[RolDisponible]
+    password: PoliticaDePassword

@@ -91,7 +91,7 @@ def yo(usuario: UsuarioActual) -> Usuario:
 
 _CREDENCIALES_INVALIDAS = HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED,
-    detail="Email o contrasenia incorrectos.",
+    detail="Email o contraseña incorrectos.",
     headers={"WWW-Authenticate": "Bearer"},
 )
 

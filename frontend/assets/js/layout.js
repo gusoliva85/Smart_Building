@@ -63,7 +63,7 @@
       id: 'usuarios',
       etiqueta: 'Usuarios',
       archivo: 'usuarios.html',
-      construida: false,          /* se construye en F1-T13 */
+      construida: true,           /* construida en F1-T13 */
       roles: ['admin_general'],
       icono: '<path d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19"/>' +
              '<circle cx="10" cy="7.5" r="3.5"/>' +
@@ -119,14 +119,35 @@
     });
   }
 
+  /* A donde se manda a un usuario recien logueado.
+
+     Es la primera pantalla construida que su rol puede ver, leida de la misma
+     tabla que arma el menu. Dos razones para que salga de aca y no de una
+     constante en login.js:
+
+     - No hay una pantalla de inicio unica todavia. El dashboard llega en la
+       Fase 5; hasta entonces "la pantalla inicial" es, literalmente, la
+       primera del menu, y eso cambia en cada fase.
+     - Un rol puede no tener NINGUNA pantalla todavia —hoy le pasa a siete de
+       los ocho—. Mandarlo a usuarios.html seria mandarlo a un 403. Devolver
+       null deja que el login lo diga con palabras en vez de con un error.
+
+     @param {string} rol
+     @returns {string|null} el archivo, o null si su rol no tiene ninguna. */
+  function paginaInicialDe(rol) {
+    var disponibles = accesosDe(rol);
+    return disponibles.length ? disponibles[0].archivo : null;
+  }
+
   /* ------------------------------------------------------------- sidebar -- */
 
   function htmlDeAccesos(rol) {
     var disponibles = accesosDe(rol);
 
     /* Un rol sin ninguna pantalla habilitada ve un texto que explica por
-       que, nunca un menu vacio que parece roto. Hoy lo ven todos los roles,
-       porque la primera pantalla del menu llega en F1-T13. */
+       que, nunca un menu vacio que parece roto. Hoy lo ven siete de los ocho
+       roles: la unica pantalla construida es Usuarios, y es solo del
+       Administrador General. */
     if (!disponibles.length) {
       return '<p class="sidebar-vacio">Todavía no hay pantallas habilitadas ' +
              'para tu rol. Se van a ir sumando a medida que el sistema crezca.</p>';
@@ -306,12 +327,58 @@
     if (window.Tema && window.Tema.enganchar) window.Tema.enganchar();
   }
 
+  /* Lo que ve quien llega a una pantalla que no le corresponde.
+
+     El esqueleto SI se monta: con el sidebar puesto, la persona tiene por
+     donde irse. Un mensaje a pantalla completa sin menu la dejaria encerrada,
+     con el boton de atras del navegador como unica salida.
+
+     Esto no es un control de seguridad y no pretende serlo — el permiso real
+     lo aplica el backend en cada endpoint. Es para que quien escriba una URL
+     a mano lea una explicacion en castellano en vez de una pantalla vacia con
+     un 403 en la consola. */
+  function mostrarSinAcceso(usuario) {
+    var contenido = document.querySelector('.page-content');
+    if (!contenido) return;
+
+    var seccion = document.createElement('section');
+    seccion.className = 'panel-centrado shell';
+
+    var titulo = document.createElement('h1');
+    titulo.textContent = 'Esta pantalla no es para tu rol';
+
+    var explicacion = document.createElement('p');
+    /* textContent y no innerHTML: la etiqueta del rol viene del backend, y
+       todo dato que viaja por la red se escribe como texto. */
+    explicacion.textContent =
+      'Tu usuario tiene el rol ' + usuario.rol_etiqueta + ', que no tiene ' +
+      'acceso a esta seccion. Si creés que es un error, pedíselo al ' +
+      'Administrador General.';
+
+    seccion.appendChild(titulo);
+    seccion.appendChild(explicacion);
+
+    contenido.innerHTML = '';
+    contenido.appendChild(seccion);
+  }
+
   /**
    * Monta el esqueleto y devuelve el usuario de la sesion.
    *
+   * @param {{roles?: string[]}} [opciones] `roles` son los roles que pueden
+   *   ver esta pantalla. Si el usuario no esta entre ellos, se monta el
+   *   esqueleto, se explica por que no puede entrar y la promesa NO se
+   *   resuelve, asi que el contenido de la pantalla no se dibuja.
+   *
+   *   Se declara aca y no con un `if` dentro de cada pantalla por la misma
+   *   razon por la que el menu sale de una sola tabla: una pantalla que
+   *   resuelve sus propios permisos es una pantalla que algun dia los
+   *   resuelve distinto que las demas.
+   *
    * @returns {Promise<object>} el usuario, ya con su rol y sus permisos.
    */
-  function montar() {
+  function montar(opciones) {
+    var permitidos = (opciones && opciones.roles) || null;
     /* Guarda de sesion. Sin token no se pide nada ni se dibuja nada: se
        vuelve al login.
        La promesa que se devuelve NO se resuelve nunca, y es deliberado: lo
@@ -330,12 +397,21 @@
     return window.Api.get('/auth/me').then(function (usuario) {
       usuarioActual = usuario;
       montarEsqueleto(usuario);
+
+      if (permitidos && permitidos.indexOf(usuario.rol) === -1) {
+        mostrarSinAcceso(usuario);
+        /* Misma tecnica que la guarda de sesion de arriba: no resolver es lo
+           que impide que la pantalla dibuje su contenido encima del mensaje. */
+        return new Promise(function () {});
+      }
+
       return usuario;
     });
   }
 
   window.Layout = {
     montar: montar,
+    paginaInicialDe: paginaInicialDe,
     /* Para una pantalla que ya monto el esqueleto y necesita el usuario otra
        vez sin volver a pedirlo al backend. */
     usuario: function () { return usuarioActual; },
