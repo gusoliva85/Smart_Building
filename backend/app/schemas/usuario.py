@@ -33,21 +33,41 @@ def normalizar_email(valor: str) -> str:
 
 
 def validar_rol(valor: str) -> str:
-    """Rechaza un rol que no este en la matriz.
+    """Rechaza un rol que nadie puede asignar.
 
     Es la primera de las DOS validaciones del rol, y la que da el mensaje util:
-    dice cuales son los validos. La segunda es el CheckConstraint de la tabla,
+    dice cuales se pueden elegir. La segunda es el CheckConstraint de la tabla,
     que ya no explica nada pero ataja lo que no pasa por la API.
 
     Vive suelta, igual que `normalizar_email`, porque el alta y la edicion
     tienen que aplicar exactamente la misma regla. Si cada esquema escribiera
     su propia comprobacion, alcanzaria con agregar un rol a la matriz y
     olvidarse de uno de los dos.
+
+    ========================================================================
+    PREGUNTA POR `es_asignable`, NO POR `es_rol_valido`
+    ========================================================================
+
+    Son dos preguntas distintas y la diferencia entre las dos son los valores
+    que el sistema escribe por su cuenta y nadie elige. Hoy es `pendiente`:
+    es un valor legitimo de la columna —lo pone el registro publico— pero
+    ningun administrador puede asignarlo ni devolver a alguien a ese estado.
+    Con `es_rol_valido` aca, un PATCH con `{"rol": "pendiente"}` seria valido
+    y dejaria a un usuario aprobado otra vez sin aprobar.
+
+    `pendiente` recibe su propio mensaje porque el genérico —"los válidos
+    son..." seguido de una lista que no lo incluye— ante un valor que la
+    persona vio en la interfaz no explica nada.
     """
-    if not autorizacion.es_rol_valido(valor):
+    if valor == autorizacion.PENDIENTE:
+        raise ValueError(
+            "'pendiente' no es un rol que se pueda asignar: lo pone el sistema "
+            "cuando alguien se registra, y se reemplaza al aprobar la cuenta."
+        )
+    if not autorizacion.es_asignable(valor):
         raise ValueError(
             f"Rol inválido: {valor!r}. Los válidos son: "
-            f"{', '.join(autorizacion.ROLES)}."
+            f"{', '.join(autorizacion.ROLES_ASIGNABLES)}."
         )
     return valor
 
@@ -158,6 +178,88 @@ class UsuarioCrear(BaseModel):
         usuarios y nadie sabe quien es.
         """
         return limpiar_nombre(valor)
+
+
+class RegistroPublico(BaseModel):
+    """Los datos con los que una persona se registra por su cuenta.
+
+    ========================================================================
+    ESTE ESQUEMA NO TIENE EL CAMPO `rol`, Y ES EL PUNTO MAS DELICADO DEL
+    SISTEMA ENTERO
+    ========================================================================
+
+    Es el unico esquema de escritura que llega desde un endpoint **publico**,
+    sin autenticacion. Si aceptara `rol`, cualquiera en internet se daria de
+    alta como Administrador General con un `curl`: no habria que vulnerar
+    nada, solo mandar un campo mas.
+
+    No alcanza con no declararlo. `extra="forbid"` hace que mandarlo sea un
+    **422** y no un silencio: el comportamiento por defecto de Pydantic es
+    descartar el campo desconocido sin avisar, y un descarte silencioso es
+    indistinguible —desde afuera— de un rechazo. Que falle ruidosamente es lo
+    que permite probarlo, y hay un test que lo prueba.
+
+    El rol que termina teniendo el usuario lo pone el endpoint, no el cuerpo
+    del pedido: `autorizacion.PENDIENTE`, siempre, sin excepcion ni parametro.
+
+    ========================================================================
+    POR QUE NO HEREDA DE `UsuarioCrear`
+    ========================================================================
+
+    Seria tentador: comparte cuatro campos y los cuatro validadores. Pero
+    heredar significa que el dia que `UsuarioCrear` gane un campo —`activo`,
+    `edificio_id`, cualquiera— ese campo aparece **tambien** en el esquema
+    publico, en silencio, sin que nadie lo decida. La duplicacion de cuatro
+    declaraciones es un costo muy menor frente a eso. Lo que si se comparte
+    son las funciones de normalizacion, que es lo unico que de verdad importa
+    que sea igual.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    nombre: str = Field(min_length=2, max_length=120)
+    email: EmailStr
+    password: str
+    telefono: str | None = Field(default=None, max_length=40)
+
+    @field_validator("password")
+    @classmethod
+    def password_robusta(cls, valor: str) -> str:
+        """La MISMA politica que el alta del administrador.
+
+        Que el usuario se registre solo no es motivo para pedirle menos: la
+        contrasenia debil de un propietario es la misma puerta de entrada que
+        la de un administrador, y la unica diferencia es lo que hay detras.
+        """
+        security.validar_password(valor)
+        return valor
+
+    @field_validator("email")
+    @classmethod
+    def email_en_minusculas(cls, valor: str) -> str:
+        """La MISMA normalizacion que el alta y que el login.
+
+        Si el registro no normalizara, quien se registra como `Ana@...`
+        quedaria guardado asi y no entraria escribiendo `ana@...`, porque el
+        login normaliza antes de buscar.
+        """
+        return normalizar_email(valor)
+
+    @field_validator("nombre")
+    @classmethod
+    def nombre_sin_espacios_de_sobra(cls, valor: str) -> str:
+        return limpiar_nombre(valor)
+
+
+class RegistroAceptado(BaseModel):
+    """La respuesta del registro publico. Es la MISMA siempre.
+
+    No lleva el usuario creado, ni su id, ni nada que dependa de lo que paso
+    del otro lado. Es deliberado y es la mitad de la defensa contra la
+    enumeracion de emails: ver `routers/auth.py`, donde se explica entero.
+    """
+
+    mensaje: str
 
 
 class UsuarioEditar(BaseModel):
@@ -384,6 +486,22 @@ class PoliticaDePassword(BaseModel):
     minimo_caracteres: int
     maximo_bytes: int
     requisitos: list[str]
+
+    @classmethod
+    def vigente(cls) -> "PoliticaDePassword":
+        """La politica tal como la aplica `core/security.py` ahora mismo.
+
+        Existe porque dos endpoints la devuelven —`/usuarios/opciones`, para
+        el alta que hace un administrador, y `/auth/politica-password`, para
+        el registro propio— y armarla a mano en cada uno es tener la misma
+        lectura escrita dos veces. El dia que la politica gane un campo, uno
+        de los dos se iba a quedar sin el.
+        """
+        return cls(
+            minimo_caracteres=security.MIN_CARACTERES_PASSWORD,
+            maximo_bytes=security.MAX_BYTES_PASSWORD,
+            requisitos=list(security.textos_de_requisitos()),
+        )
 
 
 class OpcionesDeAlta(BaseModel):

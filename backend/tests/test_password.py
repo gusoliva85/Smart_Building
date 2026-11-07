@@ -182,7 +182,9 @@ def test_el_alta_rechaza_un_rol_que_no_esta_en_la_matriz():
     assert "admin_general" in str(excepcion.value)
 
 
-@pytest.mark.parametrize("rol", autorizacion.ROLES)
+# `ROLES_ASIGNABLES` y no `ROLES`: `pendiente` no se puede mandar al alta, y
+# que el alta lo rechace es justamente lo que prueba `test_registro.py`.
+@pytest.mark.parametrize("rol", autorizacion.ROLES_ASIGNABLES)
 def test_el_alta_acepta_los_ocho_roles(rol):
     assert _alta(rol=rol).rol == rol
 

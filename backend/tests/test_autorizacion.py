@@ -58,8 +58,54 @@ def test_cada_rol_tiene_etiqueta_legible(rol):
 
 
 def test_son_exactamente_los_ocho_roles_documentados():
-    assert auth.ROLES == tuple(MATRIZ_ESPERADA)
-    assert len(auth.ROLES) == 8
+    """Los roles de negocio son los ocho de la tabla, y son los ASIGNABLES.
+
+    Este test preguntaba por `auth.ROLES`, y hasta que existio `pendiente` era
+    lo mismo. Ya no: `ROLES` es lo que la columna acepta —nueve valores— y
+    `ROLES_ASIGNABLES` es lo que un administrador puede elegir. La tabla del
+    Documento Tecnico describe la segunda, asi que es contra esa que se
+    compara.
+    """
+    assert auth.ROLES_ASIGNABLES == tuple(MATRIZ_ESPERADA)
+    assert len(auth.ROLES_ASIGNABLES) == 8
+
+
+def test_la_columna_acepta_los_ocho_mas_pendiente_y_nada_mas():
+    """El invariante que relaciona las dos listas.
+
+    Es el que ataja el error de agregar un valor a la matriz y olvidarse de
+    decidir si alguien lo puede asignar: si aparece un decimo valor, este test
+    falla y obliga a tomar esa decision expresamente.
+    """
+    assert auth.ROLES == auth.ROLES_ASIGNABLES + (auth.PENDIENTE,)
+    assert len(auth.ROLES) == 9
+
+
+def test_pendiente_es_un_rol_valido_que_nadie_puede_asignar():
+    """La distincion entera del corte, en dos lineas.
+
+    Valido quiere decir "la columna lo acepta", porque lo escribe el registro
+    publico. Asignable quiere decir "un administrador lo puede elegir", y eso
+    no: no existe la operacion de devolver a alguien al estado de no aprobado.
+    """
+    assert auth.es_rol_valido(auth.PENDIENTE)
+    assert not auth.es_asignable(auth.PENDIENTE)
+
+
+@pytest.mark.parametrize("rol", MATRIZ_ESPERADA)
+def test_todos_los_roles_de_negocio_son_asignables(rol):
+    """La contracara: el corte excluye `pendiente` y NADA mas.
+
+    Sin esto, un `ROLES_ASIGNABLES` que por un error se quedara vacio —o que
+    excluyera un rol de mas— pasaria los tests de arriba sin que nadie note
+    que el formulario de alta dejo de ofrecer la mitad de los roles.
+    """
+    assert auth.es_asignable(rol)
+
+
+def test_un_rol_inventado_no_es_valido_ni_asignable():
+    assert not auth.es_rol_valido("inventado")
+    assert not auth.es_asignable("inventado")
 
 
 def test_todo_rol_tiene_un_alcance_declarado_y_valido():
@@ -68,10 +114,37 @@ def test_todo_rol_tiene_un_alcance_declarado_y_valido():
         assert auth.alcance(rol) in auth.ALCANCES
 
 
-def test_el_auditor_es_el_unico_de_solo_lectura():
-    de_solo_lectura = [r for r in auth.ROLES if auth.es_solo_lectura(r)]
+def test_el_auditor_es_el_unico_rol_de_negocio_de_solo_lectura():
+    de_solo_lectura = [
+        r for r in auth.ROLES_ASIGNABLES if auth.es_solo_lectura(r)
+    ]
 
     assert de_solo_lectura == [auth.AUDITOR]
+
+
+def test_pendiente_tambien_es_de_solo_lectura_y_es_a_proposito():
+    """No es una descripcion del rol, es un resguardo, y conviene fijarlo.
+
+    Un pendiente tampoco puede LEER nada, asi que ni True ni False describen
+    bien lo que es. Se eligio True porque falla del lado seguro: el dia que
+    aparezca un endpoint protegido unicamente por `exigir_que_pueda_escribir`
+    —sin lista de roles—, un pendiente queda afuera igual.
+
+    Este test existe para que ese True sea una decision fijada y no un detalle
+    que alguien "corrige" mas adelante viendolo raro en la matriz. El costo
+    conocido: el mensaje de ese rechazo diria "es un rol de consulta", que para
+    un pendiente no es la explicacion correcta. Es barato al lado de un
+    permiso de escritura concedido por omision.
+    """
+    assert auth.es_solo_lectura(auth.PENDIENTE)
+
+
+def test_pendiente_no_alcanza_nada_y_no_ve_ningun_monto():
+    """Una cuenta sin aprobar es inerte. Es lo que hace que un endpoint
+    publico de registro no sea un problema de seguridad."""
+    assert auth.alcance(auth.PENDIENTE) == auth.ALCANCE_NINGUNO
+    assert not auth.ve_financiero_unidad(auth.PENDIENTE)
+    assert not auth.ve_financiero_edificio(auth.PENDIENTE)
 
 
 def test_quien_ve_el_financiero_del_edificio_ve_tambien_el_de_la_unidad():

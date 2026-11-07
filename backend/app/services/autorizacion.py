@@ -47,12 +47,23 @@ silencioso que conviene no tener. El mecanismo concreto del vinculo se decide
 en `F1-T02`.
 """
 
+ALCANCE_NINGUNO = "ninguno"
+"""Nada. Es el alcance del rol `pendiente`.
+
+Existe como alcance propio y no como "cartera vacia" o como None porque la
+pregunta "¿hasta donde llega este rol?" tiene que tener SIEMPRE una respuesta
+de la matriz. Un None obligaria a que cada consumidor del alcance se acuerde
+de preguntar si viene vacio, y el dia que uno se olvide el comportamiento no
+va a ser un error: va a ser un permiso resuelto por defecto.
+"""
+
 ALCANCES = (
     ALCANCE_CARTERA,
     ALCANCE_EDIFICIO,
     ALCANCE_UNIDAD,
     ALCANCE_OTS_ASIGNADAS,
     ALCANCE_ASIGNADO,
+    ALCANCE_NINGUNO,
 )
 
 
@@ -66,6 +77,21 @@ INQUILINO = "inquilino"
 PROVEEDOR = "proveedor"
 AUDITOR = "auditor"
 SEGURIDAD = "seguridad"
+
+PENDIENTE = "pendiente"
+"""Se registro por su cuenta y todavia nadie le asigno un rol real.
+
+No es un rol de la matriz de negocio: es el estado de una cuenta que existe,
+puede entrar al sistema y no puede hacer nada hasta que un administrador la
+apruebe. Vive aca —y no en una columna aparte— porque en este sistema **el rol
+es lo unico que da acceso**: cada pantalla declara su lista de roles
+habilitados, y `pendiente` no esta en ninguna, asi que queda afuera de todo
+sin que haya que escribir una sola linea de autorizacion nueva.
+
+NUNCA se lo puede asignar: no esta en `ROLES_ASIGNABLES`, que es la lista que
+consumen el formulario de alta y la edicion. Lo pone unicamente el registro
+publico.
+"""
 
 
 @dataclass(frozen=True)
@@ -161,15 +187,65 @@ _MATRIZ: dict[str, Rol] = {
         ve_financiero_edificio=False,
         solo_lectura=False,
     ),
+    # Va ultimo porque el orden de la matriz va de mas permisos a menos, y
+    # este no tiene ninguno. Igual no aparece en ningun `<select>`: el
+    # formulario consume `ROLES_ASIGNABLES`, que lo excluye.
+    #
+    # `solo_lectura=True` es un resguardo, no una descripcion. Un pendiente
+    # tampoco puede LEER nada, asi que ninguna de las dos opciones describe
+    # bien lo que es. Se elige True porque es la que falla del lado seguro: si
+    # algun dia aparece un endpoint protegido unicamente por
+    # `exigir_que_pueda_escribir` —sin lista de roles—, un pendiente queda
+    # afuera igual. El costo es que el mensaje de ese rechazo diria "es un rol
+    # de consulta", que para un pendiente no es la explicacion correcta; es un
+    # costo barato comparado con un permiso de escritura concedido por omision.
+    PENDIENTE: Rol(
+        nombre=PENDIENTE,
+        etiqueta="Pendiente de aprobación",
+        alcance=ALCANCE_NINGUNO,
+        ve_financiero_unidad=False,
+        ve_financiero_edificio=False,
+        solo_lectura=True,
+    ),
 }
 
 ROLES: tuple[str, ...] = tuple(_MATRIZ)
-"""Los 8 roles validos, en el orden de la documentacion.
+"""Los 9 valores que la columna `rol` puede tener, en el orden de la matriz.
 
-Es la lista que consumen los CheckConstraint de los modelos y los validadores
-de Pydantic. **Nunca se repite esta lista escrita a mano en otro archivo**: si
-se repitiera, en algun momento una de las dos copias quedaria atras y la base
-aceptaria un rol que la aplicacion no conoce, o al reves.
+Son los 8 roles de la documentacion mas `pendiente`. Es la lista que consume
+el CheckConstraint de la tabla: lo que la base acepta. **Nunca se repite
+escrita a mano en otro archivo**, porque si se repitiera, en algun momento una
+de las dos copias quedaria atras y la base aceptaria un rol que la aplicacion
+no conoce, o al reves.
+
+**No es la lista que se le ofrece a nadie para elegir.** Para eso esta
+`ROLES_ASIGNABLES`.
+"""
+
+ROLES_ASIGNABLES: tuple[str, ...] = tuple(
+    rol for rol in _MATRIZ if rol != PENDIENTE
+)
+"""Los 8 roles que un administrador puede asignar.
+
+========================================================================
+POR QUE SON DOS LISTAS Y NO UNA
+========================================================================
+
+Hasta que existio `pendiente`, `ROLES` respondia dos preguntas distintas sin
+que se notara que eran dos, porque daban la misma respuesta:
+
+  1. ¿Este valor es valido en la columna `rol`?   -> `ROLES`
+  2. ¿Que roles puede elegir un administrador?    -> `ROLES_ASIGNABLES`
+
+`pendiente` es si a la primera y **no** a la segunda: es un valor legitimo de
+la columna, pero nadie se lo puede poner a nadie — lo escribe unicamente el
+registro publico. Con una sola lista, el `<select>` del formulario de alta
+ofreceria "Pendiente de aprobación" como si fuera un rol, y la edicion
+permitiria devolver a alguien al estado de no aprobado, que no es una
+operacion que exista.
+
+Esta es la lista que consumen `/usuarios/opciones` y los validadores de los
+esquemas de alta y edicion. La otra es solo para la base.
 """
 
 
@@ -196,7 +272,18 @@ def obtener(rol: str) -> Rol:
 
 
 def es_rol_valido(rol: str) -> bool:
+    """¿La columna `rol` puede guardar este valor? Incluye `pendiente`."""
     return rol in _MATRIZ
+
+
+def es_asignable(rol: str) -> bool:
+    """¿Un administrador puede asignar este rol?
+
+    Es la pregunta que tienen que hacerse los esquemas de alta y de edicion, y
+    NO `es_rol_valido`: la diferencia entre las dos son exactamente los valores
+    que el sistema escribe por su cuenta y nadie elige. Hoy es `pendiente`.
+    """
+    return rol in _MATRIZ and rol != PENDIENTE
 
 
 def etiqueta(rol: str) -> str:

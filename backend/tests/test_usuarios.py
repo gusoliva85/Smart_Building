@@ -601,7 +601,9 @@ def test_las_opciones_traen_los_ocho_roles_en_el_orden_de_la_matriz(cliente, adm
 
     assert respuesta.status_code == 200
     nombres = [rol["nombre"] for rol in respuesta.json()["roles"]]
-    assert nombres == list(autorizacion.ROLES)
+    # `ROLES_ASIGNABLES` y no `ROLES`: el `<select>` del formulario no puede
+    # ofrecer "Pendiente de aprobación" como si fuera un rol del consorcio.
+    assert nombres == list(autorizacion.ROLES_ASIGNABLES)
 
 
 def test_las_etiquetas_de_los_roles_salen_de_la_matriz(cliente, admin):
@@ -611,7 +613,8 @@ def test_las_etiquetas_de_los_roles_salen_de_la_matriz(cliente, admin):
 
     etiquetas = {rol["nombre"]: rol["etiqueta"] for rol in respuesta.json()["roles"]}
     assert etiquetas == {
-        nombre: autorizacion.etiqueta(nombre) for nombre in autorizacion.ROLES
+        nombre: autorizacion.etiqueta(nombre)
+        for nombre in autorizacion.ROLES_ASIGNABLES
     }
 
 

@@ -1,11 +1,29 @@
-"""Siembra el primer Administrador General.
+"""Siembra el primer Administrador General, y opcionalmente usuarios de prueba.
 
 Sin esto no hay forma de iniciar sesion la primera vez: todos los usuarios los
 crea un Administrador General, y el primero no lo puede crear nadie.
 
 Se corre a mano, desde `backend/`:
 
-    venv\\Scripts\\python.exe -m app.seed
+    venv\\Scripts\\python.exe -m app.seed                  # solo el administrador
+    venv\\Scripts\\python.exe -m app.seed --con-pruebas    # y los de prueba
+
+============================================================================
+POR QUE LOS USUARIOS DE PRUEBA VAN DETRAS DE UNA BANDERA
+============================================================================
+
+Porque el seed es tambien lo que se va a correr el dia que haya un despliegue
+con datos reales, y entonces crear en silencio tres cuentas mas con una
+contrasenia que esta publicada en el README seria exactamente el problema que
+este modulo trata de evitar con `_verificar_que_se_puede_sembrar`.
+
+Con la bandera, el comportamiento por defecto no cambia y la intencion queda
+escrita en el comando: cualquiera que lea el historial de la terminal ve que
+se pidieron usuarios de prueba. Y la limpieza de la Fase 13 tiene una sola
+cosa concreta que buscar.
+
+Si la bandera NO se pasa, la salida lo dice y recuerda que existe: olvidarsela
+y no entender por que faltan los usuarios es el error facil de cometer.
 
 ============================================================================
 POR QUE SE CORRE A MANO Y NO AL ARRANCAR LA APLICACION
@@ -57,6 +75,27 @@ EMAIL_ADMIN_DESARROLLO = "administrador@test.com"
 PASSWORD_ADMIN_DESARROLLO = "Test1234!"
 
 NOMBRE_ADMIN = "Administrador General"
+
+
+# ------------------------------------------------- usuarios de prueba -------
+
+# Los roles que hoy hacen falta para verificar en el navegador que cada uno ve
+# unicamente lo que le toca. No son los ocho: son los que se usan de verdad.
+#
+# Comparten la contrasenia del administrador a proposito. Tres contrasenias
+# distintas no prueban nada que esta no pruebe, y multiplican por tres la
+# posibilidad de que alguna quede mal anotada — que es el error que en la
+# iteracion anterior dejo una cuenta inutilizable para siempre, porque no hay
+# endpoint de recuperacion.
+#
+# El email es `<rol>@test.com` para que coincida con la tabla del README, y el
+# dominio @test.com es el que distingue a los usuarios documentados de los que
+# crean los arneses de prueba, que usan @ejemplo.com.
+USUARIOS_DE_PRUEBA: tuple[tuple[str, str, str], ...] = (
+    (autorizacion.ENCARGADO, "Prueba Encargado", "encargado@test.com"),
+    (autorizacion.PROPIETARIO, "Prueba Propietario", "propietario@test.com"),
+    (autorizacion.INQUILINO, "Prueba Inquilino", "inquilino@test.com"),
+)
 
 EMAIL_ADMIN = normalizar_email(os.getenv("SEED_ADMIN_EMAIL", EMAIL_ADMIN_DESARROLLO))
 PASSWORD_ADMIN = os.getenv("SEED_ADMIN_PASSWORD", PASSWORD_ADMIN_DESARROLLO)
@@ -165,6 +204,54 @@ def sembrar(db: Session) -> ResultadoSeed:
     return ResultadoSeed(email=EMAIL_ADMIN, creado=True)
 
 
+def sembrar_usuarios_de_prueba(db: Session) -> list[ResultadoSeed]:
+    """Crea un usuario por cada rol de `USUARIOS_DE_PRUEBA`.
+
+    Idempotente uno por uno: el que ya existe no se toca, igual que el
+    administrador. Asi se puede correr sobre una base que ya tiene algunos sin
+    que falle ni pise contrasenias.
+
+    Comparte con `sembrar` la validacion de la contrasenia contra la politica
+    del sistema. No es un tramite: un usuario sembrado con una contrasenia que
+    el propio sistema rechazaria queda fuera de la regla sin que nada avise.
+
+    NO lleva la guarda de produccion de `sembrar`, y conviene saber por que: la
+    guarda mira `VERCEL`, o sea "¿estoy corriendo EN Vercel?", y este script se
+    corre siempre desde una terminal local, tambien cuando apunta a la base de
+    produccion. Asi que ahi no frena nada y seria un falso resguardo. Lo que
+    cumple ese papel aca es la bandera `--con-pruebas`: no se crean si no se
+    piden. Arreglar la guarda para que mire la cadena de conexion en vez de la
+    variable de entorno es una tarea pendiente aparte.
+    """
+    security.validar_password(PASSWORD_ADMIN)
+
+    resultados: list[ResultadoSeed] = []
+
+    for rol, nombre, email in USUARIOS_DE_PRUEBA:
+        email_normalizado = normalizar_email(email)
+
+        existente = db.scalar(select(Usuario).where(Usuario.email == email_normalizado))
+        if existente is not None:
+            logger.info("Seed: %s ya existe, no se toca.", email_normalizado)
+            resultados.append(ResultadoSeed(email=email_normalizado, creado=False))
+            continue
+
+        db.add(
+            Usuario(
+                nombre=nombre,
+                email=email_normalizado,
+                password_hash=security.hashear_password(PASSWORD_ADMIN),
+                rol=rol,
+            )
+        )
+        db.commit()
+
+        logger.info("Seed: creado %s con rol %s.", email_normalizado, rol)
+        resultados.append(ResultadoSeed(email=email_normalizado, creado=True))
+
+    return resultados
+
+
 def main() -> int:
     """Punto de entrada del script. Devuelve el codigo de salida del proceso."""
     logging.basicConfig(level=logging.INFO, format="%(levelname)-8s %(message)s")
@@ -181,9 +268,12 @@ def main() -> int:
     # crea.
     sincronizar_esquema()
 
+    con_pruebas = "--con-pruebas" in sys.argv[1:]
+
     db = SessionLocal()
     try:
         resultado = sembrar(db)
+        de_prueba = sembrar_usuarios_de_prueba(db) if con_pruebas else []
     except (SeedInseguro, SeedEmailInvalido, security.PasswordInsegura) as error:
         logger.error("%s", error)
         return 1
@@ -200,6 +290,27 @@ def main() -> int:
         print("La contrasenia esta en README.md, en la seccion 'Usuarios de prueba'.")
     else:
         print(f"\n{resultado.email} ya existia. No se modifico nada.")
+
+    if con_pruebas:
+        creados = [r.email for r in de_prueba if r.creado]
+        existian = [r.email for r in de_prueba if r.ya_existia]
+
+        if creados:
+            print("\nUsuarios de prueba creados:")
+            for email in creados:
+                print(f"  {email}")
+        if existian:
+            print("\nYa existian, no se tocaron:")
+            for email in existian:
+                print(f"  {email}")
+        print("\nTodos con la contrasenia del administrador. Esta en README.md.")
+    else:
+        # Que falte el aviso es peor que el aviso: sin esto, correr el seed y no
+        # entender por que no estan los otros usuarios es el error facil.
+        print(
+            "\nSolo se sembro el administrador. Para los usuarios de prueba de "
+            "los otros roles:\n  python -m app.seed --con-pruebas"
+        )
 
     return 0
 

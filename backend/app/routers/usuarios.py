@@ -2,7 +2,8 @@
 
 Seis endpoints:
 
-- ``POST   /api/usuarios``             — alta
+- ``POST   /api/usuarios``             — alta (la de un administrador; el
+  registro propio de una persona es ``POST /api/auth/registro``)
 - ``GET    /api/usuarios``             — listado
 - ``GET    /api/usuarios/opciones``    — roles y politica de contrasenia
 - ``GET    /api/usuarios/{id}``        — detalle
@@ -284,17 +285,27 @@ def opciones(
                 alcance=rol.alcance,
                 solo_lectura=rol.solo_lectura,
             )
-            # Se recorre `ROLES` y no el diccionario interno para conservar el
-            # orden de la matriz, que va de mas permisos a menos. Un `<select>`
-            # alfabetico pondria "Auditor" primero, y el rol que mas se elige
-            # en la practica —Propietario— quedaria perdido en el medio.
-            for rol in (autorizacion.obtener(nombre) for nombre in autorizacion.ROLES)
+            # Se recorre `ROLES_ASIGNABLES` y no `ROLES`, que son dos listas
+            # distintas: la segunda incluye `pendiente`, que es un valor
+            # legitimo de la columna pero NO un rol que alguien pueda elegir.
+            # Con `ROLES` aca, el `<select>` del formulario ofreceria
+            # "Pendiente de aprobación" como si fuera un rol del consorcio.
+            #
+            # Y se recorre la lista, no el diccionario interno, para conservar
+            # el orden de la matriz, que va de mas permisos a menos. Un
+            # `<select>` alfabetico pondria "Auditor" primero, y el rol que
+            # mas se elige en la practica —Propietario— quedaria perdido en el
+            # medio.
+            for rol in (
+                autorizacion.obtener(nombre)
+                for nombre in autorizacion.ROLES_ASIGNABLES
+            )
         ],
-        password=PoliticaDePassword(
-            minimo_caracteres=security.MIN_CARACTERES_PASSWORD,
-            maximo_bytes=security.MAX_BYTES_PASSWORD,
-            requisitos=list(security.textos_de_requisitos()),
-        ),
+        # La politica la arma el esquema y no este endpoint: la misma
+        # estructura la devuelve tambien `/auth/politica-password`, que es la
+        # que usa el formulario de registro propio. Dos lecturas a mano de las
+        # mismas constantes se desacoplan en cuanto una gane un campo.
+        password=PoliticaDePassword.vigente(),
     )
 
 

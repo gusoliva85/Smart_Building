@@ -55,10 +55,16 @@ from app.seed import PASSWORD_ADMIN, sembrar
 from app.services import autorizacion
 
 # Los siete roles que el Administrador General da de alta. Sale de
-# `autorizacion.ROLES` y no de una lista escrita a mano: el dia que se agregue
-# un rol, esta prueba lo incluye sola y falla si el alta no lo soporta. Eso es
-# el punto — una lista copiada aca envejeceria en silencio.
-ROLES_A_CREAR = tuple(r for r in autorizacion.ROLES if r != autorizacion.ADMIN_GENERAL)
+# `autorizacion.ROLES_ASIGNABLES` y no de una lista escrita a mano: el dia que
+# se agregue un rol, esta prueba lo incluye sola y falla si el alta no lo
+# soporta. Eso es el punto — una lista copiada aca envejeceria en silencio.
+#
+# Sale de ASIGNABLES y no de ROLES porque `pendiente` no se da de alta por esta
+# via: lo crea el registro publico, y el recorrido de un pendiente se prueba en
+# `test_registro.py`.
+ROLES_A_CREAR = tuple(
+    r for r in autorizacion.ROLES_ASIGNABLES if r != autorizacion.ADMIN_GENERAL
+)
 
 # La misma para todos y deliberadamente trivial, igual que la del seed. Cumple
 # la politica: ocho caracteres, mayuscula, minuscula, numero y simbolo.
@@ -162,7 +168,7 @@ def test_el_admin_da_de_alta_un_usuario_de_cada_rol_y_todos_pueden_entrar(
     # Los ocho: el sembrado mas los siete.
     listado = cliente.get("/api/usuarios", headers=admin).json()
     assert len(listado) == 1 + len(ROLES_A_CREAR)
-    assert {u["rol"] for u in listado} == set(autorizacion.ROLES)
+    assert {u["rol"] for u in listado} == set(autorizacion.ROLES_ASIGNABLES)
 
     # Y cada uno se ve a si mismo con su rol: confirma que el token emitido es
     # del usuario correcto y no de otro.
@@ -407,4 +413,6 @@ def test_la_ayuda_del_formulario_sale_del_mismo_lugar_que_la_validacion(
     assert cuerpo["password"]["requisitos"] == list(security.textos_de_requisitos())
 
     # Y el catalogo de roles es el de la matriz, en el mismo orden.
-    assert [r["nombre"] for r in cuerpo["roles"]] == list(autorizacion.ROLES)
+    assert [r["nombre"] for r in cuerpo["roles"]] == list(
+        autorizacion.ROLES_ASIGNABLES
+    )

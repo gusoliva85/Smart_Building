@@ -211,3 +211,160 @@ def test_el_email_del_entorno_se_normaliza(db, seed):
     )
 
     assert modulo.sembrar(db).email == "admin@consorcio-real.com.ar"
+
+
+# ---------------------------------------- los usuarios de prueba ------------
+#
+# Van detras de la bandera --con-pruebas, asi que lo que se prueba es tanto
+# que los cree cuando se piden como que NO los cree cuando no se piden: lo
+# segundo es lo que impide que un despliegue con datos reales se llene de
+# cuentas con una contrasenia publicada.
+
+
+def test_siembra_un_usuario_por_cada_rol_de_prueba(db, seed):
+    modulo = seed()
+    modulo.sembrar(db)
+
+    resultados = modulo.sembrar_usuarios_de_prueba(db)
+
+    assert len(resultados) == len(modulo.USUARIOS_DE_PRUEBA)
+    assert all(r.creado for r in resultados)
+
+    for rol, nombre, email in modulo.USUARIOS_DE_PRUEBA:
+        usuario = db.scalar(select(Usuario).where(Usuario.email == email))
+        assert usuario is not None, f"falta {email}"
+        assert usuario.rol == rol
+        assert usuario.nombre == nombre
+        assert usuario.activo is True
+
+
+def test_los_usuarios_de_prueba_pueden_entrar_con_la_clave_del_readme(
+    db, cliente, seed
+):
+    """Lo unico que de verdad importa: que el login funcione.
+
+    Un alta que deja la fila bien y despues no deja entrar es una cuenta
+    perdida, porque no hay endpoint de recuperacion de contrasenia.
+    """
+    modulo = seed()
+    modulo.sembrar(db)
+    modulo.sembrar_usuarios_de_prueba(db)
+
+    for _, _, email in modulo.USUARIOS_DE_PRUEBA:
+        respuesta = cliente.post(
+            "/api/auth/login",
+            data={"username": email, "password": modulo.PASSWORD_ADMIN},
+        )
+        assert respuesta.status_code == 200, f"{email}: {respuesta.text}"
+
+
+def test_correrlo_dos_veces_no_duplica_los_usuarios_de_prueba(db, seed):
+    modulo = seed()
+    modulo.sembrar(db)
+    modulo.sembrar_usuarios_de_prueba(db)
+
+    segundos = modulo.sembrar_usuarios_de_prueba(db)
+
+    assert all(r.ya_existia for r in segundos)
+    assert len(db.scalars(select(Usuario)).all()) == 1 + len(modulo.USUARIOS_DE_PRUEBA)
+
+
+def test_no_pisa_la_contrasenia_de_un_usuario_de_prueba_existente(db, seed):
+    """Misma regla que el administrador: si alguien le cambio la contrasenia,
+    un seed que la pisara volveria a dejar la del README sin avisar."""
+    modulo = seed()
+    modulo.sembrar(db)
+    modulo.sembrar_usuarios_de_prueba(db)
+
+    _, _, email = modulo.USUARIOS_DE_PRUEBA[0]
+    usuario = db.scalar(select(Usuario).where(Usuario.email == email))
+    usuario.password_hash = security.hashear_password("OtraClaveDistinta9$")
+    db.commit()
+    hash_propio = usuario.password_hash
+
+    modulo.sembrar_usuarios_de_prueba(db)
+
+    db.refresh(usuario)
+    assert usuario.password_hash == hash_propio
+
+
+def test_los_roles_de_prueba_existen_en_la_matriz_de_autorizacion(seed):
+    """Un rol mal escrito en la tabla crearia un usuario que el sistema no sabe
+    autorizar, y el CheckConstraint del modelo lo rechazaria en produccion
+    recien al correr el seed contra Postgres."""
+    modulo = seed()
+
+    for rol, _, _ in modulo.USUARIOS_DE_PRUEBA:
+        assert rol in autorizacion.ROLES
+
+
+def test_los_emails_de_prueba_usan_el_dominio_de_los_documentados(seed):
+    """@test.com es lo que los distingue de los que crean los arneses, que usan
+    @ejemplo.com. Sin esa convencion no hay forma mecanica de separar lo que se
+    conserva de lo que se puede borrar."""
+    modulo = seed()
+
+    for _, _, email in modulo.USUARIOS_DE_PRUEBA:
+        assert email.endswith("@test.com")
+
+
+def test_sin_la_bandera_el_seed_no_crea_ningun_usuario_de_prueba(db, seed, monkeypatch):
+    """El resguardo: por defecto se siembra SOLO el administrador."""
+    modulo = seed()
+    monkeypatch.setattr(modulo.sys, "argv", ["app.seed"])
+    monkeypatch.setattr(modulo, "sincronizar_esquema", lambda: None)
+    monkeypatch.setattr(modulo, "SessionLocal", lambda: db)
+    monkeypatch.setattr(db, "close", lambda: None)
+
+    assert modulo.main() == 0
+
+    usuarios = db.scalars(select(Usuario)).all()
+    assert len(usuarios) == 1
+    assert usuarios[0].rol == autorizacion.ADMIN_GENERAL
+
+
+def test_con_la_bandera_el_seed_crea_el_admin_y_los_de_prueba(db, seed, monkeypatch):
+    modulo = seed()
+    monkeypatch.setattr(modulo.sys, "argv", ["app.seed", "--con-pruebas"])
+    monkeypatch.setattr(modulo, "sincronizar_esquema", lambda: None)
+    monkeypatch.setattr(modulo, "SessionLocal", lambda: db)
+    monkeypatch.setattr(db, "close", lambda: None)
+
+    assert modulo.main() == 0
+
+    usuarios = db.scalars(select(Usuario)).all()
+    assert len(usuarios) == 1 + len(modulo.USUARIOS_DE_PRUEBA)
+    assert {u.rol for u in usuarios} == {autorizacion.ADMIN_GENERAL} | {
+        rol for rol, _, _ in modulo.USUARIOS_DE_PRUEBA
+    }
+
+
+def test_la_salida_sin_la_bandera_recuerda_que_la_bandera_existe(
+    db, seed, monkeypatch, capsys
+):
+    """Correr el seed y no entender por que faltan los otros usuarios es el
+    error facil de cometer. El aviso es la prevencion."""
+    modulo = seed()
+    monkeypatch.setattr(modulo.sys, "argv", ["app.seed"])
+    monkeypatch.setattr(modulo, "sincronizar_esquema", lambda: None)
+    monkeypatch.setattr(modulo, "SessionLocal", lambda: db)
+    monkeypatch.setattr(db, "close", lambda: None)
+
+    modulo.main()
+
+    assert "--con-pruebas" in capsys.readouterr().out
+
+
+def test_la_salida_nunca_imprime_la_contrasenia(db, seed, monkeypatch, capsys):
+    """La regla de core/security.py: ninguna contrasenia se loguea en texto
+    plano en ningun punto. La salida de un seed termina en la consola de un
+    deploy o en el historial de una terminal."""
+    modulo = seed()
+    monkeypatch.setattr(modulo.sys, "argv", ["app.seed", "--con-pruebas"])
+    monkeypatch.setattr(modulo, "sincronizar_esquema", lambda: None)
+    monkeypatch.setattr(modulo, "SessionLocal", lambda: db)
+    monkeypatch.setattr(db, "close", lambda: None)
+
+    modulo.main()
+
+    assert modulo.PASSWORD_ADMIN not in capsys.readouterr().out
