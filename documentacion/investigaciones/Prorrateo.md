@@ -129,4 +129,30 @@ La sección 6 fijó que `ExpensaDepartamento` es inmutable: una liquidación ya 
 
 ---
 
-*Última actualización: excepción deliberada a la inmutabilidad — reemplazo confirmado de la última expensa del edificio — 2026-09-09. Este documento se actualiza antes que el código cada vez que el criterio de prorrateo cambie.*
+## 9. Lo que rehice en esta iteración (2026-11-08, `F1-T17`)
+
+Las secciones 1 a 8 son la investigación y las decisiones de la iteración anterior, y **siguen valiendo tal cual**: el coeficiente es el dato y no el criterio, suma 100%, los dos atajos son solo carga inicial. Lo que cambia acá es cómo está escrito el cálculo, y hay una decisión nueva que quiero dejar anotada antes de que el código la explique solo.
+
+### 9.1 El reparto se hace contando pasos enteros, no dividiendo decimales
+
+La sección 7 cuenta el bug de las 28 unidades: las funciones redondeaban a cuatro decimales, `Departamento.coeficiente` guarda tres, y la suma persistida daba 99,989%. Entonces se corrigió bajando el redondeo a tres decimales.
+
+Lo rehice un paso más atrás. El problema de fondo no era el número de decimales: era **dividir decimales y después redondear**. 100/28 no termina nunca, así que cualquier redondeo intermedio es una oportunidad de perder un paso, y la corrección anterior dependía de que nadie volviera a tocar la precisión en un solo lugar.
+
+Ahora el 100% se expresa como **100.000 pasos enteros de 0,001** y se reparte con el método del resto mayor (el mismo con el que se reparten escaños por cantidad de votos): a cada unidad le toca la parte entera de lo que le corresponde, y los pasos que sobran van de a uno. Las cuentas intermedias usan `Fraction`, que es exacto. La suma da 100,000% **por construcción, no por redondeo bien calibrado**, y la precisión vive en una sola constante (`DECIMALES_COEFICIENTE`), atada a la de la columna.
+
+### 9.2 Decisión nueva: en los coeficientes el sobrante se reparte, no se apila en la última unidad
+
+La sección 3 fija que al prorratear **un monto** la última unidad se lleva el resto exacto, para no perder un centavo. Eso sigue igual y es correcto para dinero.
+
+Para los **coeficientes** decidí lo contrario, y es a propósito. Con 28 unidades sobran 12 pasos de 0,001. Cargándoselos todos a una unidad, esa queda en 3,583% contra 3,571% de las otras veintisiete. La suma cierra, pero es un porcentual **permanente**: ese propietario paga esa diferencia todos los meses, para siempre, porque le tocó ser el último de la lista. Repartiendo los 12 pasos entre 12 unidades distintas, nadie queda a más de 0,001 de su vecino y la suma igual da 100,000% exacto.
+
+La diferencia entre los dos casos es la vida del número: el resto de un monto es de un mes, el resto de un coeficiente es del reglamento.
+
+### 9.3 La generación de la estructura vacía quedó en el mismo archivo
+
+En la iteración anterior vivía en `services/edificios.py` (sección 4). El Roadmap de esta iteración (`F1-T17`) la pone en `services/finanzas.py` junto a los coeficientes, y así la hice. El motivo es real: la cantidad de unidades que genera la estructura es exactamente el dato que necesitan los dos atajos, y tenerlas separadas fue lo que permitió, la vez anterior, que la estructura se creara sin que nadie cargara un coeficiente nunca (sección 7). Si en algún momento el archivo se hace grande, la separación natural es por archivo, no volver a partir esta pareja.
+
+---
+
+*Última actualización: reparto en pasos enteros y el sobrante repartido en vez de apilado en la última unidad — `F1-T17`, 2026-11-08. Este documento se actualiza antes que el código cada vez que el criterio de prorrateo cambie.*

@@ -248,6 +248,29 @@ Esta es la lista que consumen `/usuarios/opciones` y los validadores de los
 esquemas de alta y edicion. La otra es solo para la base.
 """
 
+ROLES_HABILITABLES: tuple[str, ...] = tuple(
+    rol for rol in ROLES_ASIGNABLES if rol != ADMIN_GENERAL
+)
+"""Los roles que un edificio concreto puede habilitar o no (`F1-T18`/`F1-T22`).
+
+Es una tercera lista, y no un capricho: la pregunta que responde es distinta de
+las otras dos. `ROLES` dice que valores acepta la columna; `ROLES_ASIGNABLES`
+dice que roles puede elegir quien da de alta un usuario; esta dice **que roles
+tienen sentido dentro de un edificio**.
+
+`admin_general` queda afuera porque su alcance es la cartera entera: no se
+habilita ni se deshabilita por edificio, y ofrecerlo en esa pantalla daria a
+entender que un edificio puede quedarse sin administrador general, que no es
+algo que exista. `pendiente` tampoco esta, por herencia de `ROLES_ASIGNABLES`:
+un usuario sin rol todavia no tiene edificio.
+
+Es la lista por defecto de `Edificio.roles_habilitados`: un edificio nuevo
+nace con todos habilitados y el administrador apaga los que no usa (un
+edificio sin portero no habilita `encargado`). El default es "todos" y no
+"ninguno" a proposito — una lista vacia bloquearia en silencio toda asignacion
+de un edificio recien creado.
+"""
+
 
 # ---------------------------------------------------------------- consultas --
 

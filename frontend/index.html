@@ -88,6 +88,20 @@
             Entrá con el email con el que te dieron de alta en el sistema.
           </p>
 
+          <!-- Lo que deja el registro al volver. El texto no se escribe aca:
+               es el que manda el backend en la respuesta del registro, para
+               que el mensaje que lee la persona sea el mismo que decidio el
+               endpoint. role="status" y no "alert": es una confirmacion, no
+               un problema, y un lector de pantalla no tiene que interrumpir
+               lo que este leyendo para anunciarla. -->
+          <div class="mensaje-exito" id="exito-login" role="status" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9"/>
+              <path d="M8.5 12.5l2.5 2.5 4.5-5"/>
+            </svg>
+            <span data-texto-exito-login></span>
+          </div>
+
           <!-- El error se muestra ACA, dentro del formulario donde ocurrio la
                accion, y nunca con un alert() del navegador. role="alert" es
                lo que hace que un lector de pantalla lo anuncie al aparecer. -->
@@ -150,6 +164,136 @@
 
             <button type="submit" class="boton-primario" id="boton-entrar">Iniciar sesión</button>
           </form>
+
+          <!-- El acceso al registro. Va DEBAJO del boton de entrar y con
+               aspecto de enlace, no de boton: la accion principal de esta
+               pantalla es iniciar sesion, y dos botones del mismo peso
+               obligan a elegir entre dos cosas que no son equivalentes.
+
+               Fuera del <form>: un <button> sin type="button" adentro de un
+               formulario lo envia, y este no envia nada, cambia de tarjeta. -->
+          <p class="tarjeta-auth-pie">
+            ¿No tenés cuenta todavía?
+            <button type="button" class="enlace-boton" id="boton-ir-registro">
+              Crear una cuenta
+            </button>
+          </p>
+        </section>
+
+        <!-- ==============================================================
+             REGISTRO PROPIO (F1-T16B).
+
+             Es una TERCERA tarjeta de esta misma pagina, no un archivo
+             aparte ni un modal. Las razones:
+
+               - No es un archivo nuevo porque comparte todo con el login:
+                 la misma topbar, el mismo indicador de conexion, el mismo
+                 centrado, los mismos componentes de campo. Un
+                 registro.html seria la cabecera canonica repetida una vez
+                 mas, y una pantalla mas donde acordarse de cambiarla.
+               - No es un modal porque no interrumpe nada: no hay un
+                 formulario a medio llenar atras que haya que preservar. Es
+                 el destino completo de quien toco "crear una cuenta".
+
+             LO QUE NO TIENE, Y ES EL PUNTO DE LA TAREA: no hay campo de
+             rol. Ni un <select>, ni uno oculto, ni nada. El rol lo pone el
+             backend como constante y lo asigna despues un administrador.
+             Si algun dia aparece un campo de rol aca, es un bug de
+             seguridad, no una mejora de formulario.
+             ============================================================== -->
+        <section class="tarjeta-auth shell" id="tarjeta-registro" hidden>
+          <h1>Crear una cuenta</h1>
+          <p class="tarjeta-auth-sub">
+            Cargá tus datos y un administrador te va a asignar el rol que te
+            corresponde. Hasta que lo haga podés entrar, pero todavía no vas
+            a ver nada del consorcio.
+          </p>
+
+          <div class="mensaje-error" id="error-registro" role="alert" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9"/>
+              <path d="M12 8v4M12 16h.01"/>
+            </svg>
+            <span data-texto-error-registro></span>
+          </div>
+
+          <form id="form-registro" novalidate>
+            <div class="campo">
+              <label for="campo-registro-nombre">Nombre y apellido</label>
+              <!-- Aca el autocomplete SI va activo, al contrario del alta que
+                   hace un administrador: los datos son de la persona que esta
+                   escribiendo, asi que que el navegador los complete es
+                   exactamente lo correcto. -->
+              <input
+                type="text"
+                id="campo-registro-nombre"
+                name="nombre"
+                autocomplete="name"
+                maxlength="120"
+                placeholder="Ana Suárez"
+                required>
+            </div>
+
+            <div class="campo">
+              <label for="campo-registro-email">Email</label>
+              <input
+                type="email"
+                id="campo-registro-email"
+                name="email"
+                inputmode="email"
+                autocomplete="email"
+                autocapitalize="none"
+                spellcheck="false"
+                placeholder="nombre@consorcio.com"
+                required>
+            </div>
+
+            <div class="campo">
+              <label for="campo-registro-password">Contraseña</label>
+              <!-- Misma estructura que todo campo de contrasenia del
+                   proyecto: el envoltorio, y el boton del ojo lo genera
+                   formularios.js. -->
+              <div class="campo-password-wrap">
+                <input
+                  type="password"
+                  id="campo-registro-password"
+                  name="password"
+                  autocomplete="new-password"
+                  required>
+              </div>
+              <!-- Los requisitos los llena login.js con lo que manda
+                   GET /api/auth/politica-password. Vacio en el HTML a
+                   proposito: escritos aca serian una segunda copia de la
+                   politica, y el dia que cambie, la pantalla pediria una cosa
+                   y el backend rechazaria por otra. -->
+              <ul class="campo-requisitos" id="requisitos-registro"></ul>
+            </div>
+
+            <div class="campo">
+              <label for="campo-registro-telefono">
+                Teléfono
+                <span style="font-weight:400;color:var(--ink-3)">(opcional)</span>
+              </label>
+              <input
+                type="tel"
+                id="campo-registro-telefono"
+                name="telefono"
+                autocomplete="tel"
+                maxlength="40"
+                placeholder="11 5555 4444">
+            </div>
+
+            <button type="submit" class="boton-primario" id="boton-registrar">
+              Crear la cuenta
+            </button>
+          </form>
+
+          <p class="tarjeta-auth-pie">
+            ¿Ya tenés cuenta?
+            <button type="button" class="enlace-boton" id="boton-volver-login">
+              Iniciar sesión
+            </button>
+          </p>
         </section>
 
         <!-- ==============================================================
@@ -174,7 +318,13 @@
            construida todavia, que hoy son siete de los ocho. El texto lo
            escribe login.js, porque depende de cual sea ese rol. -->
         <section class="tarjeta-auth shell" id="tarjeta-sesion" hidden>
-          <h1>Sesión iniciada</h1>
+          <!-- El titulo lo escribe login.js y por eso esta vacio: esta misma
+               tarjeta sirve para dos situaciones distintas —un rol sin
+               pantallas todavia, y una cuenta que espera aprobacion— y
+               "Sesión iniciada" era correcto para la primera y engañoso para
+               la segunda, donde lo importante no es que la sesion arranco
+               sino que falta que alguien apruebe. -->
+          <h1 data-sesion-titulo></h1>
           <p class="tarjeta-auth-sub" data-sesion-nota></p>
 
           <div class="auth-sesion content-glass">

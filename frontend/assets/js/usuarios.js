@@ -9,6 +9,12 @@
      1. Monta el esqueleto por layout.js, declarando quien puede entrar.
      2. Lista los usuarios (activos e inactivos).
      3. Da de alta uno nuevo en un modal.
+     4. Aprueba o rechaza las cuentas que se registraron solas (F1-T16B).
+
+   LA APROBACION ES UNA EDICION, NO UN ENDPOINT NUEVO. Aprobar es asignarle
+   un rol a quien tiene `pendiente`, o sea el PATCH que ya existia. Lo unico
+   propio es la presentacion: un bloque aparte arriba del listado, y el modal
+   en un modo que obliga a elegir el rol en vez de ofrecer uno por defecto.
 
    LO QUE NO HACE, Y ES A PROPOSITO: no edita ni activa/desactiva. El icono de
    editar y el boton de estado con ripple llegan en F1-T13+1 (F1-T14), y la
@@ -32,6 +38,15 @@
      Ninguna de las dos es el control real: ese lo hace el backend en cada
      endpoint. */
   var ROLES_HABILITADOS = ['admin_general'];
+
+  /* El rol que el backend le pone a quien se registra solo. No es un rol
+     asignable —no aparece en el <select>— pero si un valor que llega en el
+     listado, y es lo que separa las dos secciones de la pantalla. */
+  var ROL_PENDIENTE = 'pendiente';
+
+  /* El valor del <option> que no es un rol. Existe para que el <select> NO
+     arranque en una opcion valida: ver el comentario de asegurarOpciones(). */
+  var SIN_ROL = '';
 
   /* Todo el estado de la pantalla declarado junto arriba. Es la convencion del
      proyecto y viene de un error cometido tres veces: una variable declarada
@@ -72,6 +87,33 @@
       .replace(/"/g, '&quot;');
   }
 
+  /* La fecha de registro, corta y en castellano. Dos cosas que no son
+     adorno:
+
+     - Si el texto no trae zona horaria, se le agrega la Z. El backend guarda
+       en UTC; sobre SQLite la fecha vuelve sin offset y, sin esto, el
+       navegador la interpretaria como hora local y una solicitud de hace un
+       rato podria mostrarse con la fecha de mañana. Sobre PostgreSQL vuelve
+       con offset y entonces no se toca nada.
+     - Si la fecha no se puede leer, devuelve cadena vacia y quien llama no
+       muestra el dato. Un "Invalid Date" en una fila es peor que no decir
+       cuando se registro. */
+  function fechaCorta(iso) {
+    if (!iso) return '';
+
+    var texto = String(iso);
+    if (!/(Z|[+-]\d\d:?\d\d)$/.test(texto)) texto += 'Z';
+
+    var fecha = new Date(texto);
+    if (isNaN(fecha.getTime())) return '';
+
+    return fecha.toLocaleDateString('es-AR', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    });
+  }
+
   /* ------------------------------------------------------------- mensajes --- */
 
   function mostrarError(caja, texto, mensaje) {
@@ -99,7 +141,14 @@
       '<span></span>';
     aviso.querySelector('span').textContent = mensaje;
 
-    pantalla.lista.parentNode.insertBefore(aviso, pantalla.lista);
+    /* Arriba del bloque de pendientes y no de la lista de abajo: el aviso
+       tiene que quedar cerca de donde se hizo la accion, y aprobar o rechazar
+       se hace arriba. Cuando no hay pendientes, ese bloque esta oculto y no
+       ocupa lugar, asi que el aviso aparece pegado al listado igual que
+       antes — sin un `if` que pregunte en cual de los dos estamos. */
+    pantalla.seccionPendientes.parentNode.insertBefore(
+      aviso, pantalla.seccionPendientes
+    );
     window.setTimeout(function () {
       if (aviso.parentNode) aviso.parentNode.removeChild(aviso);
     }, 5000);
@@ -170,24 +219,130 @@
            '</article>';
   }
 
-  function pintarListado(usuarios) {
+  /* La fila de una cuenta que espera aprobacion. Es parecida a la de arriba
+     pero NO es la misma con un `if`: cambian las dos acciones, cambia el dato
+     secundario y cambia el borde. Un htmlDeFila() con cuatro condicionales
+     adentro seria mas corto de escribir y mas dificil de leer que dos
+     funciones que se entienden solas.
+
+     Lo que NO lleva, a proposito:
+       - El boton de estado con ripple. Dice "Activo", y en una cuenta sin
+         aprobar esa palabra es engañosa: la cuenta esta habilitada para
+         entrar y no sirve para nada. Aca las acciones son aprobar y
+         rechazar, que es la decision real.
+       - El lapiz de editar. Aprobar ya abre el formulario completo, asi que
+         un segundo boton al lado llevaria al mismo lugar. */
+  function htmlDeFilaPendiente(usuario) {
+    var secundarios = [usuario.email];
+    if (usuario.telefono) secundarios.push(usuario.telefono);
+
+    var fecha = fechaCorta(usuario.creado_en);
+    if (fecha) secundarios.push('se registró el ' + fecha);
+
+    var botonAprobar =
+      '<button type="button" class="boton-primario boton-chico" ' +
+        'data-accion="aprobar" data-id="' + usuario.id + '" ' +
+        'aria-label="Aprobar la cuenta de ' + textoSeguro(usuario.nombre) +
+        ' y asignarle un rol">Aprobar</button>';
+
+    var botonRechazar =
+      '<button type="button" class="boton-primario boton-secundario boton-chico" ' +
+        'data-accion="rechazar" data-id="' + usuario.id + '" ' +
+        'aria-label="Rechazar la solicitud de ' + textoSeguro(usuario.nombre) +
+        '">Rechazar</button>';
+
+    return '<article class="fila-lista content-glass pendiente">' +
+             '<div class="fila-lista-dato">' +
+               '<b>' + textoSeguro(usuario.nombre) + '</b>' +
+               '<span>' + textoSeguro(secundarios.join(' · ')) + '</span>' +
+             '</div>' +
+             '<div class="fila-lista-acciones">' +
+               /* La etiqueta sale del backend, igual que en el listado de
+                  abajo: el frontend no tiene su propia tabla de nombres. */
+               '<span class="fila-lista-estado rol-badge">' +
+                 textoSeguro(usuario.rol_etiqueta) +
+               '</span>' +
+               '<div class="fila-lista-botones">' +
+                 botonRechazar +
+                 botonAprobar +
+               '</div>' +
+             '</div>' +
+           '</article>';
+  }
+
+  /* Reparte lo que trajo el backend en los dos bloques de la pantalla.
+
+     El criterio de "pendiente" incluye `activo`: una solicitud rechazada
+     queda inactiva y baja al listado de abajo. El bloque de arriba es lo que
+     hay que decidir, no el historial de lo que ya se decidio — y si alguien
+     reactiva esa cuenta desde abajo, vuelve a aparecer para decidir, que es
+     exactamente lo correcto. */
+  function pintarPendientes(usuarios) {
+    var pendientes = usuarios.filter(function (usuario) {
+      return usuario.rol === ROL_PENDIENTE && usuario.activo;
+    });
+
+    /* El bloque entero se esconde si no hay ninguna, y con el se esconde el
+       titulo del listado de abajo: sin pendientes, la pantalla vuelve a ser
+       exactamente la de antes de esta tarea. */
+    pantalla.seccionPendientes.hidden = pendientes.length === 0;
+    pantalla.tituloConRol.hidden = pendientes.length === 0;
+    pantalla.contadorPendientes.textContent = String(pendientes.length);
+    pantalla.listaPendientes.innerHTML = pendientes.map(htmlDeFilaPendiente).join('');
+
+    return pendientes;
+  }
+
+  function pintarListado(todos) {
+    /* La copia en memoria es la lista COMPLETA, incluidos los pendientes: es
+       la que consultan el modal de edicion y los mensajes de confirmacion, y
+       tiene que poder encontrar a cualquiera de los dos bloques. */
+    listado = todos;
+
+    var pendientes = pintarPendientes(todos);
+
+    /* Los pendientes activos ya se pintaron arriba: aca va el resto. Sin
+       esta resta, cada uno apareceria dos veces en la pantalla. */
+    var usuarios = todos.filter(function (usuario) {
+      return pendientes.indexOf(usuario) === -1;
+    });
+
     if (!usuarios.length) {
       /* Este caso no deberia poder verse nunca —quien esta mirando la
          pantalla es, el mismo, un usuario del listado— pero el estado vacio se
          escribe igual: es parte del checklist de pantalla terminada, y el dia
          que el listado se filtre por alcance (F1-T08) va a ser alcanzable. */
-      pantalla.lista.innerHTML =
-        '<div class="lista-vacia"><b>No hay usuarios todavía</b>' +
-        'Creá el primero con el botón de arriba.</div>';
+      /* Con pendientes arriba, este estado vacio significa otra cosa: no es
+         que no haya usuarios, es que todos los que hay estan esperando. El
+         texto generico ahi diria algo que la pantalla contradice tres
+         centimetros mas arriba. */
+      pantalla.lista.innerHTML = pendientes.length
+        ? '<div class="lista-vacia"><b>Todavía no aprobaste a nadie</b>' +
+          'Las cuentas de arriba no tienen rol, así que no pueden usar el ' +
+          'sistema.</div>'
+        : '<div class="lista-vacia"><b>No hay usuarios todavía</b>' +
+          'Creá el primero con el botón de arriba.</div>';
       return;
     }
 
-    listado = usuarios;
     pantalla.lista.innerHTML = usuarios.map(htmlDeFila).join('');
+  }
+
+  /* Deja la pantalla sin ninguna fila. Se usa al empezar a cargar y cuando la
+     carga falla, y tiene que vaciar LOS DOS bloques: dejar las filas viejas
+     debajo de un error de recarga muestra datos que ya no se sabe si siguen
+     siendo ciertos, y eso vale igual para las solicitudes pendientes — peor
+     todavia ahi, porque son las que invitan a hacer clic. */
+  function vaciarFilas() {
+    pantalla.lista.innerHTML = '';
+    pantalla.listaPendientes.innerHTML = '';
+    pantalla.seccionPendientes.hidden = true;
+    pantalla.tituloConRol.hidden = true;
   }
 
   function cargarListado() {
     limpiarError(pantalla.errorListado, pantalla.textoErrorListado);
+    vaciarFilas();
     pantalla.lista.innerHTML =
       '<div class="lista-vacia">' + window.Cargando.html() + '</div>';
 
@@ -196,9 +351,8 @@
         pintarListado(usuarios);
       },
       function (error) {
-        /* La lista se vacia: dejar las filas viejas debajo de un error de
-           recarga muestra datos que ya no se sabe si siguen siendo ciertos. */
-        pantalla.lista.innerHTML = '';
+        /* Las dos listas se vacian: ver vaciarFilas(). */
+        vaciarFilas();
         mostrarError(
           pantalla.errorListado,
           pantalla.textoErrorListado,
@@ -220,6 +374,25 @@
       opcionesDeAlta = datos;
 
       pantalla.campoRol.innerHTML = '';
+
+      /* UNA OPCION QUE NO ES UN ROL, PRIMERA Y SELECCIONADA.
+
+         Antes el <select> arrancaba en el primer rol de la lista, que es el
+         de MAS permisos: la matriz esta ordenada de mas a menos, asi que
+         enviar el formulario sin tocar el rol creaba un Administrador
+         General. En el alta eso ya era un riesgo tonto; con la aprobacion de
+         pendientes pasa a ser el camino mas probable de todos, porque el
+         administrador va a aprobar de a varios y el campo que no se toca es
+         justo el que importa.
+
+         Que el valor sea cadena vacia es lo que permite que guardar() lo
+         detecte y pida elegir, en vez de que el backend reciba un rol que
+         nadie eligio. */
+      var sinRol = document.createElement('option');
+      sinRol.value = SIN_ROL;
+      sinRol.textContent = 'Elegí un rol…';
+      pantalla.campoRol.appendChild(sinRol);
+
       datos.roles.forEach(function (rol) {
         var opcion = document.createElement('option');
         opcion.value = rol.nombre;
@@ -245,19 +418,38 @@
      formulario escrito dos veces, y el dia que se agregue un campo habria que
      acordarse de los dos. Lo que cambia es el titulo, la bajada, el texto del
      boton y si el campo de contrasenia esta. */
+  /* Aprobar es editar a alguien que tiene el rol `pendiente`. Se DEDUCE del
+     usuario que se esta editando en vez de guardarse en una variable aparte:
+     un `modoAprobacion` separado seria un segundo estado que puede quedar en
+     desacuerdo con `enEdicion`, y entonces el modal mostraria un titulo que
+     no corresponde al usuario que tiene cargado. */
+  function aprobando() {
+    return Boolean(enEdicion) && enEdicion.rol === ROL_PENDIENTE;
+  }
+
   function configurarModal(usuario) {
     enEdicion = usuario || null;
 
     var editando = Boolean(usuario);
+    var aprueba = aprobando();
 
-    pantalla.titulo.textContent = editando ? 'Editar usuario' : 'Nuevo usuario';
-    pantalla.botonCrear.textContent = editando ? 'Guardar cambios' : 'Crear usuario';
+    pantalla.titulo.textContent = aprueba
+      ? 'Aprobar la cuenta'
+      : (editando ? 'Editar usuario' : 'Nuevo usuario');
 
-    pantalla.subtitulo.textContent = editando
-      ? 'La contraseña no se cambia desde acá: el backend no la acepta por ' +
-        'esta vía y todavía no hay circuito de recuperación.'
-      : 'Nace activo y con la contraseña que definas acá — se la comunicás ' +
-        'vos, todavía no hay circuito de invitación por email.';
+    pantalla.botonCrear.textContent = aprueba
+      ? 'Aprobar la cuenta'
+      : (editando ? 'Guardar cambios' : 'Crear usuario');
+
+    pantalla.subtitulo.textContent = aprueba
+      ? 'Elegí el rol que le corresponde: desde que lo guardes, la cuenta ' +
+        'queda habilitada con los permisos de ese rol. Los datos los cargó ' +
+        'la propia persona, así que revisalos y corregí lo que haga falta.'
+      : (editando
+        ? 'La contraseña no se cambia desde acá: el backend no la acepta por ' +
+          'esta vía y todavía no hay circuito de recuperación.'
+        : 'Nace activo y con la contraseña que definas acá — se la comunicás ' +
+          'vos, todavía no hay circuito de invitación por email.');
 
     /* El campo de contrasenia se ESCONDE al editar, no se deshabilita: un
        campo gris que no se puede usar invita a preguntarse por que. Y se
@@ -299,11 +491,20 @@
         pantalla.botonCrear.disabled = false;
 
         /* Recien aca se puede elegir el rol: los <option> los acaba de crear
-           asegurarOpciones(). Fijarlo antes no haria nada y el <select>
-           quedaria en el primer rol de la lista, que es el de mas permisos. */
-        if (enEdicion) pantalla.campoRol.value = enEdicion.rol;
+           asegurarOpciones(). Fijarlo antes no haria nada.
 
-        pantalla.campoNombre.focus();
+           Al APROBAR no se preselecciona ninguno —el rol actual es
+           `pendiente`, que no es una opcion del <select>— y queda la opcion
+           vacia, que es justo lo que se busca: el rol tiene que elegirse a
+           mano. Si se intentara fijar `pendiente`, el navegador ignoraria el
+           valor desconocido y dejaria la primera opcion, que es la vacia; o
+           sea, el resultado seria el mismo por accidente. Preguntarlo lo
+           convierte en una decision escrita. */
+        if (enEdicion && !aprobando()) pantalla.campoRol.value = enEdicion.rol;
+
+        /* Al aprobar, el foco va al rol y no al nombre: los datos ya estan
+           cargados y lo unico que falta es esa decision. */
+        (aprobando() ? pantalla.campoRol : pantalla.campoNombre).focus();
       },
       function (error) {
         mostrarError(
@@ -376,6 +577,21 @@
       return;
     }
 
+    /* El rol dejo de tener un valor por defecto, asi que hay que pedirlo. Es
+       la contracara de la opcion vacia del <select>, y vale la molestia: el
+       defecto anterior era el rol de mas permisos del sistema. */
+    if (pantalla.campoRol.value === SIN_ROL) {
+      mostrarError(
+        pantalla.errorAlta,
+        pantalla.textoErrorAlta,
+        aprobando()
+          ? 'Elegí el rol que le corresponde antes de aprobar la cuenta.'
+          : 'Elegí el rol del usuario.'
+      );
+      pantalla.campoRol.focus();
+      return;
+    }
+
     bloquearEnvio(true);
 
     /* null y no "" cuando no hay telefono. El esquema lo acepta como opcional,
@@ -398,10 +614,17 @@
       ? window.Api.patch('/usuarios/' + enEdicion.id, datos)
       : window.Api.post('/usuarios', Object.assign({ password: password }, datos));
 
+    /* Se lee ANTES del pedido: despues de que conteste, `guardado.rol` ya no
+       es `pendiente` y aprobando() diria que no. */
+    var aprueba = aprobando();
+
     pedido.then(function (guardado) {
-      var mensaje = editando
-        ? 'Se guardaron los cambios de ' + guardado.nombre + '.'
-        : 'Se creó la cuenta de ' + guardado.nombre + '.';
+      var mensaje = aprueba
+        ? 'Se aprobó la cuenta de ' + guardado.nombre + ' como ' +
+          guardado.rol_etiqueta + '. Ya puede entrar al sistema.'
+        : (editando
+          ? 'Se guardaron los cambios de ' + guardado.nombre + '.'
+          : 'Se creó la cuenta de ' + guardado.nombre + '.');
       cerrarModal();
       avisarExito(mensaje);
       return cargarListado();
@@ -565,6 +788,67 @@
     });
   }
 
+  /* ------------------------------------------------------------- rechazo -- */
+
+  /* Rechazar una solicitud es DESACTIVAR la cuenta, no borrarla.
+
+     Es la misma decision que el resto del sistema: la baja es logica y nadie
+     desaparece del registro. Aca ademas resuelve un caso concreto: si se
+     borrara, la persona podria volver a registrarse con el mismo email a los
+     cinco minutos, y el administrador tendria que rechazarla de nuevo, sin
+     ninguna constancia de que ya lo habia hecho. Desactivada, el email sigue
+     ocupado, la solicitud baja al listado de abajo marcada como inactiva, y
+     se puede reactivar y aprobar si fue un error.
+
+     Usa el MISMO endpoint que el boton de estado del listado
+     (POST /usuarios/{id}/estado), no uno nuevo: es exactamente el mismo
+     cambio, pedido desde otro lugar de la pantalla. */
+  function rechazar(boton) {
+    var id = Number(boton.dataset.id);
+    var usuario = usuarioDelListado(id);
+    var nombre = usuario ? usuario.nombre : 'Esta persona';
+    var email = usuario ? usuario.email : '';
+
+    window.Confirmar.pedir({
+      titulo: 'Rechazar la solicitud',
+
+      /* El mensaje dice que NO se borra. Sin esa frase, "rechazar" se lee
+         como "eliminar" y lo honesto pasa a ser cancelar siempre. */
+      mensaje: nombre + (email ? ' (' + email + ')' : '') + ' no va a poder ' +
+               'iniciar sesión. La cuenta no se borra: baja al listado como ' +
+               'inactiva, y si fue un error la podés reactivar y aprobar ' +
+               'desde ahí.',
+
+      textoAccion: 'Confirmar y rechazar'
+    }).then(function (confirmo) {
+      if (!confirmo) return;
+
+      /* Sin cambio optimista, al contrario del boton de estado: aca la fila
+         no cambia de color, cambia de bloque. Pintar algo antes de la
+         respuesta significaria moverla de lugar y tener que devolverla si el
+         pedido falla. */
+      boton.disabled = true;
+
+      window.Api.post('/usuarios/' + id + '/estado', { activo: false }).then(
+        function (actualizado) {
+          avisarExito(
+            'Se rechazó la solicitud de ' + actualizado.nombre +
+            '. La cuenta quedó inactiva.'
+          );
+          return cargarListado();
+        },
+        function (error) {
+          boton.disabled = false;
+          mostrarError(
+            pantalla.errorListado,
+            pantalla.textoErrorListado,
+            error.message
+          );
+        }
+      );
+    });
+  }
+
   /* Actualiza la copia en memoria, para que el modal de edicion no abra con
      datos viejos sin tener que recargar el listado entero. */
   function actualizarEnListado(usuario) {
@@ -593,21 +877,41 @@
 
      El boton se busca con closest() y no se compara contra event.target,
      porque el clic puede caer en el <svg> o en el <span> de adentro. */
+  function alHacerClicEnUnaFila(evento) {
+    var boton = evento.target.closest('[data-accion]');
+    if (!boton || !evento.currentTarget.contains(boton)) return;
+
+    var accion = boton.dataset.accion;
+    var id = Number(boton.dataset.id);
+
+    /* Editar y aprobar abren el MISMO modal con el mismo usuario: el modo lo
+       deduce el modal del rol que tiene cargado, asi que las dos acciones no
+       necesitan decirselo. */
+    if (accion === 'editar' || accion === 'aprobar') {
+      var usuario = usuarioDelListado(id);
+      if (usuario) abrirModal(usuario);
+      return;
+    }
+
+    if (accion === 'rechazar') {
+      rechazar(boton);
+      return;
+    }
+
+    if (accion === 'estado') alternarEstado(boton, evento);
+  }
+
+  /* Un listener por CONTENEDOR, no uno por fila: las dos listas se reemplazan
+     enteras con innerHTML en cada recarga, y los listeners puestos fila por
+     fila se perderian con ellas. Delegando, las filas nuevas funcionan solas.
+
+     Son dos contenedores y un solo manejador. `evento.currentTarget` es el
+     contenedor al que esta enganchado —no el elemento clickeado—, asi que la
+     comprobacion de pertenencia funciona igual en los dos sin preguntar en
+     cual estamos. */
   function engancharListado() {
-    pantalla.lista.addEventListener('click', function (evento) {
-      var boton = evento.target.closest('[data-accion]');
-      if (!boton || !pantalla.lista.contains(boton)) return;
-
-      var id = Number(boton.dataset.id);
-
-      if (boton.dataset.accion === 'editar') {
-        var usuario = usuarioDelListado(id);
-        if (usuario) abrirModal(usuario);
-        return;
-      }
-
-      if (boton.dataset.accion === 'estado') alternarEstado(boton, evento);
-    });
+    pantalla.lista.addEventListener('click', alHacerClicEnUnaFila);
+    pantalla.listaPendientes.addEventListener('click', alHacerClicEnUnaFila);
   }
 
   function engancharModal() {
@@ -630,6 +934,10 @@
   function iniciar() {
     pantalla = {
       lista: document.getElementById('lista-usuarios'),
+      seccionPendientes: document.getElementById('seccion-pendientes'),
+      listaPendientes: document.getElementById('lista-pendientes'),
+      contadorPendientes: document.querySelector('[data-contador-pendientes]'),
+      tituloConRol: document.getElementById('titulo-con-rol'),
       errorListado: document.getElementById('error-listado'),
       textoErrorListado: document.querySelector('[data-texto-error-listado]'),
 

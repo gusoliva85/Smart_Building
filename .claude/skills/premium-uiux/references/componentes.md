@@ -255,6 +255,58 @@ Por eso hay un endpoint que devuelve las dos cosas juntas (`GET /api/usuarios/op
 }
 ```
 
+## Secciones dentro de un listado (`.lista-seccion`) y la fila que espera una decisión
+
+Cuando las filas de un listado no son todas de la misma naturaleza, el listado se parte en bloques con su propio encabezado. Primer uso: las cuentas que esperan aprobación contra las que ya tienen rol (`usuarios.html`, `F1-T16B`). Sirve igual para "reclamos abiertos" contra "cerrados", o "activos por vencer" contra el resto.
+
+```html
+<section class="lista-seccion" id="seccion-pendientes" hidden>
+  <h3 class="lista-seccion-titulo">
+    Esperando aprobación
+    <span class="contador" data-contador-pendientes></span>
+  </h3>
+  <p class="lista-seccion-nota">Se registraron desde la pantalla de inicio y todavía no tienen rol.</p>
+  <div class="lista-filas" id="lista-pendientes"></div>
+</section>
+
+<article class="fila-lista content-glass pendiente">…</article>
+```
+
+```css
+.lista-seccion{ margin-bottom:18px; }
+.lista-seccion-titulo{
+  display:flex; align-items:center; gap:8px; margin:0 0 3px;
+  font-family:Outfit,ui-sans-serif,system-ui,sans-serif;
+  font-size:14.5px; font-weight:700; letter-spacing:-.015em;
+}
+.lista-seccion-nota{ margin:0 0 10px; font-size:12.5px; line-height:1.5; color:var(--ink-3); }
+
+.contador{
+  display:inline-flex; align-items:center; justify-content:center;
+  min-width:22px; padding:2px 7px; border-radius:99px;
+  background:var(--glass-content-bg); border:1px solid var(--line);
+  color:var(--ink-2);
+  font-family:Inter,ui-sans-serif,system-ui,sans-serif;
+  font-size:11.5px; font-weight:700;
+}
+
+.fila-lista.pendiente{
+  border-color:var(--accent-ring);
+  box-shadow:var(--sh-sm), 0 0 0 1px var(--accent-ring);
+}
+.fila-lista.pendiente:hover{ border-color:var(--accent); }
+```
+
+**El bloque entero se esconde cuando no tiene filas**, en vez de mostrar un `.lista-vacia` adentro. Un encabezado con un "no hay nada" debajo ocupa, todos los días, el lugar de algo que hay que atender; sin pendientes, la pantalla vuelve a ser exactamente la de antes. El título del bloque de abajo ("Con rol asignado") se esconde con él: sin el bloque de arriba, el listado es la pantalla entera y ya lo titula el `<h2>`.
+
+**El `.contador` no es una `.pill`.** Las pills son el semáforo de 4 estados, que es una regla de negocio sobre el estado del edificio; un número de filas no es un estado. Lleva el mismo vidrio y la misma tinta neutra que `.rol-badge`, con ancho mínimo de círculo para que un "1" y un "12" no cambien la altura de la línea.
+
+**`.fila-lista.pendiente` usa el ACENTO, no el naranja del semáforo, y el borde es completo.** Dos reglas del sistema a la vez:
+
+- **Nunca `border-left: 3px solid`.** Es el tic visual de dashboard genérico que esta skill prohíbe. El estado se comunica con borde de 4 lados más sombra proyectada del mismo color.
+- **El naranja `--pend` es exclusivo de "mantenimiento en curso"**, no es un "pendiente" genérico. Una cuenta sin aprobar no es un estado del edificio, así que pintarla de naranja la pondría en la misma familia visual que una unidad con una orden de trabajo abierta. El acento vive deliberadamente fuera del semáforo, y por eso acá es el color correcto.
+- Y como siempre, **el color no comunica solo**: la fila lleva además la etiqueta del rol con la palabra escrita ("Pendiente de aprobación"), que la calcula el backend.
+
 ## Grilla de KPIs (bento, no tarjetas idénticas)
 
 ```css
@@ -598,7 +650,7 @@ El vocabulario base de esta skill nació resolviendo el Dashboard Visual, no un 
 .chip-link:hover{ transform:translateY(-1px); color:var(--accent-2); border-color:var(--accent); }
 ```
 
-## Zona pre-autenticación (la tarjeta de login)
+## Zona pre-autenticación (las tarjetas de login y registro)
 
 La otra mitad del esqueleto, y la más chica: la única pantalla a la que se entra **sin sesión**, así que no tiene sidebar ni menú — no hay nada que navegar todavía. Es una tarjeta centrada sobre el fondo atmosférico, con la topbar de siempre arriba (marca + indicador de conexión + botón de tema, sin hamburguesa).
 
@@ -642,7 +694,56 @@ La otra mitad del esqueleto, y la más chica: la única pantalla a la que se ent
 
 **`max-width: 396px`.** Más ancha, un formulario de dos campos se ve perdido en el medio; más angosta, un email largo no entra de una línea en el input.
 
-**Dos tarjetas excluyentes, nunca una sección vacía.** `index.html` tiene la de login y la de "sesión iniciada", y `login.js` muestra una o la otra — nunca las dos, nunca una deshabilitada. La segunda existe porque la primera pantalla autenticada llega después (`F1-T13`) y la regla del proyecto prohíbe enlazar un archivo que no existe: en vez de un enlace roto, el login cierra el circuito mostrando el resultado real de `GET /auth/me`.
+**TRES tarjetas excluyentes, nunca una sección vacía.** `index.html` tiene la de login, la de **registro propio** (`F1-T16B`) y la de "sesión iniciada", y `login.js` muestra una sola — nunca dos, nunca una deshabilitada. La de sesión existe porque un rol puede no tener todavía ninguna pantalla construida y la regla del proyecto prohíbe enlazar un archivo que no existe: en vez de un enlace roto, el login cierra el circuito mostrando el resultado real de `GET /auth/me`.
+
+**Se muestran con una sola función**, no con un `hidden` por tarjeta repartido en cada rama:
+
+```js
+function mostrarSolo(cual) {
+  pantalla.tarjetaLogin.hidden    = cual !== pantalla.tarjetaLogin;
+  pantalla.tarjetaRegistro.hidden = cual !== pantalla.tarjetaRegistro;
+  pantalla.tarjetaSesion.hidden   = cual !== pantalla.tarjetaSesion;
+}
+```
+
+Con una función por tarjeta que esconde "la otra", agregar la tercera obliga a revisar que las dos viejas se acuerden de esconderla. Así, una cuarta se suma en un solo lugar. Es la misma lógica del indicador del `view-switch`: un solo elemento decide, en vez de que cada opción se pinte sola.
+
+**El pie de la tarjeta y el enlace a la otra.** La acción secundaria de una pantalla de autenticación —"Crear una cuenta" desde el login, "Iniciar sesión" desde el registro— va en un pie separado por una línea, con aspecto de enlace y no de botón:
+
+```html
+  </form>
+
+  <p class="tarjeta-auth-pie">
+    ¿No tenés cuenta todavía?
+    <button type="button" class="enlace-boton" id="boton-ir-registro">Crear una cuenta</button>
+  </p>
+</section>
+```
+
+```css
+.tarjeta-auth-pie{
+  margin:16px 0 0; padding-top:14px; border-top:1px solid var(--line);
+  text-align:center; font-size:12.5px; color:var(--ink-2);
+}
+.enlace-boton{
+  padding:0; border:0; background:none;
+  color:var(--accent);
+  font-family:inherit; font-size:inherit; font-weight:700;
+  cursor:pointer; text-decoration:none;
+  transition:color .18s ease-out;
+}
+.enlace-boton:hover{ color:var(--accent-2); text-decoration:underline; text-underline-offset:2px; }
+.enlace-boton:focus-visible{ outline-offset:3px; border-radius:4px; }
+```
+
+Cuatro cosas que no son estéticas:
+
+- **Es un `<button>`, no un `<a href="#">`.** No navega a ninguna URL: cambia lo que se muestra en la misma página. Un ancla agregaría una entrada al historial y ensuciaría la barra de direcciones.
+- **Va FUERA del `<form>`.** Un `<button>` dentro de un formulario, sin `type="button"`, lo envía.
+- **El acento de marca, nunca un azul de librería**, y el subrayado recién en hover: dentro de una tarjeta de vidrio, un subrayado permanente compite con el botón primario que está justo arriba.
+- **El anillo de foco no se redefine**, solo el radio. La regla global `:focus-visible` del comienzo de `components.css` ya lo pone con `--accent`; el primer intento lo sobreescribió con `--accent-ring`, que es más tenue — o sea, empeoró lo único que hace usable este control sin mouse.
+
+**El registro NO tiene campo de rol.** Ni visible, ni oculto, ni deshabilitado. El rol lo escribe el backend como constante y lo asigna después un administrador. Si en una pantalla de registro aparece un `<select>` de rol, no es una mejora de formulario: es un bug de seguridad. Ver el Documento Técnico, sección 4.4.
 
 **El `autocomplete` del login es el caso opuesto al del alta de usuarios.** Acá va activo y nombrado (`username` / `current-password`): es un login de verdad y que el gestor de contraseñas lo complete es lo correcto. En el formulario de **alta** el par email + contraseña es para OTRA persona, y ahí hay que apagarlo (`off` / `new-password`) para que Chrome no lo rellene con las credenciales del administrador logueado — ver la lección del campo de contraseña, más abajo.
 
@@ -1120,12 +1221,20 @@ Para filtros en línea junto a otros controles (año/mes en un listado, por ejem
 
 Para una acción que aparece junto a otras dentro de una fila de listado (ej. "Confirmar"/"Rechazar" en la cola de conciliación de pagos) — mismo lenguaje visual que `.boton-primario` pero de ancho natural, para que quepan dos o más en la misma fila sin ocupar todo el ancho:
 
+**Es un MODIFICADOR, no un botón suelto.** Se escribió al construir el primer caso real (aprobar/rechazar una cuenta pendiente, `F1-T16B`) y ahí quedó claro que la forma correcta es acompañar a `.boton-primario`, igual que `.boton-secundario`: solo cambia el ancho, el relleno y un punto de tipografía, y hereda el degradé, la sombra y el hover sin copiarlos.
+
 ```html
-<button type="button" class="boton-chico">Confirmar</button>
-<button type="button" class="boton-chico boton-chico-critico">Rechazar</button>
+<button type="button" class="boton-primario boton-chico">Aprobar</button>
+<button type="button" class="boton-primario boton-secundario boton-chico">Rechazar</button>
 ```
 
-La variante `-critico` es la acción negativa/de rechazo — mismo tratamiento de color que `.mensaje-error`/`.pill.crit` (`color-mix` sobre `--crit`), nunca un rojo de librería suelto. Pensado para reutilizarse tal cual en el próximo flujo parecido (aprobar/rechazar un `Presupuesto`, Fase 2).
+```css
+.boton-chico{ width:auto; flex:none; padding:8px 14px; font-size:12.5px; }
+```
+
+`.boton-primario` nace de ancho completo porque su lugar natural es el pie de un formulario; dentro de una fila tiene que acompañar al dato, no empujarlo. Es la misma excepción que ya hacía `.pagina-cabecera .boton-primario`, ahora nombrada para usarla donde no hay un contenedor que la implique.
+
+**La variante `-critico` sigue especificada y sin escribir, a propósito.** Cuando apareció el primer "Rechazar" real quedó claro que no la necesitaba: el rojo le corresponde al botón del modal de confirmación —que ya lo pone `Confirmar.pedir()`—, no a una fila de listado que no tiene nada mal. Una fila con un botón rojo por cada solicitud pendiente pinta de alarma una lista donde no pasó nada. Se escribe el día que algo la pida de verdad; mientras tanto, la acción negativa va con `.boton-secundario`.
 
 ## Dato copiable (`.dato-copiable` + `assets/js/copiar.js`)
 

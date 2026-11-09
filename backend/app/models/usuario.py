@@ -127,17 +127,25 @@ class AsignacionEdificio(Base):
         index=True,
     )
 
-    # CLAVE FORANEA DIFERIDA, y no por olvido: `edificios` todavia no existe
-    # como modelo — nace en F1-T18 — y una FK contra una tabla ausente hace
-    # fallar la creacion del esquema entero al arrancar.
+    # FORMALIZADA EN F1-T18. Nacio sin clave foranea en F1-T03, y no por
+    # olvido: `edificios` no existia como modelo todavia, y una FK contra una
+    # tabla ausente hace fallar la creacion del esquema entero al arrancar.
     #
-    # Esto NO repite la deuda de `activo_id` y `proveedor_id` (seccion 4 del
-    # Roadmap), porque esas quedaron sin FK con datos ya cargados encima, y
-    # agregarsela despues no lo resuelve el mecanismo aditivo de migraciones.
-    # Aca la tabla esta VACIA durante toda la ventana: lo primero que escribe
-    # una asignacion es la pantalla de F11-T05. Formalizar la FK en F1-T18 es
-    # entonces recrear una tabla vacia, no migrar datos.
-    edificio_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    # Se pudo cerrar sin migrar datos porque la tabla estuvo VACIA durante toda
+    # la ventana —lo primero que escribe una asignacion es la pantalla de
+    # F11-T05—, asi que alcanzo con borrarla y dejar que se vuelva a crear ya
+    # con la FK declarada. Eso lo hace `m002_fk_asignacion_edificio`, que se
+    # corre a mano una vez por base y se niega a tocar la tabla si tiene filas.
+    #
+    # Esto NO era la deuda de `activo_id` y `proveedor_id` (seccion 4 del
+    # Roadmap): esas quedaron sin FK con datos ya cargados encima, y eso si
+    # necesita una migracion que preserve las filas.
+    edificio_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey("edificios.id"),
+        nullable=False,
+        index=True,
+    )
 
     creado_en: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

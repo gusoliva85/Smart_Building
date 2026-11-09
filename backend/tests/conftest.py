@@ -50,11 +50,23 @@ from app.main import app
 #
 # Cada fase agrega aca los modelos que crea.
 # ---------------------------------------------------------------------------
+from app.models.edificio import (  # noqa: E402
+    Cochera,
+    Departamento,
+    Edificio,
+    EspacioComun,
+    Piso,
+)
 from app.models.usuario import AsignacionEdificio, Usuario  # noqa: E402
 
 TABLAS_DE_PRUEBA: list = [
     Usuario.__table__,
+    Edificio.__table__,
     AsignacionEdificio.__table__,
+    Piso.__table__,
+    Departamento.__table__,
+    Cochera.__table__,
+    EspacioComun.__table__,
 ]
 
 

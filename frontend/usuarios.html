@@ -66,6 +66,45 @@
           <span data-texto-error-listado></span>
         </div>
 
+        <!-- ==============================================================
+             CUENTAS QUE ESPERAN APROBACION (F1-T16B).
+
+             Va ARRIBA del listado y no en una pantalla aparte. La razon es
+             que no es una entidad distinta: son los mismos usuarios, en un
+             estado que pide una decision. Una pantalla propia significaria
+             que el administrador tiene que acordarse de entrar a mirarla, y
+             una solicitud que nadie mira es una persona esperando. Aca la ve
+             sin buscarla, la primera vez que abre Usuarios.
+
+             El bloque entero se esconde cuando no hay ninguna: un
+             encabezado con un "no hay nada" debajo ocupa, todos los dias,
+             el lugar de algo que hay que atender.
+
+             Solo aparecen las ACTIVAS. Una solicitud rechazada queda
+             inactiva y baja al listado de abajo: este bloque es lo que hay
+             que decidir, no el historial de lo que se decidio.
+             ============================================================== -->
+        <section class="lista-seccion" id="seccion-pendientes" hidden>
+          <h3 class="lista-seccion-titulo">
+            Esperando aprobación
+            <span class="contador" data-contador-pendientes></span>
+          </h3>
+          <p class="lista-seccion-nota">
+            Se registraron desde la pantalla de inicio y todavía no tienen
+            rol. Pueden iniciar sesión y no ven nada del consorcio hasta que
+            les asignes uno.
+          </p>
+          <div class="lista-filas" id="lista-pendientes"></div>
+        </section>
+
+        <!-- Este titulo solo aparece cuando hay pendientes arriba: sin el
+             bloque de arriba, el listado es la pantalla entera y ya lo
+             titula el <h2>. Con el bloque, hacen falta los dos nombres para
+             que se lean como dos grupos y no como una lista cortada. -->
+        <h3 class="lista-seccion-titulo" id="titulo-con-rol" hidden>
+          Con rol asignado
+        </h3>
+
         <div class="lista-filas" id="lista-usuarios"></div>
 
       </section>
