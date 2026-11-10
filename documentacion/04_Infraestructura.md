@@ -13,13 +13,15 @@
 | Recurso | Estado | Quién lo controla |
 |---|---|---|
 | **Base de datos PostgreSQL (Supabase)** | 🟢 **VIVA, con esquema y datos** | Cuenta de Supabase del dueño del proyecto |
-| **Despliegue en Vercel** (backend serverless + frontend estático) | 🟡 Vivo pero **huérfano**: el repositorio de GitHub al que estaba conectado se eliminó | Cuenta de Vercel del dueño del proyecto |
+| **Despliegue en Vercel** (backend serverless + frontend estático) | 🟢 **Vivo y vinculado** al repositorio nuevo. Despliega solo en cada push a `main` (verificado el 2026-11-10, ver 2.2) | Cuenta de Vercel del dueño del proyecto |
 | **Variables de entorno en Vercel** (secretos, cadena de conexión) | 🟢 Vivas, con sus valores | Panel de Vercel |
 | **Repositorio de GitHub** | 🔴 **Eliminado** el 2026-09-25, se recrea vacío | Cuenta de GitHub del dueño |
 | **Código del backend y del frontend** | 🔴 Eliminado deliberadamente | — |
 | **Base SQLite local** (`backend/smart_building.db`) | 🔴 Eliminada con el backend. Nunca estuvo versionada. | — |
 
-**Consecuencia inmediata de que el repositorio se haya borrado:** Vercel quedó conectado a un repositorio que ya no existe, así que **los despliegues automáticos están rotos** hasta que se cree el repositorio nuevo y se vuelva a vincular el proyecto de Vercel. El sitio desplegado que quedó en línea es la última versión del código eliminado; sigue funcionando y sigue apuntando a la base de Supabase real.
+**Esto ya se resolvió, y lo dejo corregido acá porque la versión anterior de este párrafo me hizo dar un diagnóstico equivocado.** Decía que Vercel había quedado conectado al repositorio borrado y que los despliegues automáticos estaban rotos. Era cierto cuando lo escribí y **dejó de serlo** al crear el repositorio nuevo y volver a vincularlo; yo lo seguí repitiendo como si fuera el estado actual. **Comprobado el 2026-11-10**, con pedidos de lectura a la API desplegada: contesta `/api/salud` con la aplicación correcta, y existen las rutas de `F1-T23` (`/espacios-comunes`) y `F1-T24` (`/coeficientes`), que son de esta reimplementación — o sea que lo que está en línea es el código nuevo, al día con el último commit pusheado, y no la versión eliminada.
+
+**La lección, que vale para todo este documento:** un recurso externo cambia de estado sin que el repositorio se entere, así que **el estado se mide antes de afirmarlo**. Cuatro pedidos de lectura a rutas que existen solo en una versión del código dicen exactamente qué está desplegado, y no hacen falta credenciales para eso: una ruta protegida que contesta 401 existe, y una que no existe contesta 404. Cuidado con una trampa al medirlo: `GET /api/edificios/opciones` contesta 401 incluso si esa ruta no existe, porque la captura `/api/edificios/{id}` y la guarda de sesión corre antes de que el id se valide. Hay que elegir rutas que ninguna otra pueda capturar.
 
 ---
 
@@ -28,6 +30,7 @@
 ### 2.1 Base de datos de producción — Supabase
 
 - **Motor:** PostgreSQL gestionado por Supabase.
+- **Proyecto:** `tvytsejganribumoyodr`. El panel está en `https://supabase.com/dashboard/project/tvytsejganribumoyodr` y la URL del proyecto es `https://tvytsejganribumoyodr.supabase.co`. La referencia del proyecto no es un secreto —viaja en cada pedido del cliente— pero la contraseña de la base y las claves de servicio **no se escriben acá ni en ningún archivo del repositorio**: viven en el panel de Supabase y en la variable de entorno de Vercel.
 - **Región:** `sa-east-1` (San Pablo).
 - **Forma de conexión:** **a través del connection pooler de Supabase**, nunca la conexión directa. En un entorno serverless cada invocación abre su propia conexión, y sin pooler se agota el límite de conexiones de la base con muy poco tráfico.
 - **Cadena de conexión:** vive **únicamente** en la variable de entorno `DATABASE_URL` del proyecto de Vercel y en el panel de Supabase. **Nunca estuvo en el repositorio y nunca debe estarlo.**
@@ -36,7 +39,10 @@
 ### 2.2 Despliegue — Vercel
 
 - **Backend:** función serverless de Python. La aplicación se instancia en cada arranque en frío.
-- **Región fijada a `gru1`** (San Pablo) mediante `backend/vercel.json`, con este contenido completo:
+- **Proyecto:** `smart-building`, en el equipo `gusoliva85s-projects`. El panel está en `https://vercel.com/gusoliva85s-projects/smart-building`.
+- **Dominio del despliegue:** `https://smart-building-livid.vercel.app`. Lo anoto acá porque no estaba escrito en ninguna parte del repositorio, y es justo la clase de dato que este documento existe para no perder.
+- **Repositorio conectado:** `github.com/gusoliva85/Smart_Building`, rama `main`. Cada push a `main` dispara un despliegue, así que **lo que no está commiteado y pusheado no está en producción**, por más que ande en local.
+- **Región fijada a `gru1`** (San Pablo) mediante `vercel.json` **en la raíz del repositorio** — este documento decía `backend/vercel.json` y el archivo está en la raíz, que es donde Vercel lo busca. Contenido completo:
 
   ```json
   { "regions": ["gru1"] }
@@ -97,9 +103,9 @@ El motor de conexión se creaba con la configuración por defecto de SQLAlchemy,
 
 ## 4. Checklist del primer despliegue del proyecto nuevo
 
-1. Crear el repositorio de GitHub vacío y subir el proyecto.
-2. **Volver a vincular el proyecto de Vercel al repositorio nuevo** (quedó huérfano al borrarse el anterior).
-3. Verificar que las tres variables de entorno siguen cargadas en Vercel: `DATABASE_URL`, `JWT_SECRETO`, `CORS_ORIGENES_EXTRA`.
+1. ~~Crear el repositorio de GitHub vacío y subir el proyecto.~~ **Hecho:** `github.com/gusoliva85/Smart_Building`.
+2. ~~**Volver a vincular el proyecto de Vercel al repositorio nuevo.**~~ **Hecho y verificado el 2026-11-10:** despliega solo en cada push a `main`.
+3. Verificar que las tres variables de entorno siguen cargadas en Vercel: `DATABASE_URL`, `JWT_SECRETO`, `CORS_ORIGENES_EXTRA`. (Que la API desplegada conteste y que el login funcione ya prueba las dos primeras; `CORS_ORIGENES_EXTRA` no hace falta mientras el frontend y la API compartan dominio, que es el caso.)
 4. **Tomar la decisión de la sección 3.1** sobre el esquema de Supabase, y ejecutarla.
 5. Confirmar que `backend/vercel.json` fija la región `gru1`.
 6. Desplegar y verificar contra el endpoint de salud de la API.

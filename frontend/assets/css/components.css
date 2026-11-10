@@ -1394,3 +1394,323 @@ a{ color:inherit; }
   padding:8px 14px;
   font-size:12.5px;
 }
+
+/* --- Campo con mapa embebido (geocodificacion del alta de edificio) ------- */
+/* El mapa vive DENTRO del formulario porque su unica funcion es que quien
+   carga el edificio vea si el sistema entendio la direccion, y eso solo sirve
+   mientras todavia la puede corregir.
+
+   La altura esta fijada en el CSS y no la calcula el JavaScript: Leaflet mide
+   su contenedor al crearse, y un contenedor sin altura propia mide cero y deja
+   el mapa gris con los mosaicos a medio cargar. */
+.mapa-campo .boton-chico{ align-self:flex-start; margin-top:2px; }
+
+.mapa-contenedor{
+  position:relative;
+  height:200px;
+  border-radius:var(--r-sm);
+  overflow:hidden;              /* confina los paneles de Leaflet al recuadro */
+  border:1px solid var(--line);
+  background:var(--glass-content-bg);
+}
+
+/* El estado inicial: un texto que explica que va a pasar. Un recuadro gris y
+   vacio al abrir el formulario se lee como un mapa roto. */
+.mapa-vacio{
+  position:absolute;
+  inset:0;
+  z-index:500;                  /* por encima de los paneles de Leaflet */
+  display:grid;
+  place-items:center;
+  padding:18px;
+  text-align:center;
+  font-size:12.5px;
+  line-height:1.5;
+  color:var(--ink-3);
+  background:var(--glass-content-bg);
+}
+.mapa-vacio[hidden]{ display:none; }
+
+/* Leaflet trae su propia hoja de estilos y escribe sus controles con la
+   tipografia y los radios del navegador. Estas tres reglas son lo minimo para
+   que no se lea como un widget pegado: la fuente del proyecto, los radios del
+   proyecto y el credito de OpenStreetMap en el tamanio del resto de las notas.
+   No se le cambia el color: los controles van sobre los mosaicos, que son
+   claros en los dos temas. */
+.mapa-contenedor .leaflet-container{
+  font-family:Inter,ui-sans-serif,system-ui,sans-serif;
+  height:100%;
+}
+.mapa-contenedor .leaflet-bar,
+.mapa-contenedor .leaflet-bar a:first-child,
+.mapa-contenedor .leaflet-bar a:last-child{ border-radius:8px; }
+.mapa-contenedor .leaflet-control-attribution{ font-size:10px; }
+
+@media (min-width:640px){
+  .mapa-contenedor{ height:240px; }
+}
+
+/* ============================================================================
+   6. DETALLE DEL EDIFICIO (F1-T26)
+   Las clases de la pantalla con pestañas. Son de uso general —un detalle con
+   bloques de datos y sub-listas se repite en financiero, reclamos y activos—
+   asi que viven aca y no en un CSS por pantalla.
+   ========================================================================== */
+
+/* --- Cabecera del detalle ------------------------------------------------- */
+/* El enlace de volver va ARRIBA del titulo y no al costado: en mobile, al
+   costado se lleva la mitad del ancho que necesita el nombre del edificio. */
+.volver{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  margin-bottom:8px;
+  padding:0;
+  border:0;
+  background:transparent;
+  color:var(--ink-3);
+  font-family:Inter,ui-sans-serif,system-ui,sans-serif;
+  font-size:12px;
+  font-weight:600;
+  cursor:pointer;
+  transition:color .18s ease-out;
+}
+.volver:hover{ color:var(--accent-2); }
+.volver svg{ width:15px; height:15px; }
+
+/* --- Panel de una pestaña ------------------------------------------------- */
+/* El selector de pestañas y los paneles se separan con aire: sin esto, el
+   primer bloque queda pegado al switch y se lee como parte de el. */
+.panel-pestania{ margin-top:18px; }
+.panel-pestania[hidden]{ display:none; }
+
+/* --- Bloque de datos dentro de una pestaña ------------------------------- */
+/* Un bloque es un grupo de campos que se guarda junto. Que el titulo y el
+   boton de guardar pertenezcan al MISMO bloque es lo que hace entendible que
+   la configuracion se guarde por partes (es un PATCH, no un PUT). */
+.bloque{ margin-bottom:22px; }
+.bloque:last-child{ margin-bottom:0; }
+
+.bloque-titulo{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:10px;
+  margin:0 0 4px;
+  font-family:Outfit,ui-sans-serif,system-ui,sans-serif;
+  font-size:14.5px;
+  font-weight:700;
+  letter-spacing:-.015em;
+  color:var(--ink);
+}
+.bloque-nota{
+  margin:0 0 12px;
+  font-size:12px;
+  line-height:1.5;
+  color:var(--ink-3);
+}
+
+/* --- Dato de solo lectura ------------------------------------------------- */
+/* Para lo que se muestra y no se edita en esta pantalla (la direccion, el CP,
+   la fecha de alta). Etiqueta chica arriba, valor abajo: la misma jerarquia
+   que un campo de formulario, para que la pantalla no se lea como dos cosas
+   distintas segun el bloque. */
+.ficha-grid{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:8px;
+}
+@media (min-width:560px){
+  .ficha-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+
+.ficha-dato{
+  min-width:0;
+  padding:10px 13px;
+  border-radius:var(--r-sm);
+  border:1px solid var(--line);
+}
+.ficha-dato-label{
+  font-size:10.5px;
+  font-weight:700;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  color:var(--ink-3);
+}
+.ficha-dato-valor{
+  margin-top:3px;
+  font-size:13.5px;
+  font-weight:600;
+  color:var(--ink);
+  overflow-wrap:anywhere;    /* un CBU de 22 digitos no desborda la tarjeta */
+}
+/* El valor ausente se dice, no se deja en blanco: un hueco vacio se lee como
+   un error de carga de la pantalla y no como un dato que falta. */
+.ficha-dato-valor.vacio{
+  font-weight:500;
+  color:var(--ink-4);
+}
+
+/* --- Dato copiable (CBU, alias) ------------------------------------------- */
+/* El boton va SIEMPRE a la derecha y el valor nunca lo tapa: por eso el
+   contenedor es flex con el texto en min-width:0 y el boton en flex:none. */
+.dato-copiable{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.dato-copiable > div{ min-width:0; }
+.dato-copiable .icon-btn{ flex:none; }
+/* El check de "copiado" toma el verde del semaforo, que es el unico lugar
+   donde ese color significa "salio bien" y no un estado del edificio. */
+.icon-btn.copiado{ color:var(--ok); }
+
+/* --- Sub-lista: pisos, unidades, cocheras, espacios comunes -------------- */
+/* Una fila hija es mas chica que una .fila-lista y NO lleva vidrio propio:
+   dos capas de vidrio anidadas se ensucian entre si. La jerarquia la da la
+   sangria y el borde, no una tercera superficie. */
+.sub-lista{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+.grupo-piso{
+  padding:12px 14px;
+  border-radius:var(--r-card);
+}
+.grupo-piso-cabecera{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.grupo-piso-nombre{
+  font-family:Outfit,ui-sans-serif,system-ui,sans-serif;
+  font-size:14px;
+  font-weight:700;
+  color:var(--ink);
+}
+.grupo-piso-nombre span{
+  display:block;
+  font-family:Inter,ui-sans-serif,system-ui,sans-serif;
+  font-size:11.5px;
+  font-weight:500;
+  color:var(--ink-3);
+}
+
+.fila-hija{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-top:8px;
+  padding:9px 12px;
+  border-radius:var(--r-sm);
+  border:1px solid var(--line-2);
+  background:color-mix(in oklab,var(--mix-tint) 35%,transparent);
+}
+.fila-hija-dato{ min-width:0; }
+.fila-hija-dato b{
+  display:block;
+  font-size:13px;
+  font-weight:700;
+  color:var(--ink);
+}
+.fila-hija-dato span{
+  display:block;
+  margin-top:2px;
+  font-size:11.5px;
+  color:var(--ink-3);
+  overflow-wrap:anywhere;
+}
+.fila-hija-botones{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  flex:none;
+}
+
+/* Una unidad sin ocupante no es un error, pero conviene distinguirla de un
+   golpe de vista: el texto secundario se atenua y nada mas. Nunca un color
+   del semaforo, que significa estado del edificio. */
+.fila-hija.libre .fila-hija-dato span{ color:var(--ink-4); }
+
+/* --- Carga de coeficientes (F1-T27) -------------------------------------- */
+/* Los dos atajos van juntos y arriba de la lista: son la forma rapida de
+   llenar un edificio vacio, y despues de aplicarlos lo que se hace es
+   corregir de a una. */
+.acciones-atajo{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-bottom:12px;
+}
+
+/* El campo del coeficiente es angosto a proposito: un input de ancho completo
+   para escribir "3,571" invita a pensar que ahi va otra cosa, y al lado del
+   identificador de la unidad rompe la lectura de la fila. */
+.campo-coeficiente{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  flex:none;
+}
+.campo-coeficiente input{
+  width:96px;
+  padding:7px 9px;
+  text-align:right;
+  font-variant-numeric:tabular-nums;  /* los numeros se comparan en columna */
+}
+.campo-coeficiente span{
+  font-size:12px;
+  font-weight:700;
+  color:var(--ink-3);
+}
+/* Mientras viaja el pedido el campo no se puede volver a tocar: dos cambios
+   seguidos dejarian el valor final a merced de cual conteste ultimo. */
+.campo-coeficiente input:disabled{ opacity:.6; }
+
+/* Una unidad sin coeficiente no es un error del sistema, pero SI es lo que
+   impide liquidar: se marca con el borde completo y la sombra del mismo color,
+   nunca con un borde izquierdo de 3px. Y no comunica sola — la fila dice "sin
+   cargar" con palabras. */
+.fila-hija.sin-coeficiente{
+  border-color:color-mix(in srgb,var(--warn) 45%,transparent);
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--warn) 22%,transparent);
+}
+
+/* --- Grupo de casillas (roles habilitados) ------------------------------- */
+.casillas{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:6px;
+}
+@media (min-width:560px){
+  .casillas{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+.casilla{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  padding:9px 12px;
+  border-radius:var(--r-sm);
+  border:1px solid var(--line);
+  font-size:13px;
+  font-weight:600;
+  color:var(--ink-2);
+  cursor:pointer;
+  transition:border-color .18s ease-out, color .18s ease-out;
+}
+.casilla:hover{ border-color:var(--line-strong); }
+.casilla input{
+  width:16px;
+  height:16px;
+  flex:none;
+  accent-color:var(--accent);
+  cursor:pointer;
+}
+.casilla input:checked + span{ color:var(--ink); }

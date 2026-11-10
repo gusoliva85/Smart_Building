@@ -74,15 +74,30 @@ unidades es exacto siempre; repartir `Decimal(100)` no lo es.
 
 # ------------------------------------------------- limites de estructura ----
 
-MAX_PISOS = 60
-MAX_UNIDADES_POR_PISO = 40
+MAX_PISOS = 40
+MAX_UNIDADES_POR_PISO = 15
 """Techos deliberados de la generacion automatica.
 
-No son limites del dominio —existen torres de mas de 60 pisos—: son un freno a
-que un numero tipeado mal genere miles de filas. `F1-T20` crea toda la
-estructura en una sola transaccion, asi que un cero de mas no es un dato raro,
-es una transaccion enorme. Si algun dia hace falta un edificio mas grande, se
-sube la constante a conciencia.
+Son un freno a que un numero tipeado mal genere miles de filas: `F1-T20` crea
+toda la estructura en una sola transaccion, asi que un cero de mas no es un
+dato raro, es una transaccion enorme.
+
+Los dos valores se bajaron el 2026-11-09 (eran 60 y 40) para que esten cerca
+de la realidad del rubro: un consorcio de mas de 40 pisos no existe en la
+cartera que este sistema administra, y 40 unidades en un mismo piso es
+directamente imposible. Un tope ajustado ataja el error de tipeo mucho mejor
+que uno holgado — con 40 unidades por piso permitidas, escribir 14 en vez de 4
+pasaba sin que nada avise.
+
+Consecuencia de bajar el segundo: con 15 unidades por piso como maximo, la
+numeracion nunca pasa de la letra O, asi que la continuacion `AA`, `AB` de
+`_letra()` **ya no es alcanzable desde la API**. Se deja igual —es correcta y
+esta probada aparte— porque el dia que haya que subir el tope tiene que seguir
+funcionando; lo que no se deja es un test que la ejercite generando un piso de
+28 unidades, porque ese piso ahora se rechaza.
+
+Si algun dia hace falta un edificio mas grande, se sube la constante a
+conciencia.
 """
 
 

@@ -1,10 +1,12 @@
 """Alta de edificios, con su estructura generada en la misma transaccion.
 
-Tres endpoints:
+Seis endpoints:
 
 - ``POST /api/edificios`` — crea el edificio y sus pisos y departamentos vacios
 - ``GET  /api/edificios`` — listado con la cantidad de pisos y de unidades
+- ``GET  /api/edificios/opciones`` — catalogos y topes para los formularios
 - ``GET  /api/edificios/{id}`` — detalle con toda la estructura
+- ``GET  /api/edificios/{id}/asignables`` — candidatos de cada puesto y unidad
 - ``PATCH /api/edificios/{id}`` — configuracion: responsables, cobranza,
   contacto de emergencia y roles habilitados
 
@@ -44,6 +46,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core import alcance
 from app.core.dependencies import SesionDB, SoloAdminGeneral, SoloAdministradores
+from app.models import edificio as modelo_edificio
 from app.models.edificio import Departamento, Edificio, Piso
 from app.models.usuario import Usuario
 from app.schemas.edificio import (
@@ -55,8 +58,11 @@ from app.schemas.edificio import (
     EdificioRespuesta,
     EdificioResumen,
     EspacioComunDetalle,
+    OpcionesDeEdificio,
     PisoCreado,
     PisoDetalle,
+    RolHabilitable,
+    UsuariosAsignables,
 )
 from app.services import autorizacion, finanzas
 
@@ -329,6 +335,116 @@ def listar(
         )
         for edificio, cantidad_pisos, cantidad_departamentos in db.execute(consulta)
     ]
+
+
+# La ruta literal va declarada ANTES que `/{edificio_id}`, igual que
+# `/usuarios/opciones`: FastAPI resuelve en orden de declaracion, y si quedara
+# despues, `/api/edificios/opciones` entraria por el detalle con
+# `edificio_id="opciones"` y devolveria un 422 de tipo invalido — un error que
+# no menciona en ningun momento el problema real, que es el orden de dos
+# decoradores.
+@router.get(
+    "/opciones",
+    response_model=OpcionesDeEdificio,
+    summary="Valores con los que la pantalla arma sus formularios",
+)
+def opciones(
+    quien_consulta: SoloAdministradores,
+) -> OpcionesDeEdificio:
+    """Tipos de cochera, roles habilitables y los topes de la estructura.
+
+    No lleva `db`: no toca la base, lee constantes. Pide sesion de
+    administrador igual, porque describe la estructura interna del sistema y no
+    hay motivo para regalarla sin autenticar.
+
+    Lo piden los dos administradores y no solo el General: el de Consorcio
+    configura los roles habilitados de su edificio (`F1-T22`) y carga sus
+    cocheras (`F1-T23`), asi que necesita los mismos catalogos.
+    """
+    return OpcionesDeEdificio(
+        tipos_cochera=list(modelo_edificio.TIPOS_COCHERA),
+        roles_habilitables=[
+            RolHabilitable(
+                nombre=nombre,
+                etiqueta=autorizacion.etiqueta(nombre),
+            )
+            # Se recorre la tupla y no el diccionario para conservar el orden
+            # de la matriz, que va de mas permisos a menos. Un listado
+            # alfabetico pondria "Auditor" primero y dejaria "Propietario",
+            # que es el rol que mas se usa, perdido en el medio.
+            for nombre in autorizacion.ROLES_HABILITABLES
+        ],
+        max_pisos=finanzas.MAX_PISOS,
+        max_unidades_por_piso=finanzas.MAX_UNIDADES_POR_PISO,
+    )
+
+
+@router.get(
+    "/{edificio_id}/asignables",
+    response_model=UsuariosAsignables,
+    summary="Usuarios que se pueden asignar en este edificio",
+)
+def asignables(
+    edificio_id: int,
+    quien_consulta: SoloAdministradores,
+    db: SesionDB,
+) -> UsuariosAsignables:
+    """Los candidatos de cada puesto y de cada unidad, para elegir de una lista.
+
+    ========================================================================
+    POR QUE ESTE ENDPOINT EXISTE
+    ========================================================================
+
+    Asignar un responsable o un residente es guardar el **id** de un usuario.
+    Sin este endpoint, la unica forma de armar el desplegable seria
+    `GET /api/usuarios`, que es exclusivo del Administrador General: el de
+    Consorcio puede asignar un propietario a una unidad de su edificio
+    (`F1-T23`) y no tiene de donde sacar la lista, asi que la pantalla le
+    quedaria pidiendole que escriba un numero que no puede averiguar.
+
+    Devuelve **solo lo que se puede asignar**, y eso es la mitad del valor:
+    unicamente usuarios activos, con el rol que el puesto exige, y los
+    residentes solo si ese rol esta habilitado en este edificio. Un desplegable
+    armado asi no puede ofrecer una opcion que el backend vaya a rechazar.
+
+    ========================================================================
+    LO QUE DEVUELVE ES UN DIRECTORIO, Y CONVIENE SABERLO
+    ========================================================================
+
+    Un Administrador de Consorcio ve aca el nombre y el email de **todos** los
+    propietarios e inquilinos activos del sistema, no solo de su edificio. No
+    es un descuido: la misma persona puede ser propietaria en dos consorcios, y
+    filtrar por edificio haria imposible asignarle su unidad en el segundo. El
+    costo es que el directorio de residentes es visible para cualquier
+    administrador de consorcio. Si eso llegara a molestar, la forma de
+    acotarlo es que este endpoint pase a buscar por email en vez de listar —y
+    ahi la pantalla cambia de desplegable a campo de busqueda.
+    """
+    edificio = buscar_edificio_que_administra(db, edificio_id, quien_consulta)
+
+    def activos_con_rol(rol: str) -> list[Usuario]:
+        return list(
+            db.scalars(
+                select(Usuario)
+                .where(Usuario.rol == rol, Usuario.activo.is_(True))
+                .order_by(Usuario.nombre)
+            ).all()
+        )
+
+    def residentes_con_rol(rol: str) -> list[Usuario]:
+        # La lista vacia no es "no hay nadie": es "ese rol no se usa en este
+        # edificio". La pantalla distingue los dos casos porque ya tiene
+        # `roles_habilitados` del detalle, y dice cual de los dos es.
+        if rol not in (edificio.roles_habilitados or []):
+            return []
+        return activos_con_rol(rol)
+
+    return UsuariosAsignables(
+        admin_consorcio=activos_con_rol(autorizacion.ADMIN_CONSORCIO),
+        encargado=activos_con_rol(autorizacion.ENCARGADO),
+        propietario=residentes_con_rol(autorizacion.PROPIETARIO),
+        inquilino=residentes_con_rol(autorizacion.INQUILINO),
+    )
 
 
 @router.get(

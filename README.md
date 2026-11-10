@@ -138,6 +138,7 @@ Leer en este orden:
 
 Material de apoyo:
 
+- [`Usuarios.md`](documentacion/Usuarios.md) — manual de uso: cómo se crea el Administrador General inicial, cuáles son los nueve roles con su valor exacto, y cómo cambiar un rol o una contraseña a mano en la base.
 - [`entrevistas.md`](documentacion/entrevistas.md) — relevamiento de necesidad con dos inquilinos y un administrador de consorcio.
 - [`investigaciones/`](documentacion/investigaciones/) — decisiones con respaldo normativo: prorrateo de expensas, pagos y conciliación, caja chica, presupuestos y facturas.
 - [`.claude/skills/premium-uiux/`](.claude/skills/premium-uiux/SKILL.md) — **el contrato visual del frontend.** Se carga antes de tocar cualquier pantalla.

@@ -68,6 +68,23 @@
       icono: '<path d="M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-5A3.5 3.5 0 0 0 4 17.5V19"/>' +
              '<circle cx="10" cy="7.5" r="3.5"/>' +
              '<path d="M20 19v-1.5a3.5 3.5 0 0 0-2.6-3.4M15.5 4.2a3.5 3.5 0 0 1 0 6.6"/>'
+    },
+    {
+      id: 'edificios',
+      etiqueta: 'Edificios',
+      archivo: 'edificios.html',
+      construida: true,           /* construida en F1-T25 */
+      /* Los dos roles ven el listado; el alta es solo del Administrador
+         General y eso lo decide la propia pantalla, no esta tabla: aca se
+         declara quien puede ENTRAR, no que puede hacer adentro. */
+      roles: ['admin_general', 'admin_consorcio'],
+      /* Un edificio visto de frente: el contorno, la entrada y las ventanas.
+         Es el mismo vocabulario del icono de la marca, un paso mas simple. */
+      icono: '<path d="M4 21V5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v16"/>' +
+             '<path d="M15 10h4a1 1 0 0 1 1 1v10"/>' +
+             '<path d="M3 21h18"/>' +
+             '<path d="M8 21v-4h3v4"/>' +
+             '<path d="M7 8h.01M11 8h.01M7 12h.01M11 12h.01"/>'
     }
   ];
 
@@ -128,8 +145,10 @@
      - No hay una pantalla de inicio unica todavia. El dashboard llega en la
        Fase 5; hasta entonces "la pantalla inicial" es, literalmente, la
        primera del menu, y eso cambia en cada fase.
-     - Un rol puede no tener NINGUNA pantalla todavia —hoy le pasa a siete de
-       los ocho—. Mandarlo a usuarios.html seria mandarlo a un 403. Devolver
+     - Un rol puede no tener NINGUNA pantalla todavia —hoy le pasa a seis de
+       los ocho: el Administrador General ve Usuarios y Edificios, el
+       Administrador de Consorcio ve Edificios, y los otros seis no tienen
+       ninguna—. Mandarlo a usuarios.html seria mandarlo a un 403. Devolver
        null deja que el login lo diga con palabras en vez de con un error.
 
      @param {string} rol
@@ -145,9 +164,9 @@
     var disponibles = accesosDe(rol);
 
     /* Un rol sin ninguna pantalla habilitada ve un texto que explica por
-       que, nunca un menu vacio que parece roto. Hoy lo ven siete de los ocho
-       roles: la unica pantalla construida es Usuarios, y es solo del
-       Administrador General. */
+       que, nunca un menu vacio que parece roto. Hoy lo ven seis de los ocho
+       roles: las pantallas construidas son Usuarios (solo Administrador
+       General) y Edificios (los dos administradores). */
     if (!disponibles.length) {
       return '<p class="sidebar-vacio">Todavía no hay pantallas habilitadas ' +
              'para tu rol. Se van a ir sumando a medida que el sistema crezca.</p>';

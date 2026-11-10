@@ -1,0 +1,628 @@
+<!doctype html>
+<html lang="es">
+<head>
+<!-- ============================================================================
+     Cabecera canonica: assets/plantilla-cabecera.html
+     El frontend es multi-pagina estatica sin build, asi que cada HTML repite
+     este bloque. Si cambia, se cambia primero en la plantilla.
+     ========================================================================= -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Edificios · SMART Building</title>
+
+<!-- Tema: inline, sincrono y antes de las hojas de estilo. Si esperara al
+     script del final del body, se veria un destello claro antes de pasar a
+     oscuro. El try/catch cubre el modo privado, donde leer localStorage lanza. -->
+<script>try{if(localStorage.getItem('tema')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+
+<link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/components.css">
+</head>
+
+<!-- ============================================================================
+     PANTALLA DE EDIFICIOS (F1-T25).
+
+     Mismo contrato de esqueleto que usuarios.html: la columna y el <header>
+     vacio los escribe este archivo, todo lo demas —sidebar, backdrop,
+     contenido del topbar— lo genera layout.js.
+
+     LA MITAD IMPORTANTE DE ESTA PANTALLA ES EL LISTADO, no el alta. En la
+     iteracion anterior este archivo tenia solamente el formulario, asi que un
+     edificio creado quedaba sin ninguna forma de volver a encontrarlo desde
+     la interfaz: habia que mirar la base de datos.
+     ========================================================================= -->
+<body class="layout-app" data-pantalla="edificios" data-titulo="Edificios">
+  <div class="main-column">
+    <header class="topbar shell" data-topbar></header>
+
+    <main class="page-content">
+      <!-- ====================================================================
+           DOS VISTAS EN UN SOLO ARCHIVO, Y LA URL DECIDE CUAL.
+
+           Con `?id=7` se muestra el detalle de ese edificio; sin nada, el
+           listado. Es el mismo patron que va a usar financiero.html.
+
+           Que el id viaje en la URL y no en una variable de JavaScript es lo
+           que hace que F5 no te saque del edificio en el que estabas, que el
+           boton de atras del navegador vuelva al listado, y que se pueda
+           mandar el enlace de un edificio por mensaje. Un ruteo en memoria
+           pierde las tres cosas.
+           ================================================================= -->
+      <section class="shell panel-contenido" id="vista-listado">
+
+        <div class="pagina-cabecera">
+          <div>
+            <h2>Edificios</h2>
+            <p>Se listan los activos y los inactivos, con la cantidad de pisos
+               y de unidades que tiene cada uno.</p>
+          </div>
+          <!-- Nace oculto y lo muestra edificios.js SOLO al Administrador
+               General, que es el unico que puede crear un edificio. El
+               Administrador de Consorcio ve el listado de los suyos y no este
+               boton: ofrecerselo seria invitarlo a un 403. -->
+          <button type="button" class="boton-primario" id="boton-nuevo" hidden>
+            Nuevo edificio
+          </button>
+        </div>
+
+        <!-- El error del listado se muestra DONDE ocurrio: si falla el pedido,
+             el mensaje aparece arriba de la lista que no se pudo traer. -->
+        <div class="mensaje-error" id="error-listado" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/>
+          </svg>
+          <span data-texto-error-listado></span>
+        </div>
+
+        <div class="lista-filas" id="lista-edificios"></div>
+
+      </section>
+
+      <!-- ====================================================================
+           DETALLE DEL EDIFICIO (F1-T26).
+
+           Tres pestañas en el mismo archivo: Datos, Estructura y
+           Configuración. El selector es el `.view-switch` del sistema de
+           diseño y no lo inicializa nadie a mano: view-switch.js se engancha
+           solo y se ocupa del indicador deslizante, del teclado y del
+           `aria-selected`. Esta pantalla solo escucha el clic para cambiar de
+           panel.
+
+           LA VISTA DE ESTRUCTURA ES EN LISTA, A PROPOSITO. La versión gráfica
+           coloreada del edificio es el Dashboard Visual de la Fase 5, y no se
+           adelanta acá ni parcialmente: media versión gráfica es trabajo que
+           hay que rehacer y una expectativa que no se cumple.
+           ================================================================= -->
+      <section class="shell panel-contenido" id="vista-detalle" hidden>
+
+        <div class="pagina-cabecera">
+          <div>
+            <!-- Es un enlace de verdad y no un botón con JavaScript: así
+                 funciona el clic del medio, el "abrir en pestaña nueva" y el
+                 arrastre al marcador. -->
+            <a class="volver" href="edificios.html">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M15 18l-6-6 6-6"/>
+              </svg>
+              Volver al listado
+            </a>
+            <h2 data-detalle-nombre>Edificio</h2>
+            <p data-detalle-bajada></p>
+          </div>
+          <span class="fila-lista-estado rol-badge" data-detalle-tamanio></span>
+        </div>
+
+        <div class="mensaje-error" id="error-detalle" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/>
+          </svg>
+          <span data-texto-error-detalle></span>
+        </div>
+
+        <div class="view-switch" id="pestanias-edificio" hidden>
+          <button type="button" class="activo" data-vista="datos">Datos</button>
+          <button type="button" data-vista="estructura">Estructura</button>
+          <button type="button" data-vista="configuracion">Configuración</button>
+        </div>
+
+        <!-- ============================================== PESTAÑA DATOS === -->
+        <div class="panel-pestania" data-panel="datos" hidden>
+
+          <div class="bloque">
+            <h3 class="bloque-titulo">Identidad y ubicación</h3>
+            <p class="bloque-nota">
+              Estos datos se cargan en el alta. Todavía no se editan desde acá:
+              el formulario de edición del edificio no está construido.
+            </p>
+            <div class="ficha-grid" data-ficha-identidad></div>
+          </div>
+
+          <div class="bloque">
+            <h3 class="bloque-titulo">Responsables</h3>
+            <!-- La bajada la escribe el JavaScript, porque dice una cosa
+                 distinta según quién esté mirando: quién administra el
+                 edificio lo decide solo el Administrador General. -->
+            <p class="bloque-nota" data-nota-responsables></p>
+
+            <!-- Los dos selectores solo existen para el Administrador
+                 General. Para el de Consorcio, el JavaScript dibuja los
+                 nombres como datos de solo lectura en este mismo lugar:
+                 mostrarle un desplegable deshabilitado invita a preguntarse
+                 por qué no se puede usar. -->
+            <form id="form-responsables" novalidate hidden>
+              <div class="form-grid-2">
+                <div class="campo">
+                  <label for="campo-admin-consorcio">Administrador de Consorcio</label>
+                  <select id="campo-admin-consorcio" name="admin_consorcio_id"></select>
+                </div>
+                <div class="campo">
+                  <label for="campo-encargado">Encargado</label>
+                  <select id="campo-encargado" name="encargado_id"></select>
+                </div>
+              </div>
+              <div class="modal-formulario-acciones">
+                <button type="submit" class="boton-primario boton-chico">
+                  Guardar responsables
+                </button>
+              </div>
+            </form>
+
+            <div class="ficha-grid" data-ficha-responsables hidden></div>
+          </div>
+
+          <div class="bloque">
+            <h3 class="bloque-titulo">Contacto de emergencia</h3>
+            <p class="bloque-nota">
+              A quién llamar fuera de horario. Lo ve el personal de seguridad y
+              el encargado, así que conviene que sea un teléfono que alguien
+              atienda. Vaciar los dos campos lo borra.
+            </p>
+            <form id="form-emergencia" novalidate>
+              <div class="form-grid-2">
+                <div class="campo">
+                  <label for="campo-emergencia-nombre">Nombre</label>
+                  <input type="text" id="campo-emergencia-nombre"
+                         name="contacto_emergencia_nombre" autocomplete="off"
+                         maxlength="120" placeholder="Guardia 24 h">
+                </div>
+                <div class="campo">
+                  <label for="campo-emergencia-telefono">Teléfono</label>
+                  <input type="tel" id="campo-emergencia-telefono"
+                         name="contacto_emergencia_telefono" autocomplete="off"
+                         maxlength="40" placeholder="11 5555 4444">
+                </div>
+              </div>
+              <div class="modal-formulario-acciones">
+                <button type="submit" class="boton-primario boton-chico">
+                  Guardar contacto
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- ========================================= PESTAÑA ESTRUCTURA === -->
+        <div class="panel-pestania" data-panel="estructura" hidden>
+
+          <!-- ==============================================================
+               COEFICIENTES (F1-T27).
+
+               Va PRIMERO en la pestaña, arriba de los pisos, y es una
+               decisión: sin coeficientes cargados no se puede emitir una
+               sola expensa, y en la iteración anterior eso se descubrió tres
+               fases después. Lo primero que se ve al entrar a la estructura
+               de un edificio es si está en condiciones de liquidar.
+
+               La suma vive en la pill del título, al lado del nombre del
+               bloque, y nunca comunica con el color solo: el texto dice el
+               porcentaje y cuántas unidades faltan.
+               ============================================================== -->
+          <div class="bloque">
+            <h3 class="bloque-titulo">
+              Coeficientes
+              <span class="pill" data-pill-suma hidden></span>
+            </h3>
+            <p class="bloque-nota" data-nota-coeficientes></p>
+
+            <div class="acciones-atajo">
+              <button type="button" class="boton-primario boton-secundario boton-chico"
+                      data-accion="atajo-partes-iguales">
+                Repartir en partes iguales
+              </button>
+              <button type="button" class="boton-primario boton-secundario boton-chico"
+                      data-accion="atajo-metros">
+                Repartir por metro cuadrado
+              </button>
+            </div>
+
+            <div class="sub-lista" data-lista-coeficientes></div>
+          </div>
+
+          <div class="bloque">
+            <h3 class="bloque-titulo">
+              Pisos y unidades
+              <button type="button" class="boton-primario boton-secundario boton-chico"
+                      data-accion="nuevo-piso">Agregar piso</button>
+            </h3>
+            <p class="bloque-nota">
+              Los pisos y las unidades se generaron en el alta. Acá se corrige y
+              se completa: la superficie de cada unidad, su propietario y su
+              inquilino. El coeficiente se carga en su propia pantalla.
+            </p>
+            <div class="sub-lista" data-lista-pisos></div>
+          </div>
+
+          <div class="bloque">
+            <h3 class="bloque-titulo">
+              Cocheras
+              <button type="button" class="boton-primario boton-secundario boton-chico"
+                      data-accion="nueva-cochera">Agregar cochera</button>
+            </h3>
+            <p class="bloque-nota">
+              Una cochera fija puede estar asignada a una unidad; una rotativa
+              no se asigna a nadie.
+            </p>
+            <div class="sub-lista" data-lista-cocheras></div>
+          </div>
+
+          <div class="bloque">
+            <h3 class="bloque-titulo">
+              Espacios comunes
+              <button type="button" class="boton-primario boton-secundario boton-chico"
+                      data-accion="nuevo-espacio">Agregar espacio</button>
+            </h3>
+            <p class="bloque-nota">
+              El SUM, la terraza, el gimnasio. Los ve cualquiera que tenga algo
+              que hacer en el edificio, porque son el objeto de un reclamo o de
+              una reserva; darlos de alta es solo del administrador.
+            </p>
+            <div class="sub-lista" data-lista-espacios></div>
+          </div>
+        </div>
+
+        <!-- ====================================== PESTAÑA CONFIGURACION === -->
+        <div class="panel-pestania" data-panel="configuracion" hidden>
+
+          <div class="bloque">
+            <h3 class="bloque-titulo">Expensas</h3>
+            <p class="bloque-nota">
+              El día del mes en que vence la expensa y el recargo que se aplica
+              si se paga después. El recargo admite hasta dos decimales: se
+              rechaza un tercero en vez de redondearlo, porque un recargo
+              redondeado en silencio no es el que se puso.
+            </p>
+            <form id="form-expensas" novalidate>
+              <div class="form-grid-2">
+                <div class="campo">
+                  <label for="campo-vencimiento">Día de vencimiento</label>
+                  <input type="number" id="campo-vencimiento"
+                         name="dias_vencimiento_expensas" min="1" max="31" step="1"
+                         inputmode="numeric">
+                </div>
+                <div class="campo">
+                  <label for="campo-mora">Recargo por mora (%)</label>
+                  <input type="number" id="campo-mora"
+                         name="recargo_mora_porcentual" min="0" max="100" step="0.01"
+                         inputmode="decimal">
+                </div>
+              </div>
+              <div class="modal-formulario-acciones">
+                <button type="submit" class="boton-primario boton-chico">
+                  Guardar expensas
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <div class="bloque">
+            <h3 class="bloque-titulo">Cobranza</h3>
+            <p class="bloque-nota">
+              Dónde paga el consorcista. Los dos datos se copian al
+              portapapeles: un CBU de 22 dígitos transcrito a mano es un error
+              de tipeo esperando, y en un CBU ese error manda la plata a otra
+              cuenta.
+            </p>
+
+            <!-- Los valores GUARDADOS, con su botón de copiar. Se copia lo que
+                 está guardado y no lo que haya a medio escribir en el campo de
+                 abajo: son dos cosas distintas y conviene que se vean como
+                 dos. -->
+            <div class="ficha-grid">
+              <div class="ficha-dato">
+                <div class="dato-copiable">
+                  <div>
+                    <div class="ficha-dato-label">CBU</div>
+                    <div class="ficha-dato-valor" id="cbu-guardado"></div>
+                  </div>
+                  <button type="button" class="icon-btn icon-btn-sm"
+                          data-copiar="#cbu-guardado" aria-label="Copiar el CBU">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                      stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="9" y="9" width="11" height="11" rx="2"/>
+                <path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/>
+              </svg>
+                  </button>
+                </div>
+              </div>
+              <div class="ficha-dato">
+                <div class="dato-copiable">
+                  <div>
+                    <div class="ficha-dato-label">Alias</div>
+                    <div class="ficha-dato-valor" id="alias-guardado"></div>
+                  </div>
+                  <button type="button" class="icon-btn icon-btn-sm"
+                          data-copiar="#alias-guardado" aria-label="Copiar el alias">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                      stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="9" y="9" width="11" height="11" rx="2"/>
+                <path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/>
+              </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <form id="form-cobranza" novalidate style="margin-top:12px">
+              <div class="form-grid-2">
+                <div class="campo">
+                  <label for="campo-cbu">CBU</label>
+                  <input type="text" id="campo-cbu" name="cbu" autocomplete="off"
+                         inputmode="numeric" placeholder="22 dígitos">
+                </div>
+                <div class="campo">
+                  <label for="campo-alias">Alias</label>
+                  <input type="text" id="campo-alias" name="alias_cbu"
+                         autocomplete="off" placeholder="consorcio.mitre.500">
+                </div>
+              </div>
+              <div class="modal-formulario-acciones">
+                <button type="submit" class="boton-primario boton-chico">
+                  Guardar cobranza
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <div class="bloque">
+            <h3 class="bloque-titulo">Roles habilitados</h3>
+            <p class="bloque-nota">
+              Qué roles tienen sentido en este edificio. Destildar uno no le
+              quita el rol a nadie: impide asignar personas nuevas con ese rol
+              acá. Las casillas las escribe el backend desde la matriz de
+              roles, así que no hay una segunda lista en esta pantalla.
+            </p>
+            <form id="form-roles" novalidate>
+              <div class="casillas" data-casillas-roles></div>
+              <div class="modal-formulario-acciones">
+                <button type="submit" class="boton-primario boton-chico">
+                  Guardar roles
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+      </section>
+    </main>
+  </div>
+
+  <!-- ==========================================================================
+       MODAL DE ALTA.
+
+       Vive en el HTML y no lo genera el JavaScript, igual que en usuarios: es
+       markup fijo y tenerlo aca es lo que permite leer la pantalla completa sin
+       abrir el .js.
+
+       NO SE CIERRA TOCANDO EL BACKDROP. Vale mas todavia que en el alta de
+       usuario: este formulario tiene seis campos y un mapa, y perderlo por un
+       clic al costado es perder un minuto de trabajo. Se cierra con la X, con
+       Cancelar o con Escape.
+       ======================================================================= -->
+  <div class="modal-backdrop" id="modal-alta">
+    <div class="modal modal-formulario shell" role="dialog" aria-modal="true"
+         aria-labelledby="modal-alta-titulo">
+
+      <button type="button" class="modal-cerrar" id="boton-cerrar-modal" aria-label="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18"/>
+        </svg>
+      </button>
+
+      <h3 id="modal-alta-titulo">Nuevo edificio</h3>
+      <span class="modal-formulario-sub">
+        Con los pisos y las unidades por piso se genera la estructura completa
+        en el mismo momento del alta. Las unidades nacen vacías: los metros
+        cuadrados, el propietario y el coeficiente se cargan después.
+      </span>
+
+      <div class="mensaje-error" id="error-alta" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/>
+        </svg>
+        <span data-texto-error-alta></span>
+      </div>
+
+      <!-- novalidate: los mensajes son los del proyecto, no los globos nativos
+           del navegador. -->
+      <form id="form-alta" novalidate>
+
+        <div class="campo">
+          <label for="campo-nombre">Nombre del edificio</label>
+          <input type="text" id="campo-nombre" name="nombre" autocomplete="off"
+                 maxlength="160" placeholder="Consorcio Rivadavia 1234">
+        </div>
+
+        <div class="campo">
+          <label for="campo-direccion">Dirección</label>
+          <input type="text" id="campo-direccion" name="direccion" autocomplete="off"
+                 maxlength="255" placeholder="Av. Rivadavia 1234, CABA">
+        </div>
+
+        <div class="form-grid-2">
+          <div class="campo">
+            <label for="campo-cp">Código postal</label>
+            <!-- Se pide el CP y no la ciudad: es mas preciso para geocodificar
+                 y determina la localidad y la provincia, asi que guardar las
+                 tres seria tener el mismo dato tres veces. -->
+            <input type="text" id="campo-cp" name="cp" autocomplete="off"
+                   maxlength="16" placeholder="C1033">
+          </div>
+
+          <div class="campo">
+            <label for="campo-cuit">
+              CUIT
+              <span style="font-weight:400;color:var(--ink-3)">(opcional)</span>
+            </label>
+            <input type="text" id="campo-cuit" name="cuit" autocomplete="off"
+                   maxlength="13" placeholder="30-12345678-9">
+          </div>
+        </div>
+
+        <!-- ==============================================================
+             EL MAPA.
+
+             Esta DENTRO del formulario y no en un paso aparte porque su
+             unica funcion es que quien carga el edificio vea si el sistema
+             entendio la direccion, y eso solo sirve mientras todavia la
+             puede corregir.
+
+             El contenedor nace vacio con un texto que explica que va a
+             pasar. El mapa aparece recien cuando hay algo que mostrar: un
+             recuadro gris al abrir el formulario se lee como un mapa roto.
+             ============================================================== -->
+        <div class="campo mapa-campo">
+          <label for="boton-buscar-mapa">Ubicación en el mapa</label>
+
+          <div class="mapa-contenedor" id="mapa-contenedor">
+            <div class="mapa-vacio" data-mapa-vacio>
+              Completá la dirección y el código postal: la ubicación se busca
+              sola al salir del campo.
+            </div>
+          </div>
+
+          <!-- El estado de la busqueda se dice con palabras, siempre: si no se
+               encontro la direccion, el aviso explica que se puede guardar
+               igual. -->
+          <p class="campo-ayuda" data-mapa-estado></p>
+
+          <button type="button" class="boton-primario boton-secundario boton-chico"
+                  id="boton-buscar-mapa">
+            Buscar la dirección
+          </button>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="campo">
+            <label for="campo-pisos">Cantidad de pisos</label>
+            <input type="number" id="campo-pisos" name="cantidad_pisos"
+                   min="1" step="1" inputmode="numeric" placeholder="7">
+          </div>
+
+          <div class="campo">
+            <label for="campo-unidades">Unidades por piso</label>
+            <input type="number" id="campo-unidades" name="unidades_por_piso"
+                   min="1" step="1" inputmode="numeric" placeholder="4">
+          </div>
+        </div>
+
+        <!-- Lo que se va a generar, dicho antes de guardarlo. Lo escribe
+             edificios.js con los dos numeros de arriba: 7 y 4 son 28 unidades,
+             y eso conviene leerlo antes de crear el edificio, no despues. -->
+        <p class="campo-ayuda" data-resumen-estructura></p>
+
+        <div class="modal-formulario-acciones">
+          <button type="button" class="boton-primario boton-secundario" id="boton-cancelar">
+            Cancelar
+          </button>
+          <button type="submit" class="boton-primario" id="boton-crear">
+            Crear edificio
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       UN SOLO MODAL PARA LAS CUATRO ENTIDADES DE LA ESTRUCTURA.
+
+       Piso, unidad, cochera y espacio común se dan de alta y se editan con
+       este mismo modal: el título, la bajada y los campos los arma
+       edificio-detalle.js desde una descripción de campos.
+
+       Cuatro modales escritos a mano serían el mismo formulario cuatro veces
+       —ocho contando alta y edición— y el día que se agregue un campo habría
+       que acordarse de los ocho. El HTML de un campo es siempre el mismo
+       `.campo` con su label; lo único que cambia es qué campos hay.
+
+       No se cierra tocando el backdrop, igual que el resto de los formularios
+       del proyecto.
+       ======================================================================= -->
+  <div class="modal-backdrop" id="modal-fila">
+    <div class="modal modal-formulario shell" role="dialog" aria-modal="true"
+         aria-labelledby="modal-fila-titulo">
+
+      <button type="button" class="modal-cerrar" id="boton-cerrar-fila" aria-label="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M6 6l12 12M18 6L6 18"/>
+        </svg>
+      </button>
+
+      <h3 id="modal-fila-titulo">Fila</h3>
+      <span class="modal-formulario-sub" data-fila-sub></span>
+
+      <div class="mensaje-error" id="error-fila" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/>
+          </svg>
+        <span data-texto-error-fila></span>
+      </div>
+
+      <form id="form-fila" novalidate>
+        <div data-campos-fila></div>
+
+        <div class="modal-formulario-acciones">
+          <button type="button" class="boton-primario boton-secundario" id="boton-cancelar-fila">
+            Cancelar
+          </button>
+          <button type="submit" class="boton-primario" id="boton-guardar-fila">
+            Guardar
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- El orden es de dependencia, no de gusto:
+       config.js define la URL de la API, api.js la usa, layout.js y
+       edificios.js usan api.js, y edificios.js usa layout.js, cargando.js y
+       mapa.js. formularios.js, mapa.js y theme.js no dependen de ninguno. -->
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/cargando.js"></script>
+  <script src="assets/js/confirmar.js"></script>
+  <script src="assets/js/formularios.js"></script>
+  <script src="assets/js/copiar.js"></script>
+  <script src="assets/js/mapa.js"></script>
+  <script src="assets/js/view-switch.js"></script>
+  <script src="assets/js/layout.js"></script>
+  <!-- El detalle va ANTES del archivo de la pantalla: edificios.js decide
+       cuál de las dos vistas monta y, si es el detalle, le pasa el control a
+       este módulo, que para entonces tiene que estar definido. -->
+  <script src="assets/js/edificio-detalle.js"></script>
+  <script src="assets/js/edificios.js"></script>
+  <script src="assets/js/theme.js"></script>
+</body>
+</html>

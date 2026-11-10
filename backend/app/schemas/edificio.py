@@ -283,6 +283,77 @@ class EdificioDetalle(BaseModel):
 
 
 # ===========================================================================
+# LO QUE NECESITA LA PANTALLA DE DETALLE (`F1-T26`)
+#
+# Las dos clases de abajo existen por la misma razon que `/usuarios/opciones`:
+# hay valores que son reglas del sistema —los tipos de cochera, los roles que
+# se pueden habilitar en un edificio, los topes de la generacion automatica— y
+# escribirlos en el JavaScript seria tener esas reglas en dos lugares. El dia
+# que se agregue un tipo de cochera, la pantalla seguiria ofreciendo dos.
+# ===========================================================================
+
+
+class RolHabilitable(BaseModel):
+    """Un rol que tiene sentido habilitar en un edificio, con su etiqueta."""
+
+    nombre: str
+    etiqueta: str
+
+
+class OpcionesDeEdificio(BaseModel):
+    """Los valores con los que la pantalla arma sus formularios.
+
+    No toca la base: son constantes de `services/finanzas.py`,
+    `models/edificio.py` y la matriz de roles, publicadas en un solo lugar.
+
+    Los dos topes van aca aunque el alta ya los valide, porque el formulario
+    tiene que poder decir "hasta 40" **antes** de que alguien escriba 70 y
+    reciba un error. Que el numero salga del backend es lo que evita que la
+    pantalla diga un tope y el servidor aplique otro.
+    """
+
+    tipos_cochera: list[str]
+    roles_habilitables: list[RolHabilitable]
+    max_pisos: int
+    max_unidades_por_piso: int
+
+
+class UsuarioAsignable(BaseModel):
+    """Un usuario que se puede poner en un puesto o en una unidad.
+
+    Lleva el email ademas del nombre porque dos personas pueden llamarse
+    igual, y el email es el dato con el que quien asigna las distingue.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    nombre: str
+    email: str
+
+
+class UsuariosAsignables(BaseModel):
+    """Quienes se pueden asignar en ESTE edificio, separados por rol.
+
+    Son cuatro listas explicitas y no un diccionario de rol a usuarios para
+    que `/docs` muestre exactamente que puede venir: los cuatro roles que se
+    asignan a algo en la pantalla de detalle, y ninguno mas.
+
+    `propietario` e `inquilino` vuelven **vacias** si ese rol no esta
+    habilitado en el edificio (`roles_habilitados`, `F1-T22`). Es deliberado:
+    asignar un residente con un rol no habilitado lo rechaza el backend, asi
+    que ofrecerlo en un desplegable seria ofrecer algo que va a fallar. Los dos
+    puestos de responsable no dependen de esa lista, porque administrar o estar
+    a cargo de un edificio no es un rol que el edificio habilite.
+    """
+
+    admin_consorcio: list[UsuarioAsignable]
+    encargado: list[UsuarioAsignable]
+    propietario: list[UsuarioAsignable]
+    inquilino: list[UsuarioAsignable]
+
+
+# ===========================================================================
 # CONFIGURACION (`F1-T22`)
 # ===========================================================================
 

@@ -63,13 +63,38 @@ def test_el_identificador_es_el_piso_mas_una_letra():
 
 
 def test_pasada_la_zeta_las_letras_siguen_con_dos_caracteres():
-    estructura = finanzas.generar_estructura(cantidad_pisos=1, unidades_por_piso=28)
+    """Se prueba el nombrador directo, y no generando un piso de 28 unidades.
+
+    Con `MAX_UNIDADES_POR_PISO` en 15 (bajado el 2026-11-09), un piso de 28
+    unidades se rechaza antes de nombrar nada, asi que este caso ya no se puede
+    ejercitar por `generar_estructura()`. La continuacion despues de la Z se
+    deja escrita y probada igual: es la convencion de cualquier planilla de
+    calculo y la unica que no se queda sin nombres, y tiene que seguir siendo
+    correcta el dia que el tope se suba.
+    """
+    letras = [finanzas._letra(indice) for indice in range(28)]
+
+    assert letras[0] == "A"
+    assert letras[25] == "Z"
+    assert letras[26] == "AA"
+    assert letras[27] == "AB"
+    assert len(set(letras)) == 28
+
+
+def test_el_tope_de_unidades_no_llega_a_necesitar_dos_letras():
+    """El tope vigente y el nombrador son coherentes entre si.
+
+    Si alguien sube `MAX_UNIDADES_POR_PISO` por encima de 26, este test falla y
+    avisa que la numeracion de dos letras pasa a ser alcanzable de verdad — o
+    sea que hay que revisar las pantallas que muestran identificadores, no solo
+    la constante.
+    """
+    estructura = finanzas.generar_estructura(
+        cantidad_pisos=1, unidades_por_piso=finanzas.MAX_UNIDADES_POR_PISO
+    )
 
     identificadores = [unidad.identificador for unidad in estructura[0].unidades]
-    assert identificadores[25] == "1Z"
-    assert identificadores[26] == "1AA"
-    assert identificadores[27] == "1AB"
-    assert len(set(identificadores)) == 28
+    assert all(len(ident) == len("1") + 1 for ident in identificadores)
 
 
 def test_el_orden_de_apilado_arranca_igual_al_numero_de_piso():
