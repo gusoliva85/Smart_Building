@@ -114,8 +114,12 @@ a{ color:inherit; }
   position:relative;
   overflow:hidden;
   background:var(--glass-shell-bg);
-  backdrop-filter:blur(var(--glass-shell-blur)) saturate(1.15);
-  -webkit-backdrop-filter:blur(var(--glass-shell-blur)) saturate(1.15);
+  /* La saturacion del backdrop subio de 1,15 a 1,35 el 2026-11-12. Es el
+     cambio mas efectivo de toda la revision y no toca ningun color: el vidrio
+     satura lo que tiene detras, asi que el fondo atmosferico se ve mas vivo
+     EN las superficies, que es donde se mira. */
+  backdrop-filter:blur(var(--glass-shell-blur)) saturate(1.35);
+  -webkit-backdrop-filter:blur(var(--glass-shell-blur)) saturate(1.35);
   border:1px solid var(--line);
   box-shadow:var(--glass-in), var(--sh-md);
 }
@@ -137,8 +141,11 @@ a{ color:inherit; }
    chips de activos, filas de listado, items del panel de detalle. */
 .content-glass{
   background:var(--glass-content-bg);
-  backdrop-filter:blur(var(--glass-content-blur));
-  -webkit-backdrop-filter:blur(var(--glass-content-blur));
+  /* El vidrio denso tambien satura lo que tiene detras, pero menos que el
+     shell (1,2 contra 1,35): debajo de este hay texto chico, y la saturacion
+     se nota mas cuanto mas se ve el fondo. */
+  backdrop-filter:blur(var(--glass-content-blur)) saturate(1.2);
+  -webkit-backdrop-filter:blur(var(--glass-content-blur)) saturate(1.2);
   border:1px solid var(--line-2);
   box-shadow:var(--glass-in);
 }
@@ -373,7 +380,9 @@ a{ color:inherit; }
   position:relative;            /* por encima del brillo */
   width:19px;
   height:19px;
-  stroke:#fff;                  /* blanco por contraste sobre el acento solido */
+  stroke:var(--sobre-acento);   /* mismo token que el texto del boton: sobre
+                                   el acento claro del tema oscuro, un trazo
+                                   blanco queda en 2,27:1 y no se ve */
 }
 
 .brand-text{ min-width:0; }
@@ -621,9 +630,16 @@ a{ color:inherit; }
   box-shadow:var(--glass-in);
   color:var(--ink-2);
   cursor:pointer;
-  transition:transform .18s ease-out, color .18s ease-out;
+  transition:transform .18s ease-out, color .18s ease-out,
+             border-color .18s ease-out;
 }
-.icon-btn:hover{ transform:translateY(-1px); color:var(--ink); }
+/* El icono toma el color de la marca al pasar por encima, no un gris mas
+   oscuro: es la misma senial que el resto de los elementos interactivos. */
+.icon-btn:hover{
+  transform:translateY(-1px);
+  color:var(--accent-2);
+  border-color:var(--accent-ring);
+}
 .icon-btn svg{ width:16px; height:16px; }
 
 /* Variante chica: una accion DENTRO de una fila de listado. El tamano de
@@ -712,18 +728,27 @@ a{ color:inherit; }
   border:0;
   border-radius:var(--r-sm);
   background:linear-gradient(155deg, var(--accent), var(--accent-2));
-  color:#fff;                         /* blanco por contraste sobre el acento
-                                         solido, no por tema: no cambia en oscuro */
+  /* El texto sobre el acento sale de un token y SI cambia con el tema.
+     Antes era #fff fijo, con el comentario "no cambia en oscuro": medido, en
+     oscuro daba 2,27:1 — el boton primario no se leia en todo el tema
+     oscuro. En claro el token es blanco (5,85:1) y en oscuro es tinta
+     (8,59:1). */
+  color:var(--sobre-acento);
   font-family:Outfit,ui-sans-serif,system-ui,sans-serif;
   font-size:14px;
   font-weight:700;
   cursor:pointer;
   box-shadow:0 6px 16px -8px rgba(var(--shadow-rgb),.6);
-  transition:transform .18s ease-out, box-shadow .18s ease-out, opacity .18s ease-out;
+  transition:transform .18s ease-out, box-shadow .18s ease-out,
+             filter .18s ease-out, opacity .18s ease-out;
 }
 .boton-primario:hover:not(:disabled){
   transform:translateY(-1px);
-  box-shadow:0 10px 22px -10px rgba(var(--shadow-rgb),.65);
+  box-shadow:0 10px 22px -10px rgba(var(--shadow-rgb),.7);
+  /* El hover ilumina el propio degrade en vez de cambiarlo de color: dos
+     puntos de saturacion y cuatro de brillo. Es suficiente para que el boton
+     responda y no inventa un segundo azul que habria que mantener. */
+  filter:saturate(1.08) brightness(1.04);
 }
 /* Los botones que disparan una llamada se deshabilitan mientras dura, y se
    rehabilitan pase lo que pase. */
@@ -1035,12 +1060,20 @@ a{ color:inherit; }
   flex-wrap:wrap;
   padding:12px 14px;
   border-radius:var(--r-sm);
-  transition:border-color .18s ease-out, transform .18s ease-out;
+  transition:border-color .18s ease-out, box-shadow .18s ease-out,
+             transform .18s ease-out;
 }
-/* Se ilumina el borde, no se levanta ni se agranda: una fila es parte de una
-   lista, y moverla descoloca visualmente a las de al lado. El hover sutil es
-   el lenguaje del proyecto; el rebote esta prohibido. */
-.fila-lista:hover{ border-color:var(--line); }
+/* Se ilumina el borde y aparece la sombra chica; NO se levanta ni se agranda:
+   una fila es parte de una lista, y moverla descoloca visualmente a las de al
+   lado. El hover sutil es el lenguaje del proyecto; el rebote esta prohibido.
+
+   El borde pasa a --line-strong y no a --line: con --line el cambio era de
+   .07 a .10 de opacidad, o sea tres centesimas, y practicamente no se veia —
+   un hover que no se nota es codigo que no hace nada. */
+.fila-lista:hover{
+  border-color:var(--line-strong);
+  box-shadow:var(--sh-sm);
+}
 
 /* El dato principal de la fila: nombre arriba, datos secundarios abajo.
    min-width:0 es lo que permite que un email largo se recorte en vez de
@@ -1613,7 +1646,11 @@ a{ color:inherit; }
   border:1px solid var(--line-2);
   background:color-mix(in oklab,var(--mix-tint) 35%,transparent);
 }
-.fila-hija-dato{ min-width:0; }
+/* flex:1 para que el dato se quede con el ancho sobrante y el campo del
+   coeficiente y los botones queden pegados a la derecha. Sin esto, con tres
+   hijos el space-between los separa en tres columnas y la fila se lee como
+   una tabla sin encabezados. */
+.fila-hija-dato{ min-width:0; flex:1 1 auto; }
 .fila-hija-dato b{
   display:block;
   font-size:13px;

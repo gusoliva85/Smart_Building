@@ -144,6 +144,20 @@
               el formulario de edición del edificio no está construido.
             </p>
             <div class="ficha-grid" data-ficha-identidad></div>
+
+            <!-- El mapa de la ubicación, debajo de los datos y arriba de los
+                 responsables. Es el mismo módulo del alta (`mapa.js`) y acá
+                 no se geocodifica nada: se muestra el punto que quedó
+                 guardado, que es la forma de verificar de un vistazo que el
+                 edificio está donde tiene que estar.
+
+                 Si no hay coordenadas no se dibuja un mapa vacío: se explica
+                 por qué no hay y cómo se completa. -->
+            <div class="mapa-contenedor" id="mapa-del-edificio" style="margin-top:10px">
+              <div class="mapa-vacio" data-mapa-detalle-vacio>
+                Sin ubicación cargada.
+              </div>
+            </div>
           </div>
 
           <div class="bloque">
@@ -214,26 +228,44 @@
         <div class="panel-pestania" data-panel="estructura" hidden>
 
           <!-- ==============================================================
-               COEFICIENTES (F1-T27).
+               PISOS, UNIDADES Y COEFICIENTES: UNA SOLA LISTA.
 
-               Va PRIMERO en la pestaña, arriba de los pisos, y es una
-               decisión: sin coeficientes cargados no se puede emitir una
-               sola expensa, y en la iteración anterior eso se descubrió tres
-               fases después. Lo primero que se ve al entrar a la estructura
-               de un edificio es si está en condiciones de liquidar.
+               Primero fueron dos bloques —uno de coeficientes con todas las
+               unidades y otro de pisos con las mismas unidades otra vez— y
+               estaba mal: la misma unidad aparecía dos veces en la misma
+               pantalla, así que había que buscar en cuál de las dos listas
+               estaba lo que se quería cambiar. Se unificó el 2026-11-11.
 
-               La suma vive en la pill del título, al lado del nombre del
-               bloque, y nunca comunica con el color solo: el texto dice el
-               porcentaje y cuántas unidades faltan.
+               La unidad es la fila, y en esa fila está todo lo suyo: su
+               superficie, sus ocupantes, su coeficiente editable y los
+               botones. Lo que queda arriba NO es la lista repetida: es el
+               estado del edificio —cuánto suman y si se puede liquidar— y las
+               dos acciones que se aplican a todas las unidades juntas.
                ============================================================== -->
           <div class="bloque">
             <h3 class="bloque-titulo">
-              Coeficientes
+              Pisos y unidades
               <span class="pill" data-pill-suma hidden></span>
             </h3>
             <p class="bloque-nota" data-nota-coeficientes></p>
+            <p class="bloque-nota">
+              Los pisos y las unidades se generaron en el alta. Acá se corrige y
+              se completa: la superficie de cada unidad, su propietario, su
+              inquilino y el coeficiente con el que paga su parte de la expensa.
+            </p>
+            <p class="bloque-nota">
+              Los coeficientes se pueden cargar de tres maneras: a mano, unidad
+              por unidad, que es la que refleja el reglamento del consorcio;
+              con un reparto automático —en partes iguales o por metro
+              cuadrado, que necesita las superficies cargadas—; o cargando
+              algunas a mano y completando el resto, que reparte lo que falta
+              para llegar a 100% entre las que quedaron en blanco y
+              <b>no toca ninguna de las que ya cargaste</b>.
+            </p>
 
             <div class="acciones-atajo">
+              <button type="button" class="boton-primario boton-secundario boton-chico"
+                      data-accion="nuevo-piso">Agregar piso</button>
               <button type="button" class="boton-primario boton-secundario boton-chico"
                       data-accion="atajo-partes-iguales">
                 Repartir en partes iguales
@@ -242,22 +274,15 @@
                       data-accion="atajo-metros">
                 Repartir por metro cuadrado
               </button>
+              <!-- Nace deshabilitado: solo tiene sentido cuando hay algo
+                   cargado y algo en blanco, y eso lo decide el JavaScript con
+                   el estado que manda el backend. -->
+              <button type="button" class="boton-primario boton-secundario boton-chico"
+                      data-accion="atajo-completar" disabled>
+                Completar el resto
+              </button>
             </div>
 
-            <div class="sub-lista" data-lista-coeficientes></div>
-          </div>
-
-          <div class="bloque">
-            <h3 class="bloque-titulo">
-              Pisos y unidades
-              <button type="button" class="boton-primario boton-secundario boton-chico"
-                      data-accion="nuevo-piso">Agregar piso</button>
-            </h3>
-            <p class="bloque-nota">
-              Los pisos y las unidades se generaron en el alta. Acá se corrige y
-              se completa: la superficie de cada unidad, su propietario y su
-              inquilino. El coeficiente se carga en su propia pantalla.
-            </p>
             <div class="sub-lista" data-lista-pisos></div>
           </div>
 

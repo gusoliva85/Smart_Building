@@ -29,7 +29,18 @@ from app.services import finanzas
 
 CRITERIO_PARTES_IGUALES = "partes_iguales"
 CRITERIO_METROS_CUADRADOS = "metros_cuadrados"
-CRITERIOS = (CRITERIO_PARTES_IGUALES, CRITERIO_METROS_CUADRADOS)
+
+# El tercer criterio no es un atajo como los otros dos: no calcula todas las
+# unidades, completa **solo las que estan en blanco** con lo que falta para
+# llegar a 100 y no toca ninguna de las cargadas. Por eso tampoco pide
+# confirmacion: no puede pisar nada.
+CRITERIO_COMPLETAR_EL_RESTO = "completar_el_resto"
+
+CRITERIOS = (
+    CRITERIO_PARTES_IGUALES,
+    CRITERIO_METROS_CUADRADOS,
+    CRITERIO_COMPLETAR_EL_RESTO,
+)
 
 
 def _coeficiente_valido(valor: Decimal) -> Decimal:
@@ -67,6 +78,11 @@ class AtajoDeCoeficientes(BaseModel):
     reglamento, y pisarlos con un calculo automatico es destruir el dato
     verdadero. Sin confirmacion explicita, el atajo se niega a tocar un edificio
     que ya tiene coeficientes.
+
+    **`sobrescribir` no aplica a `completar_el_resto`**, y es por construccion:
+    ese criterio solo escribe en las unidades que estan en blanco, asi que no
+    hay nada que pisar ni nada que confirmar. Mandarlo en `true` no cambia su
+    comportamiento.
     """
 
     model_config = ConfigDict(extra="forbid")

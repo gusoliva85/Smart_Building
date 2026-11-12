@@ -581,3 +581,184 @@ def test_el_coeficiente_no_entra_por_el_patch_de_la_estructura(cliente, como, db
     )
 
     assert respuesta.status_code == 422
+
+
+# ==========================================================================
+# COMPLETAR EL RESTO (observacion del 2026-11-11)
+#
+# El tercer criterio del endpoint de atajos. No es un atajo mas: completa solo
+# las unidades en blanco y no toca ninguna de las cargadas, asi que tampoco
+# pide confirmacion — no puede pisar nada.
+# ==========================================================================
+
+
+def _edificio_con_unidades(db, cantidad):
+    """Un edificio con N unidades, repartidas como las reparte el alta.
+
+    Hasta cuatro unidades van en un piso; de ahi en adelante, de a cuatro por
+    piso, que es la forma del edificio tipico de la cartera y la que usan el
+    resto de los tests de este archivo.
+    """
+    if cantidad > 4 and cantidad % 4 == 0:
+        pisos, por_piso = cantidad // 4, 4
+    else:
+        pisos, por_piso = 1, cantidad
+
+    edificio = _edificio(db, nombre=f"Consorcio de {cantidad} unidades")
+    unidades = _estructura(db, edificio, pisos=pisos, por_piso=por_piso)
+    return edificio, unidades
+
+
+def _completar(cliente, headers, edificio_id):
+    return cliente.post(
+        f"/api/edificios/{edificio_id}/coeficientes/aplicar-atajo",
+        json={"criterio": "completar_el_resto"},
+        headers=headers,
+    )
+
+
+def test_completar_el_resto_reparte_entre_las_que_estan_en_blanco(
+    cliente, db, como
+):
+    """El caso del usuario: cuatro unidades, dos al 30%, las otras dos al 20%."""
+    headers = como(autorizacion.ADMIN_GENERAL)
+    edificio, unidades = _edificio_con_unidades(db, cantidad=4)
+
+    for unidad in unidades[:2]:
+        unidad.coeficiente = Decimal("30.000")
+    db.commit()
+
+    respuesta = _completar(cliente, headers, edificio.id)
+
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.json()
+    assert cuerpo["suma"] == "100.000"
+    assert cuerpo["suma_cien"] is True
+    valores = [u["coeficiente"] for u in cuerpo["unidades"]]
+    assert valores == ["30.000", "30.000", "20.000", "20.000"]
+
+
+def test_completar_el_resto_no_toca_las_cargadas(cliente, db, como):
+    """Es la razon de ser del criterio: un coeficiente que salio del
+    reglamento no lo puede pisar un calculo automatico."""
+    headers = como(autorizacion.ADMIN_GENERAL)
+    edificio, unidades = _edificio_con_unidades(db, cantidad=3)
+
+    unidades[0].coeficiente = Decimal("51.234")
+    db.commit()
+
+    cuerpo = _completar(cliente, headers, edificio.id).json()
+
+    assert cuerpo["unidades"][0]["coeficiente"] == "51.234"
+    assert cuerpo["suma"] == "100.000"
+
+
+def test_completar_el_resto_no_pide_confirmacion(cliente, db, como):
+    """Los dos atajos devuelven 409 si hay algo cargado. Este no, porque no
+    puede pisar nada: pedir confirmacion seria preguntar por algo que no va a
+    pasar, y una pregunta que siempre se contesta igual se deja de leer."""
+    headers = como(autorizacion.ADMIN_GENERAL)
+    edificio, unidades = _edificio_con_unidades(db, cantidad=4)
+
+    unidades[0].coeficiente = Decimal("25.000")
+    db.commit()
+
+    assert _completar(cliente, headers, edificio.id).status_code == 200
+
+
+def test_sin_nada_cargado_completar_el_resto_es_partes_iguales(cliente, db, como):
+    """Con todas en blanco, el resto es 100% y se reparte entre todas: el
+    mismo resultado que el atajo de partes iguales, por el mismo metodo."""
+    headers = como(autorizacion.ADMIN_GENERAL)
+    edificio, _ = _edificio_con_unidades(db, cantidad=28)
+
+    cuerpo = _completar(cliente, headers, edificio.id).json()
+
+    assert cuerpo["suma"] == "100.000"
+    assert sorted({u["coeficiente"] for u in cuerpo["unidades"]}) == [
+        "3.571",
+        "3.572",
+    ]
+
+
+def test_sin_unidades_en_blanco_explica_que_no_queda_resto(cliente, db, como):
+    headers = como(autorizacion.ADMIN_GENERAL)
+    edificio, unidades = _edificio_con_unidades(db, cantidad=2)
+
+    for unidad in unidades:
+        unidad.coeficiente = Decimal("50.000")
+    db.commit()
+
+    respuesta = _completar(cliente, headers, edificio.id)
+
+    assert respuesta.status_code == 400
+    assert "no queda" in respuesta.json()["detail"].lower()
+
+
+def test_si_lo_cargado_ya_suma_cien_no_se_completa_con_ceros(cliente, db, como):
+    """A las que faltan les tocaria 0%, que es un dato inventado. El mensaje
+    nombra la salida real: si son exentas, se les carga 0 a mano."""
+    headers = como(autorizacion.ADMIN_GENERAL)
+    edificio, unidades = _edificio_con_unidades(db, cantidad=3)
+
+    unidades[0].coeficiente = Decimal("40.000")
+    unidades[1].coeficiente = Decimal("60.000")
+    db.commit()
+
+    respuesta = _completar(cliente, headers, edificio.id)
+
+    assert respuesta.status_code == 400
+    assert "0%" in respuesta.json()["detail"]
+    # No escribio nada: la unidad en blanco sigue en blanco.
+    db.refresh(unidades[2])
+    assert unidades[2].coeficiente is None
+
+
+def test_si_lo_cargado_pasa_de_cien_lo_dice_con_el_numero(cliente, db, como):
+    headers = como(autorizacion.ADMIN_GENERAL)
+    edificio, unidades = _edificio_con_unidades(db, cantidad=3)
+
+    unidades[0].coeficiente = Decimal("60.000")
+    unidades[1].coeficiente = Decimal("60.000")
+    db.commit()
+
+    respuesta = _completar(cliente, headers, edificio.id)
+
+    assert respuesta.status_code == 400
+    assert "120.000" in respuesta.json()["detail"]
+
+
+def test_completar_el_resto_es_idempotente_en_la_suma(cliente, db, como):
+    """Aplicarlo y volver a aplicarlo no cambia nada: la segunda vez ya no
+    quedan unidades en blanco, asi que contesta 400 y la suma sigue en 100."""
+    headers = como(autorizacion.ADMIN_GENERAL)
+    edificio, unidades = _edificio_con_unidades(db, cantidad=4)
+
+    unidades[0].coeficiente = Decimal("10.000")
+    db.commit()
+
+    primera = _completar(cliente, headers, edificio.id)
+    assert primera.json()["suma"] == "100.000"
+
+    segunda = _completar(cliente, headers, edificio.id)
+    assert segunda.status_code == 400
+
+    estado = cliente.get(
+        f"/api/edificios/{edificio.id}/coeficientes", headers=headers
+    ).json()
+    assert estado["suma"] == "100.000"
+
+
+def test_un_criterio_que_no_existe_sigue_dando_422(cliente, db, como):
+    """La lista de criterios creció a tres: el validador tiene que seguir
+    rechazando lo que no esté en ella."""
+    headers = como(autorizacion.ADMIN_GENERAL)
+    edificio, _ = _edificio_con_unidades(db, cantidad=2)
+
+    respuesta = cliente.post(
+        f"/api/edificios/{edificio.id}/coeficientes/aplicar-atajo",
+        json={"criterio": "lo_que_se_me_ocurra"},
+        headers=headers,
+    )
+
+    assert respuesta.status_code == 422

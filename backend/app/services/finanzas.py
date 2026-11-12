@@ -227,6 +227,70 @@ def calcular_partes_iguales(cantidad_unidades: int) -> tuple[Decimal, ...]:
     )
 
 
+def resto_por_repartir(coeficientes_cargados: Sequence[Decimal]) -> Decimal:
+    """Cuanto falta para llegar a 100, dado lo que ya esta cargado.
+
+    Puede dar negativo —las unidades cargadas ya pasan el 100%— y eso no es un
+    error de esta funcion: es un dato que quien llama tiene que poder mirar
+    para explicarlo. Por eso devuelve el numero en vez de levantar una
+    excepcion.
+    """
+    cargado = sum(coeficientes_cargados, Decimal(0)).quantize(PASO_COEFICIENTE)
+    return (TOTAL_COEFICIENTES - cargado).quantize(PASO_COEFICIENTE)
+
+
+def completar_el_resto(
+    resto: Decimal,
+    cantidad_en_blanco: int,
+) -> tuple[Decimal, ...]:
+    """Reparte lo que falta entre las unidades que todavia estan en blanco.
+
+    ========================================================================
+    POR QUE ESTE REPARTO ES DISTINTO DE LOS DOS ATAJOS
+    ========================================================================
+
+    Los atajos calculan **todas** las unidades y pisan lo que haya. Esto
+    completa **solo las vacias** y no toca ni una de las cargadas, que es lo
+    que lo vuelve seguro para el caso real: los coeficientes de un consorcio
+    estan en el reglamento de propiedad horizontal y se copian de a uno. Con
+    cuatro unidades y dos cargadas al 30%, falta repartir 40% entre las otras
+    dos: 20% cada una.
+
+    **Y no hace falta recordar cual edito una persona y cual calculo el
+    sistema.** "Estar en blanco" es un estado real de la base —la columna es
+    anulable— asi que sobrevive a recargar la pagina, a cerrar el navegador y a
+    que lo siga otra persona mañana. Una marca de "esto lo toque yo" guardada
+    en la pantalla se pierde con la pestaña, y guardada en la base seria una
+    columna nueva que hay que mantener para siempre.
+
+    El reparto usa el mismo metodo del resto mayor que los atajos, asi que la
+    suma final da **exactamente** 100,000%: si 40% no divide en tres unidades,
+    una queda en 13,334 y las otras dos en 13,333, y no hay un paso perdido.
+    """
+    if cantidad_en_blanco < 1:
+        raise ValueError(
+            "No hay unidades en blanco: no queda nada que completar."
+        )
+
+    if resto < 0:
+        raise ValueError(
+            "Las unidades cargadas ya pasan el 100%: no hay resto que repartir."
+        )
+
+    if resto == 0:
+        raise ValueError(
+            "Las unidades cargadas ya suman 100%: no queda resto que repartir."
+        )
+
+    pasos_del_resto = int(
+        (resto * 10 ** DECIMALES_COEFICIENTE).to_integral_value()
+    )
+
+    return _pasos_a_coeficientes(
+        _repartir_pasos([Fraction(1)] * cantidad_en_blanco, pasos_del_resto)
+    )
+
+
 def calcular_por_metros_cuadrados(
     metros_cuadrados: Sequence[Decimal | int | str],
 ) -> tuple[Decimal, ...]:
@@ -288,8 +352,15 @@ def validar_coeficientes(coeficientes: Sequence[Decimal | int | str]) -> bool:
 # ==========================================================================
 
 
-def _repartir_pasos(pesos: Sequence[Fraction]) -> tuple[int, ...]:
-    """Reparte `PASOS_EN_EL_TOTAL` entre varios pesos, sin perder ni un paso.
+def _repartir_pasos(
+    pesos: Sequence[Fraction],
+    pasos_a_repartir: int = PASOS_EN_EL_TOTAL,
+) -> tuple[int, ...]:
+    """Reparte `pasos_a_repartir` entre varios pesos, sin perder ni un paso.
+
+    Por defecto reparte el total (los 100.000 pasos de 0,001 que son el 100%),
+    que es lo que hacen los dos atajos. `completar_el_resto` le pasa menos: los
+    pasos que quedan libres despues de las unidades ya cargadas.
 
     Es el metodo del **resto mayor**, el mismo con el que se reparten escaños
     por cantidad de votos: a cada uno le toca la parte entera de lo que le
@@ -308,10 +379,10 @@ def _repartir_pasos(pesos: Sequence[Fraction]) -> tuple[int, ...]:
     ordenadas en memoria.
     """
     total = sum(pesos)
-    exactos = [Fraction(PASOS_EN_EL_TOTAL) * peso / total for peso in pesos]
+    exactos = [Fraction(pasos_a_repartir) * peso / total for peso in pesos]
 
     pasos = [int(exacto) for exacto in exactos]
-    sobrantes = PASOS_EN_EL_TOTAL - sum(pasos)
+    sobrantes = pasos_a_repartir - sum(pasos)
 
     orden = sorted(
         range(len(exactos)),

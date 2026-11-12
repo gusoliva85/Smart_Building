@@ -64,6 +64,8 @@
   var opciones = null;      /* catalogos y topes, se piden una sola vez */
   var asignables = null;    /* candidatos por rol para los desplegables */
   var formularioAbierto = null;  /* el que guarda el modal generico */
+  var mapa = null;          /* el controlador de mapa.js, una sola vez */
+  var mapaFallo = false;    /* el CDN no cargo: no se reintenta en loop */
   var ultimoFoco = null;
 
   /* ------------------------------------------------------------ utilidades -- */
@@ -283,6 +285,7 @@
       htmlDeDato('Estado', edificio.activo ? 'Activo' : 'Inactivo');
 
     pintarResponsables();
+    pintarMapaDelEdificio();
 
     pantalla.emergenciaNombre.value = edificio.contacto_emergencia_nombre || '';
     pantalla.emergenciaTelefono.value = edificio.contacto_emergencia_telefono || '';
@@ -311,6 +314,63 @@
     var persona = candidato(lista, id);
     if (persona) return persona.nombre + ' · ' + persona.email;
     return 'Usuario #' + id + ' (cuenta desactivada)';
+  }
+
+  /* El mapa de la ubicacion, en la pestaña Datos.
+
+     Es el mismo modulo que usa el alta (`mapa.js`) y aca no geocodifica nada:
+     muestra el punto que quedo guardado. Sirve para verificar de un vistazo
+     que el edificio esta donde tiene que estar — un par de coordenadas en una
+     ficha no se puede verificar mirandolo, un pin en una esquina si.
+
+     Se monta tarde, igual que en el alta: son unos 160 KB de Leaflet que no
+     hacen falta si quien entra va directo a la pestaña de Estructura. Y se
+     remide cada vez que se vuelve a la pestaña, porque Leaflet mide su
+     contenedor al crearse y un contenedor oculto mide cero.
+
+     Si no hay coordenadas no se monta nada: se explica por que no hay. */
+  function pintarMapaDelEdificio() {
+    var edificio = detalle.edificio;
+    var hayUbicacion = edificio.latitud !== null && edificio.longitud !== null;
+
+    if (!hayUbicacion) {
+      pantalla.mapaVacio.textContent =
+        'No se encontró esta dirección en el mapa cuando se dio de alta el ' +
+        'edificio, así que no quedaron coordenadas guardadas. No es un ' +
+        'problema para operar: se usan en los reportes y en el dashboard.';
+      pantalla.mapaVacio.hidden = false;
+      return;
+    }
+
+    if (mapaFallo) return;
+
+    var latitud = Number(edificio.latitud);
+    var longitud = Number(edificio.longitud);
+
+    if (mapa) {
+      pantalla.mapaVacio.hidden = true;
+      mapa.ubicar(latitud, longitud);
+      return;
+    }
+
+    window.Mapa.montar(pantalla.contenedorMapa).then(
+      function (control) {
+        mapa = control;
+        pantalla.mapaVacio.hidden = true;
+        mapa.ubicar(latitud, longitud);
+        mapa.remedir();
+      },
+      function () {
+        /* El CDN no cargo. No se reintenta en cada cambio de pestaña, y sobre
+           todo no se muestra un error: el mapa es una verificacion visual, no
+           un dato que falte. */
+        mapaFallo = true;
+        pantalla.mapaVacio.textContent =
+          'No se pudo cargar el mapa. Las coordenadas guardadas son ' +
+          conComa(edificio.latitud) + ', ' + conComa(edificio.longitud) + '.';
+        pantalla.mapaVacio.hidden = false;
+      }
+    );
   }
 
   function pintarResponsables() {
@@ -411,18 +471,41 @@
     if (propietario) secundarios.push('Propietario: ' + propietario);
     if (inquilino) secundarios.push('Inquilino: ' + inquilino);
     if (!propietario && !inquilino) secundarios.push('sin ocupantes');
+    if (unidad.coeficiente === null) secundarios.push('sin coeficiente');
 
-    /* El coeficiente NO se muestra acá, y es deliberado desde `F1-T27`: tiene
-       su propio bloque arriba, con su campo editable y la suma en vivo. Un
-       dato que se muestra en dos lugares de la misma pantalla es un dato que
-       en algun momento se muestra distinto en los dos — bastaria con que una
-       de las dos listas no se redibuje despues de un cambio. */
+    /* El coeficiente se edita ACA, en la fila de la unidad, y no en una
+       segunda lista.
 
-    return '<div class="fila-hija' + (unidad.ocupado ? '' : ' libre') + '">' +
+       Primero estuvo en un bloque aparte que listaba todas las unidades otra
+       vez, y estaba mal: la misma unidad aparecia dos veces en la misma
+       pantalla y habia que buscar en cual de las dos listas estaba lo que se
+       queria cambiar. La unidad es la fila, y en la fila va todo lo suyo.
+
+       Lo que SI queda arriba es el estado del edificio —cuanto suman y si se
+       puede liquidar— y las dos acciones que se aplican a todas las unidades
+       juntas. Eso no es la lista repetida: es lo que no se puede leer unidad
+       por unidad. */
+    var campoDelCoeficiente =
+      '<div class="campo-coeficiente">' +
+        /* `step` en 0,001 y no en 0,01: es la precision real de la columna, y
+           las flechitas del navegador tienen que moverse en la unidad en la
+           que el dato existe. */
+        '<input type="number" inputmode="decimal" step="0.001" min="0" max="100" ' +
+          'data-coeficiente-de="' + unidad.id + '" ' +
+          'aria-label="Coeficiente de la unidad ' +
+            textoSeguro(unidad.identificador) + '" ' +
+          'value="' + (unidad.coeficiente === null
+                        ? '' : textoSeguro(unidad.coeficiente)) + '">' +
+        '<span>%</span>' +
+      '</div>';
+
+    return '<div class="fila-hija' + (unidad.ocupado ? '' : ' libre') +
+             (unidad.coeficiente === null ? ' sin-coeficiente' : '') + '">' +
              '<div class="fila-hija-dato">' +
                '<b>' + textoSeguro(unidad.identificador) + '</b>' +
                '<span>' + textoSeguro(secundarios.join(' · ')) + '</span>' +
              '</div>' +
+             campoDelCoeficiente +
              botonesDeFila([
                botonIcono('editar-unidad', unidad.id,
                           'Editar la unidad ' + unidad.identificador, ICONO_LAPIZ),
@@ -553,48 +636,40 @@
     pantalla.notaCoeficientes.textContent = estado.mensaje;
   }
 
-  function htmlDeFilaDeCoeficiente(unidad) {
-    var secundarios = ['Piso ' + unidad.piso_numero];
-    if (unidad.m2 !== null) secundarios.push(conComa(unidad.m2) + ' m²');
-    else secundarios.push('sin superficie');
-    if (unidad.coeficiente === null) secundarios.push('sin cargar');
-
-    return '<div class="fila-hija' +
-             (unidad.coeficiente === null ? ' sin-coeficiente' : '') + '">' +
-             '<div class="fila-hija-dato">' +
-               '<b>' + textoSeguro(unidad.identificador) + '</b>' +
-               '<span>' + textoSeguro(secundarios.join(' · ')) + '</span>' +
-             '</div>' +
-             '<div class="campo-coeficiente">' +
-               /* `step` en 0,001 y no en 0,01: es la precision real de la
-                  columna, y las flechitas del navegador tienen que moverse en
-                  la unidad en la que el dato existe. */
-               '<input type="number" inputmode="decimal" step="0.001" ' +
-                 'min="0" max="100" ' +
-                 'data-coeficiente-de="' + unidad.id + '" ' +
-                 'aria-label="Coeficiente de la unidad ' +
-                   textoSeguro(unidad.identificador) + '" ' +
-                 'value="' + (unidad.coeficiente === null
-                               ? '' : textoSeguro(unidad.coeficiente)) + '">' +
-               '<span>%</span>' +
-             '</div>' +
-           '</div>';
-  }
-
+  /* Las unidades ya se dibujan en la lista de pisos, con su campo de
+     coeficiente adentro. Lo unico que queda para este modulo es el estado del
+     edificio y habilitar o deshabilitar los dos atajos. */
   function pintarCoeficientes() {
     pintarEstadoDeLaSuma();
-
-    pantalla.listaCoeficientes.innerHTML = coeficientes.unidades.length
-      ? coeficientes.unidades.map(htmlDeFilaDeCoeficiente).join('')
-      : '<div class="lista-vacia"><b>Todavía no hay unidades</b>' +
-        'Los coeficientes se cargan sobre las unidades, así que primero hay ' +
-        'que crearlas en el bloque de abajo.</div>';
 
     /* Sin unidades no hay nada que repartir, y el backend devuelve 400. Los
        botones se deshabilitan para no ofrecer una accion que va a fallar. */
     var sinUnidades = coeficientes.unidades.length === 0;
     pantalla.botonPartesIguales.disabled = sinUnidades;
     pantalla.botonMetros.disabled = sinUnidades;
+
+    /* "Completar el resto" se habilita solo cuando tiene sentido: hace falta
+       al menos una unidad cargada —de donde sale cuanto falta— y al menos una
+       en blanco —donde escribirlo—. Con todas en blanco no se habilita, aunque
+       el backend lo aceptaria: ahi el resto es 100% y el resultado seria
+       identico a "repartir en partes iguales", asi que dos botones que hacen
+       exactamente lo mismo solo generan la duda de en que se diferencian.
+
+       El `title` dice POR QUE esta deshabilitado. Un boton gris sin
+       explicacion es la clase de cosa que se interpreta como que la pantalla
+       esta rota. */
+    var enBlanco = coeficientes.unidades_sin_coeficiente;
+    var cargadas = coeficientes.cantidad_unidades - enBlanco;
+
+    pantalla.botonCompletar.disabled = !(cargadas > 0 && enBlanco > 0);
+    pantalla.botonCompletar.title = pantalla.botonCompletar.disabled
+      ? (enBlanco === 0
+          ? 'Todas las unidades ya tienen coeficiente: no queda resto que completar.'
+          : 'Cargá al menos un coeficiente a mano y esto reparte lo que falta ' +
+            'entre las unidades que queden en blanco.')
+      : 'Reparte lo que falta para llegar a 100% entre las ' + enBlanco +
+        (enBlanco === 1 ? ' unidad que está' : ' unidades que están') +
+        ' en blanco. No toca las que ya cargaste.';
   }
 
   /* Guarda el coeficiente de UNA unidad.
@@ -618,7 +693,7 @@
         'Si quedó cargado por error, poné 0: eso es una unidad exenta, que es ' +
         'un caso real y distinto de un dato que falta.'
       );
-      pintarCoeficientes();
+      pintarEstructura();
       return;
     }
 
@@ -648,13 +723,20 @@
           campo.value = unidad.coeficiente;
           var fila = campo.closest('.fila-hija');
           if (fila) fila.classList.remove('sin-coeficiente');
+
+          /* La copia en memoria del detalle tambien se actualiza: es de donde
+             sale el valor cuando la lista de pisos se redibuja por cualquier
+             otro motivo —agregar una cochera, por ejemplo— y si quedara vieja,
+             ese redibujado volveria a mostrar el coeficiente anterior. */
+          var enDetalle = unidadPorId(id);
+          if (enDetalle) enDetalle.coeficiente = unidad.coeficiente;
         }
       },
       function (error) {
         errorDelDetalle(error.message);
         /* El valor vuelve al que estaba guardado: dejar en el campo un numero
            que el servidor rechazo haria creer que quedo cargado. */
-        pintarCoeficientes();
+        pintarEstructura();
       }
     ).then(function () {
       campo.disabled = false;
@@ -684,7 +766,9 @@
 
     var textoOriginal = boton.textContent;
     boton.disabled = true;
-    boton.textContent = 'Repartiendo…';
+    boton.textContent = criterio === 'completar_el_resto'
+      ? 'Completando…'
+      : 'Repartiendo…';
 
     function pedir(sobrescribir) {
       return window.Api.post(
@@ -695,7 +779,17 @@
 
     function listo(estado) {
       coeficientes = estado;
+
+      /* El atajo toca TODAS las unidades, asi que la copia en memoria del
+         detalle queda vieja entera: se actualiza con lo que respondio el
+         backend antes de redibujar la lista. */
+      estado.unidades.forEach(function (unidad) {
+        var enDetalle = unidadPorId(unidad.id);
+        if (enDetalle) enDetalle.coeficiente = unidad.coeficiente;
+      });
+
       pintarCoeficientes();
+      pintarEstructura();
       avisarExito(
         estado.suma_cien
           ? 'Se repartieron los coeficientes: suman ' + conComa(estado.suma) +
@@ -1465,6 +1559,12 @@
     Array.prototype.forEach.call(pantalla.paneles, function (panel) {
       panel.hidden = panel.dataset.panel !== vista;
     });
+
+    /* Leaflet mide su contenedor una sola vez, al crearse. Si el mapa se monto
+       mientras esta pestaña estaba oculta —o si la ventana cambio de tamaño
+       mientras se miraba otra— queda gris con los mosaicos a medio cargar.
+       Remedirlo al volver es una linea y ataja todos esos casos juntos. */
+    if (vista === 'datos' && mapa) mapa.remedir();
   }
 
   function engancharPestanias() {
@@ -1507,7 +1607,8 @@
       'atajo-partes-iguales': function () {
         aplicarAtajo('partes_iguales', boton);
       },
-      'atajo-metros': function () { aplicarAtajo('metros_cuadrados', boton); }
+      'atajo-metros': function () { aplicarAtajo('metros_cuadrados', boton); },
+      'atajo-completar': function () { aplicarAtajo('completar_el_resto', boton); }
     };
 
     var accion = acciones[boton.dataset.accion];
@@ -1537,12 +1638,15 @@
       emergenciaNombre: document.getElementById('campo-emergencia-nombre'),
       emergenciaTelefono: document.getElementById('campo-emergencia-telefono'),
 
+      contenedorMapa: document.getElementById('mapa-del-edificio'),
+      mapaVacio: document.querySelector('[data-mapa-detalle-vacio]'),
+
       pillSuma: document.querySelector('[data-pill-suma]'),
       notaCoeficientes: document.querySelector('[data-nota-coeficientes]'),
-      listaCoeficientes: document.querySelector('[data-lista-coeficientes]'),
       botonPartesIguales:
         document.querySelector('[data-accion="atajo-partes-iguales"]'),
       botonMetros: document.querySelector('[data-accion="atajo-metros"]'),
+      botonCompletar: document.querySelector('[data-accion="atajo-completar"]'),
 
       listaPisos: document.querySelector('[data-lista-pisos]'),
       listaCocheras: document.querySelector('[data-lista-cocheras]'),
@@ -1583,11 +1687,12 @@
 
     pantalla.panelEstructura.addEventListener('click', alHacerClicEnLaEstructura);
 
-    /* Un solo listener para los veinte campos de coeficiente, por delegacion:
-       la lista se reemplaza entera con innerHTML en cada recarga, asi que los
-       listeners puestos campo por campo se perderian. `change` burbujea, al
-       contrario de `focus` y `blur`, asi que delegar funciona. */
-    pantalla.listaCoeficientes.addEventListener('change', function (evento) {
+    /* Un solo listener para los veinte campos de coeficiente, por delegacion
+       en la lista de pisos: la lista se reemplaza entera con innerHTML en cada
+       recarga, asi que los listeners puestos campo por campo se perderian.
+       `change` burbujea, al contrario de `focus` y `blur`, asi que delegar
+       funciona. */
+    pantalla.listaPisos.addEventListener('change', function (evento) {
       var campo = evento.target.closest('[data-coeficiente-de]');
       if (campo) guardarCoeficiente(campo);
     });
@@ -1600,7 +1705,7 @@
        esto, Enter no dispararia `change` hasta que el campo pierda el foco de
        otra forma, y quien carga veinte coeficientes apretando Enter no veria
        actualizarse la suma. */
-    pantalla.listaCoeficientes.addEventListener('keydown', function (evento) {
+    pantalla.listaPisos.addEventListener('keydown', function (evento) {
       if (evento.key !== 'Enter') return;
       var campo = evento.target.closest('[data-coeficiente-de]');
       if (!campo) return;
@@ -1636,6 +1741,8 @@
     enganchar();
 
     pantalla.listaPisos.innerHTML =
+      '<div class="lista-vacia">' + window.Cargando.html() + '</div>';
+    pantalla.fichaIdentidad.innerHTML =
       '<div class="lista-vacia">' + window.Cargando.html() + '</div>';
 
     cargarTodo();

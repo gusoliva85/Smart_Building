@@ -340,3 +340,83 @@ def test_los_dos_atajos_pasan_su_propia_validacion():
     assert finanzas.validar_coeficientes(
         finanzas.calcular_por_metros_cuadrados([str(40 + i) for i in range(28)])
     )
+
+
+# ==========================================================================
+# COMPLETAR EL RESTO ENTRE LAS UNIDADES EN BLANCO
+#
+# El caso que lo motiva, dicho por el usuario: cuatro unidades, dos cargadas
+# al 30% cada una, falta repartir 40% entre las otras dos, o sea 20% a cada
+# una. La diferencia con los dos atajos es que esto **no toca** las cargadas.
+# ==========================================================================
+
+
+def test_el_resto_es_lo_que_falta_para_cien():
+    resto = finanzas.resto_por_repartir([Decimal("30.000"), Decimal("30.000")])
+
+    assert resto == Decimal("40.000")
+
+
+def test_sin_nada_cargado_el_resto_es_todo():
+    assert finanzas.resto_por_repartir([]) == Decimal("100.000")
+
+
+def test_el_resto_puede_dar_negativo_y_no_es_un_error_de_la_funcion():
+    """Devuelve el numero en vez de levantar: quien llama tiene que poder
+    mirarlo para explicar que las cargadas ya pasan el 100%."""
+    resto = finanzas.resto_por_repartir([Decimal("60.000"), Decimal("60.000")])
+
+    assert resto == Decimal("-20.000")
+
+
+def test_el_caso_del_usuario_cuatro_unidades_dos_al_treinta():
+    resto = finanzas.resto_por_repartir([Decimal("30.000"), Decimal("30.000")])
+
+    partes = finanzas.completar_el_resto(resto, 2)
+
+    assert partes == (Decimal("20.000"), Decimal("20.000"))
+
+
+def test_el_resto_que_no_divide_exacto_igual_cierra():
+    """40% entre tres unidades es 13,333... y una tiene que quedar en 13,334,
+    o se pierde un paso y el edificio nunca suma 100."""
+    partes = finanzas.completar_el_resto(Decimal("40.000"), 3)
+
+    assert sum(partes) == Decimal("40.000")
+    assert sorted(set(partes)) == [Decimal("13.333"), Decimal("13.334")]
+
+
+def test_completar_el_resto_mas_lo_cargado_da_cien_exacto():
+    cargados = [Decimal("12.500"), Decimal("7.250"), Decimal("0.000")]
+    resto = finanzas.resto_por_repartir(cargados)
+
+    partes = finanzas.completar_el_resto(resto, 7)
+
+    assert sum(cargados) + sum(partes) == finanzas.TOTAL_COEFICIENTES
+    assert finanzas.validar_coeficientes(list(cargados) + list(partes))
+
+
+def test_el_sobrante_se_reparte_de_a_un_paso_tambien_en_el_resto():
+    """Mismo criterio que los atajos: nadie queda a mas de 0,001 de su vecino.
+    Un coeficiente es permanente, asi que una unidad con el sobrante entero
+    pagaria esa diferencia todos los meses."""
+    partes = finanzas.completar_el_resto(Decimal("10.000"), 3)
+
+    assert max(partes) - min(partes) == finanzas.PASO_COEFICIENTE
+
+
+def test_sin_unidades_en_blanco_no_hay_nada_que_completar():
+    with pytest.raises(ValueError):
+        finanzas.completar_el_resto(Decimal("40.000"), 0)
+
+
+def test_no_se_completa_un_resto_de_cero():
+    """A las unidades en blanco les tocaria 0%, que es un dato inventado y no
+    un dato que falte: lo rechaza y quien llama lo explica."""
+    with pytest.raises(ValueError):
+        finanzas.completar_el_resto(Decimal("0.000"), 3)
+
+
+def test_no_se_completa_un_resto_negativo():
+    with pytest.raises(ValueError):
+        finanzas.completar_el_resto(Decimal("-5.000"), 3)

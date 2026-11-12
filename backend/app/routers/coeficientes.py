@@ -4,7 +4,8 @@ Tres endpoints, todos bajo ``/api/edificios/{edificio_id}``:
 
 - ``GET  /coeficientes`` — como esta el edificio: cuanto suman y que falta
 - ``PATCH /departamentos/{id}/coeficiente`` — carga manual, unidad por unidad
-- ``POST /coeficientes/aplicar-atajo`` — los atajos de `F1-T17` a todo el edificio
+- ``POST /coeficientes/aplicar-atajo`` — los atajos de `F1-T17` a todo el
+  edificio, y el completado del resto entre las unidades en blanco
 
 ============================================================================
 POR QUE ESTA TAREA ES PRERREQUISITO DE TODA LA FASE 2
@@ -66,6 +67,7 @@ from app.models.edificio import Departamento, Edificio, Piso
 from app.routers.edificios import buscar_edificio_que_administra
 from app.routers.estructura import buscar_departamento
 from app.schemas.coeficientes import (
+    CRITERIO_COMPLETAR_EL_RESTO,
     CRITERIO_METROS_CUADRADOS,
     AtajoDeCoeficientes,
     CoeficienteCargar,
@@ -241,6 +243,81 @@ def cargar(
     return _armar_estado(_unidades_ordenadas(db, edificio))
 
 
+def _completar_el_resto(
+    db: Session,
+    edificio: Edificio,
+    unidades: list[Departamento],
+    quien_edita,
+) -> EstadoDeCoeficientes:
+    """Reparte lo que falta para 100 entre las unidades que estan en blanco.
+
+    Las tres razones por las que puede no hacerse —no quedan unidades en
+    blanco, lo cargado ya suma 100, o lo cargado pasa de 100— dan mensajes
+    distintos a proposito. Son tres situaciones que se resuelven de maneras
+    distintas, y un unico "no se pudo completar el resto" obligaria a ir a
+    sumar los coeficientes a mano para saber cual de las tres es.
+    """
+    en_blanco = [u for u in unidades if u.coeficiente is None]
+    cargados = [u.coeficiente for u in unidades if u.coeficiente is not None]
+
+    if not en_blanco:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Todas las unidades ya tienen coeficiente, así que no queda "
+                "resto que completar. Si querés recalcularlos todos, usá el "
+                "reparto en partes iguales o por metro cuadrado."
+            ),
+        )
+
+    resto = finanzas.resto_por_repartir(cargados)
+
+    if resto < 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Las unidades que ya tienen coeficiente suman "
+                f"{-resto + finanzas.TOTAL_COEFICIENTES}%, o sea más de 100%. "
+                "Corregí alguna antes de completar el resto."
+            ),
+        )
+
+    if resto == 0:
+        cuantas = len(en_blanco)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Las unidades que ya tienen coeficiente suman 100%, así que a "
+                f"{'la unidad' if cuantas == 1 else f'las {cuantas} unidades'} "
+                f"que {'falta' if cuantas == 1 else 'faltan'} "
+                f"{'le' if cuantas == 1 else 'les'} tocaría 0%. Si "
+                f"{'es una unidad exenta' if cuantas == 1 else 'son unidades exentas'} "
+                "—el departamento del encargado suele serlo— cargale 0 a mano; "
+                "si no, hay algún coeficiente de más en las otras."
+            ),
+        )
+
+    # Las cuentas las hace el servicio, igual que los dos atajos: reparte los
+    # pasos que faltan por resto mayor, asi que la suma final da 100,000% por
+    # construccion y no por redondeo afortunado.
+    calculados = finanzas.completar_el_resto(resto, len(en_blanco))
+
+    for unidad, coeficiente in zip(en_blanco, calculados, strict=True):
+        unidad.coeficiente = coeficiente
+
+    _guardar(db, f"completar el resto del edificio {edificio.id}")
+
+    logger.info(
+        "Resto de %s%% repartido entre %d unidades del edificio %s por %s",
+        resto,
+        len(en_blanco),
+        edificio.id,
+        quien_edita.email,
+    )
+
+    return _armar_estado(_unidades_ordenadas(db, edificio))
+
+
 @router.post(
     "/{edificio_id}/coeficientes/aplicar-atajo",
     response_model=EstadoDeCoeficientes,
@@ -275,6 +352,16 @@ def aplicar_atajo(
         )
 
     unidades = [departamento for departamento, _ in filas]
+
+    # ------------------------------------------------- completar el resto ---
+    #
+    # Va ANTES del chequeo del 409, y es la diferencia de fondo entre este
+    # criterio y los otros dos: este no pisa nada, asi que no hay nada que
+    # confirmar. Pedir confirmacion aca seria preguntar por algo que no va a
+    # pasar, y una pregunta que siempre se contesta igual es una pregunta que
+    # se deja de leer.
+    if datos.criterio == CRITERIO_COMPLETAR_EL_RESTO:
+        return _completar_el_resto(db, edificio, unidades, quien_edita)
 
     # El 409 es el codigo de "necesito que confirmes" en este proyecto: el
     # envoltorio de `fetch` del frontend lo convierte en

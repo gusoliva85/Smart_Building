@@ -8,21 +8,22 @@ Valores exactos del contrato visual. Ninguna pantalla nueva inventa un color: si
 :root{
   /* Neutros y superficies */
   --bg-1:#f0f2f4; --bg-2:#e8ebed;
-  --wash-a:#cde0eb; --wash-b:#ebe2cb;      /* manchas de color radiales detrás del vidrio, ver "Fondo de página" */
+  --wash-a:#c6e1f1; --wash-b:#efe2c0;      /* manchas de color radiales detrás del vidrio, ver "Fondo de página" */
   --ink:#1c2024;    --ink-2:#4b5157;
-  --ink-3:#7c828a;  --ink-4:#a8adb3;
+  --ink-3:#6b7280;  --ink-4:#a8adb3;        /* --ink-3 se oscureció el 2026-11-12: antes no llegaba a 4,5:1 */
   --line:rgba(28,32,36,.10); --line-2:rgba(28,32,36,.07); --line-strong:rgba(28,32,36,.16);
 
   /* Vidrio — dos niveles, ver SKILL.md "Vidrio en dos capas" */
-  --glass-shell-bg:rgba(255,255,255,.52);   --glass-shell-blur:22px;  --glass-shell-fallback:rgba(255,255,255,.92);
-  --glass-content-bg:rgba(255,255,255,.68); --glass-content-blur:7px; --glass-content-fallback:rgba(255,255,255,.94);
+  --glass-shell-bg:rgba(255,255,255,.46);   --glass-shell-blur:22px;  --glass-shell-fallback:rgba(255,255,255,.92);
+  --glass-content-bg:rgba(255,255,255,.62); --glass-content-blur:7px; --glass-content-fallback:rgba(255,255,255,.94);
   --glass-in:inset 0 1px 0 rgba(255,255,255,.85),inset 0 0 0 1px rgba(255,255,255,.45);
   --glass-sheen:linear-gradient(120deg,rgba(255,255,255,.55),transparent 45%);
 
   --navy:#14181d;                            /* techo del edificio (.roof) */
 
   /* Acento de marca — acero/grafito, FUERA de la familia del semáforo */
-  --accent:#487798; --accent-2:#305b77; --accent-soft:#dceaf3; --accent-ring:rgba(72,119,152,.30);
+  --accent:#3e789f; --accent-2:#265c7d; --accent-soft:#d8ebf7; --accent-ring:rgba(62,120,159,.38);
+  --sobre-acento:#ffffff;                    /* texto e iconos ENCIMA del acento sólido; en oscuro NO es blanco */
 
   /* Semáforo funcional — idéntico en ambos temas */
   --ok:#238166;   /* verde   */
@@ -31,16 +32,16 @@ Valores exactos del contrato visual. Ninguna pantalla nueva inventa un color: si
   --crit:#b63544; /* rojo    */
 
   /* Texto de la pill de cada estado. Este SÍ se redefine en oscuro. */
-  --ok-ink:#106e56; --warn-ink:#825e00; --pend-ink:#984c00; --crit-ink:#a9303e;
-  --pill-tinte:22%;                          /* cuánto color lleva el fondo de una pill */
+  --ok-ink:#006b51; --warn-ink:#895900; --pend-ink:#9c4700; --crit-ink:#a82739;
+  --pill-tinte:26%;                          /* cuánto color lleva el fondo de una pill */
 
   --mix-tint:#fff; --mix-ink:#1c2024;        /* usados por color-mix() en pills/tags para no repetir "blanco"/"tinta" sueltos */
-  --shadow-rgb:20,22,25;
+  --shadow-rgb:16,26,38;                     /* azul muy oscuro, no gris neutro: la sombra lee como profundidad */
 
   /* Sombras (capas) */
-  --sh-sm:0 1px 2px rgba(var(--shadow-rgb),.06), 0 4px 12px -4px rgba(var(--shadow-rgb),.12);
-  --sh-md:0 2px 6px rgba(var(--shadow-rgb),.07), 0 16px 34px -16px rgba(var(--shadow-rgb),.22);
-  --sh-lg:0 4px 16px rgba(var(--shadow-rgb),.09), 0 34px 70px -26px rgba(var(--shadow-rgb),.32);
+  --sh-sm:0 1px 2px rgba(var(--shadow-rgb),.08), 0 4px 12px -4px rgba(var(--shadow-rgb),.16);
+  --sh-md:0 2px 6px rgba(var(--shadow-rgb),.09), 0 16px 34px -16px rgba(var(--shadow-rgb),.26);
+  --sh-lg:0 4px 16px rgba(var(--shadow-rgb),.11), 0 34px 70px -26px rgba(var(--shadow-rgb),.36);
 
   /* Radios */
   --r-card:20px; --r-lg:24px; --r-sm:12px;
@@ -51,19 +52,20 @@ Valores exactos del contrato visual. Ninguna pantalla nueva inventa un color: si
 
 ```css
 html[data-theme="dark"]{
-  --bg-1:#0b0d0f; --bg-2:#0e1012; --wash-a:#0f2730; --wash-b:#261e0d;
+  --bg-1:#0b0d0f; --bg-2:#0e1012; --wash-a:#002835; --wash-b:#291d03;
   --ink:#eef0f1;  --ink-2:#bcc0c4; --ink-3:#868b91; --ink-4:#54585d;
   --line:rgba(238,240,241,.10); --line-2:rgba(238,240,241,.06); --line-strong:rgba(238,240,241,.16);
 
-  --glass-shell-bg:rgba(22,25,28,.5);   --glass-shell-fallback:rgba(13,15,17,.94);
-  --glass-content-bg:rgba(22,25,28,.72); --glass-content-fallback:rgba(13,15,17,.96);
+  --glass-shell-bg:rgba(22,25,28,.46);   --glass-shell-fallback:rgba(13,15,17,.94);
+  --glass-content-bg:rgba(22,25,28,.68); --glass-content-fallback:rgba(13,15,17,.96);
   --glass-in:inset 0 1px 0 rgba(255,255,255,.07),inset 0 0 0 1px rgba(255,255,255,.05);
   --glass-sheen:linear-gradient(120deg,rgba(255,255,255,.07),transparent 45%);
 
   --navy:#050608;
-  --accent:#6da5c7; --accent-2:#8bc2e0; --accent-soft:#0a1f2a; --accent-ring:rgba(109,165,199,.32);
-  --ok-ink:#56a88d; --warn-ink:#cb9b32; --pend-ink:#dc8647; --crit-ink:#eb6c74;
-  --pill-tinte:24%;
+  --accent:#62a6ce; --accent-2:#81c3e7; --accent-soft:#01202f; --accent-ring:rgba(98,166,206,.40);
+  --sobre-acento:#0b0d0f;                /* NO blanco: sobre el acento celeste, el blanco mide 2,27:1 */
+  --ok-ink:#54ac8f; --warn-ink:#d19e2b; --pend-ink:#e48945; --crit-ink:#ef6a72;
+  --pill-tinte:28%;
   --mix-tint:#181b1e; --mix-ink:#f2f4f5;
   --shadow-rgb:0,0,0;
 
@@ -118,6 +120,32 @@ El usuario reportó que toda la interfaz se sentía "opaca y apagada, sin brillo
 **Lo que no cambió, y se verificó que no cambiara:** la separación entre los cuatro estados mejoró en los seis pares (y también simulando deuteranopía); el acento sigue a 67–71° de tono del estado más cercano, así que la regla de oro de abajo se mantiene; y el vidrio no se tocó, porque bajar su opacidad para que pase más color habría costado legibilidad del texto que se apoya encima.
 
 **`--warn` sigue sin poder llevar texto encima:** 2,73:1 sobre el fondo claro. Eso no se arregla subiendo croma, y es la razón por la que ningún estado se comunica nunca solo con color.
+
+## La revisión del 2026-11-12: segunda pasada, y dos errores de contraste que aparecieron midiendo
+
+El usuario volvió a reportar que la interfaz se sentía apagada, con la paleta del 2026-11-01 ya aplicada. El diagnóstico esta vez **no fue el croma de los colores** —ya estaba subido— sino **cuánto de ese color llegaba a verse**:
+
+| Cambio | De → a | Por qué |
+|---|---|---|
+| `saturate()` del backdrop del vidrio | 1,15 → **1,35** (`.shell`) y 1,0 → 1,2 (`.content-glass`) | **El cambio más efectivo de toda la revisión, y no toca ningún color.** El vidrio satura lo que tiene detrás, así que el fondo atmosférico se ve más vivo *en las superficies*, que es donde se mira. |
+| Velo del vidrio | `.52` → `.46` y `.68` → `.62` | El color del fondo llegaba filtrado por un velo casi opaco. Medido: el texto principal pasa de 15,55:1 a 15,41:1 y el cuerpo de 7,62:1 a 7,56:1 — no cuesta legibilidad, porque lo que se asoma es igual de claro. |
+| `--wash-a` / `--wash-b` | croma ×1,45 más (0,0254→0,0361 y 0,0321→0,0469) | Siguen siendo el fondo detrás de todo el vidrio. |
+| `--accent` / `--accent-2` | croma ×1,18 (0,0729→0,0861) | Aparece en cada botón, foco y elemento activo. El contraste del texto del botón casi no se mueve: 5,89:1 → 5,85:1. |
+| `--pill-tinte` | 22% → 26% (claro), 24% → 28% (oscuro) | Es **el único lugar donde el semáforo puede verse más presente**, porque los cuatro colores no se pueden subir. |
+| `--shadow-rgb` | `20,22,25` → `16,26,38`, y las opacidades +1/+2 puntos | Una sombra con una pizca del tono de la marca lee como profundidad; una gris pura, como suciedad. |
+| Hover de fila | `border-color:--line` → `--line-strong` + `--sh-sm` | El cambio anterior era de .07 a .10 de opacidad: tres centésimas, no se veía. Un hover que no se nota es código que no hace nada. |
+
+**El semáforo se volvió a medir y la conclusión es la misma que en noviembre.** El techo del gamut sRGB conservando L y H es ×1,12 para el verde, **×1,00 para el amarillo**, ×1,09 para el naranja y ×1,28 para el rojo. Es un sistema de cuatro colores y se sube lo que permite el más limitado, así que quedaron como estaban.
+
+### Los dos errores de contraste que esto destapó
+
+**1. `--ink-3` no cumplía: 3,68:1 sobre el vidrio.** Es el color de los labels y de la metadata de cada fila de listado — texto normal, así que el mínimo de WCAG AA es 4,5:1. Se oscureció de `#7c828a` a `#6b7280` y pasa a 4,55:1. En oscuro ya cumplía (5,43:1) y no se tocó.
+
+**2. El botón primario era ilegible en todo el tema oscuro: 2,27:1.** `.boton-primario` tenía `color:#fff` con el comentario *"blanco por contraste sobre el acento sólido, no por tema: no cambia en oscuro"*. Eso es cierto en claro (5,85:1) y falso en oscuro, donde el acento es celeste. Nació el token **`--sobre-acento`** —blanco en claro, `#0b0d0f` en oscuro (8,59:1)— y lo usan el texto del botón y el trazo del ícono de la marca, que tenía el mismo problema.
+
+**La regla que queda de esto:** cualquier color que se escriba "fijo porque no depende del tema" tiene que medirse **en los dos temas** antes de afirmarlo. Los dos errores estuvieron en producción y ninguno de los dos se ve mirando el tema claro.
+
+**Los 24 pares medidos tras la revisión cumplen 4,5:1**, y la verificación se hace **leyendo `tokens.css`**, no la propuesta: un hexadecimal mal tipeado no pasa inadvertido.
 
 ## Regla de oro del color
 

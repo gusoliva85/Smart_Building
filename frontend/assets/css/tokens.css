@@ -31,20 +31,27 @@
 
   /* Manchas radiales sutiles detras del vidrio: dan profundidad
      atmosferica al fondo. Nunca como fondo de un componente.               */
-  /* Revision del 2026-11-01: el croma de estas dos manchas se multiplico por
-     2,3. Eran practicamente grises (croma OkLCh 0,011 y 0,014) y son el fondo
-     de pagina detras de TODO el vidrio: su falta de color era la causa
-     principal de que la aplicacion se viera lavada. Se conservo la
-     luminosidad y el tono exactos de cada una, asi que el fondo no cambio de
-     color ni de claridad — solo dejo de estar desteñido. */
-  --wash-a:#cde0eb;
-  --wash-b:#ebe2cb;
+  /* Revision del 2026-11-01: el croma se multiplico por 2,3 (eran
+     practicamente grises, 0,011 y 0,014) y el 2026-11-12 por 1,45 mas, con L y
+     H intactos en las dos pasadas: 0,0254 -> 0,0361 y 0,0321 -> 0,0469.
+     Son el fondo de pagina detras de TODO el vidrio, asi que su croma es lo
+     que mas mueve la sensacion de que la aplicacion esta viva o lavada. */
+  --wash-a:#c6e1f1;
+  --wash-b:#efe2c0;
 
   /* Texto, de mas a menos enfasis: titulares y valores, cuerpo,
      labels y metadata, iconografia apagada y placeholder.                  */
   --ink:#1c2024;
   --ink-2:#4b5157;
-  --ink-3:#7c828a;
+  /* --ink-3 se oscurecio el 2026-11-12 (era #7c828a) y no es cosmetico: medido
+     sobre el vidrio daba **3,68:1**, debajo del minimo de 4,5:1 de WCAG AA
+     para texto normal, y es el color de los labels y de la metadata de cada
+     fila. Ahora da 4,55:1. De paso, mas contraste se lee como mas nitido, que
+     es parte de lo que se buscaba en esta revision. */
+  --ink-3:#6b7280;
+  /* --ink-4 queda igual: es placeholder e iconografia apagada, nunca texto que
+     haga falta leer. Sobre el vidrio da 2,13:1 y eso es correcto para lo que
+     es — si alguna vez se usa para texto real, hay que oscurecerlo. */
   --ink-4:#a8adb3;
 
   /* Bordes de hairline. --line-2 separa por dentro de un shell, --line es
@@ -61,10 +68,16 @@
        .content-glass -> contenido denso DENTRO de un shell.
      Los *-fallback son el respaldo para navegadores sin backdrop-filter:
      un fondo casi opaco en vez de un vidrio roto.                          */
-  --glass-shell-bg:rgba(255,255,255,.52);
+  /* El velo blanco bajo del 52% al 46% (y el denso del 68% al 62%) el
+     2026-11-12. Es el otro motivo de que todo se viera apagado: el color del
+     fondo llegaba filtrado por un velo casi opaco. Medido antes de bajarlo:
+     el texto principal pasa de 15,55:1 a 15,41:1 y el cuerpo de 7,62:1 a
+     7,56:1 — o sea que no cuesta legibilidad, porque el fondo que se asoma es
+     igual de claro; lo que cambia es cuanto color pasa. */
+  --glass-shell-bg:rgba(255,255,255,.46);
   --glass-shell-blur:22px;
   --glass-shell-fallback:rgba(255,255,255,.92);
-  --glass-content-bg:rgba(255,255,255,.68);
+  --glass-content-bg:rgba(255,255,255,.62);
   --glass-content-blur:7px;
   --glass-content-fallback:rgba(255,255,255,.94);
 
@@ -82,16 +95,34 @@
      acento se pareciera a "verde" o "rojo", el usuario confundiria una
      interaccion de marca (un boton activo, un enlace) con un estado real
      del edificio. Es una decision funcional, no estetica.                  */
-  /* Croma x1,45, con L y H intactos. El contraste del boton primario (texto
-     blanco sobre el degrade) no se movio: 4,80:1 antes, 4,81:1 ahora. */
-  --accent:#487798;
-  --accent-2:#305b77;
-  --accent-soft:#dceaf3;
-  --accent-ring:rgba(72,119,152,.30);
+  /* Croma x1,45 el 2026-11-01 y x1,18 el 2026-11-12, siempre con L y H
+     intactos: 0,0729 -> 0,0861. El contraste del texto del boton primario
+     practicamente no se mueve, porque depende de la luminancia y esa no se
+     toca: 5,89:1 antes, 5,85:1 ahora. */
+  --accent:#3e789f;
+  --accent-2:#265c7d;
+  --accent-soft:#d8ebf7;
+  /* El anillo de foco subio de .30 a .38 de opacidad: es la senial de "aca
+     estas escribiendo" y con .30 se perdia sobre el vidrio claro. */
+  --accent-ring:rgba(62,120,159,.38);
+
+  /* El color del texto y de los iconos que van ENCIMA del acento solido.
+     Nacio el 2026-11-12 y arregla un error real: `.boton-primario` tenia el
+     texto en blanco fijo, "por contraste sobre el acento solido, no por
+     tema". Eso es verdad en claro (5,85:1) y **falso en oscuro**, donde el
+     acento es celeste y el blanco medido daba **2,27:1** — un boton primario
+     ilegible en todo el tema oscuro. En oscuro el texto tiene que ser la
+     tinta del fondo, que mide 8,59:1. */
+  --sobre-acento:#ffffff;
 
   /* --- Semaforo funcional ----------------------------------------------- */
   /* No es una paleta: es una regla de negocio. EXCLUSIVO para estado real,
      nunca decorativo. Precedencia: ok < warn < pend < crit.                */
+  /* Medido otra vez el 2026-11-12, y la conclusion no cambia: el techo del
+     gamut sRGB para cada uno, conservando L y H, es x1,12 el verde, **x1,00 el
+     amarillo**, x1,09 el naranja y x1,28 el rojo. El semaforo es un sistema de
+     cuatro y se sube lo que permite el mas limitado, asi que se quedan como
+     estan. */
   /* Croma x1,08 en los cuatro, y no mas, por dos razones medidas:
      (1) el amarillo ya estaba casi en el techo del gamut sRGB para su tono y
          su luminosidad — admitia x1,08 y nada mas;
@@ -116,15 +147,20 @@
      Estos valores se derivaron bajando (o subiendo, en oscuro) SOLO la
      luminosidad del propio color del estado, conservando tono y croma: el
      texto sigue siendo verde o rojo, y los ocho casos pasan 4,5:1. */
-  --ok-ink:#106e56;
-  --warn-ink:#825e00;
-  --pend-ink:#984c00;
-  --crit-ink:#a9303e;
+  /* Rederivados el 2026-11-12 para el tinte nuevo del 26%: con mas color en
+     el fondo, el texto necesita algo mas de luminosidad de diferencia. Los
+     cuatro quedan entre 4,60:1 y 4,62:1, y conservan tono y croma — siguen
+     leyendose como verde, amarillo, naranja y rojo. */
+  --ok-ink:#006b51;
+  --warn-ink:#895900;
+  --pend-ink:#9c4700;
+  --crit-ink:#a82739;
 
-  /* Cuanto color lleva el fondo de una pill. Era 15-16%: casi blanco, que es
-     lo que hacia que un estado se viera apagado incluso cuando el color del
-     token estaba bien. */
-  --pill-tinte:22%;
+  /* Cuanto color lleva el fondo de una pill. Era 15-16% (casi blanco), paso a
+     22% el 2026-11-01 y a 26% el 2026-11-12. Es donde el semaforo SI puede
+     verse mas presente: los cuatro colores de estado no se pueden subir mas
+     —ver abajo— pero el fondo de la pill si. */
+  --pill-tinte:26%;
 
   /* --- Mezclas y sombras ------------------------------------------------ */
   /* Los dos extremos que usa color-mix() para derivar el fondo y el texto
@@ -134,10 +170,15 @@
 
   /* Base RGB de todas las sombras: permite que pasen de "gris calido
      suave" a "negro profundo" sin tocar cada regla una por una.            */
-  --shadow-rgb:20,22,25;
-  --sh-sm:0 1px 2px rgba(var(--shadow-rgb),.06), 0 4px 12px -4px rgba(var(--shadow-rgb),.12);
-  --sh-md:0 2px 6px rgba(var(--shadow-rgb),.07), 0 16px 34px -16px rgba(var(--shadow-rgb),.22);
-  --sh-lg:0 4px 16px rgba(var(--shadow-rgb),.09), 0 34px 70px -26px rgba(var(--shadow-rgb),.32);
+  /* La base de la sombra dejo de ser gris neutro (20,22,25) y pasa a tener
+     temperatura: un azul muy oscuro (16,26,38). Una sombra con una pizca del
+     tono de la marca se lee como profundidad; una gris pura, como suciedad.
+     Y las opacidades subieron un punto o dos, lo justo para que las
+     superficies se separen del fondo sin que la pantalla se ensucie. */
+  --shadow-rgb:16,26,38;
+  --sh-sm:0 1px 2px rgba(var(--shadow-rgb),.08), 0 4px 12px -4px rgba(var(--shadow-rgb),.16);
+  --sh-md:0 2px 6px rgba(var(--shadow-rgb),.09), 0 16px 34px -16px rgba(var(--shadow-rgb),.26);
+  --sh-lg:0 4px 16px rgba(var(--shadow-rgb),.11), 0 34px 70px -26px rgba(var(--shadow-rgb),.36);
 
   /* --- Radios ----------------------------------------------------------- */
   /* Tarjetas / paneles grandes y topbar / chips e inputs.
@@ -156,11 +197,13 @@
 html[data-theme="dark"]{
   --bg-1:#0b0d0f;
   --bg-2:#0e1012;
-  /* Mismo tratamiento que en claro: croma x2,3 conservando L y H. En oscuro
-     el efecto es mas notorio todavia, porque sobre un fondo casi negro una
-     mancha gris no se distingue de la nada. */
-  --wash-a:#0f2730;
-  --wash-b:#261e0d;
+  /* Mismo tratamiento que en claro, en dos pasadas: x2,3 el 2026-11-01 y
+     x1,43 el 2026-11-12 — al verde-azulado le quedaba menos margen que en
+     claro y el gamut corto el pedido de x1,45 en x1,43. En oscuro el efecto es
+     mas notorio todavia, porque sobre un fondo casi negro una mancha gris no
+     se distingue de la nada. */
+  --wash-a:#002835;
+  --wash-b:#291d03;
 
   --ink:#eef0f1;
   --ink-2:#bcc0c4;
@@ -171,30 +214,35 @@ html[data-theme="dark"]{
   --line-2:rgba(238,240,241,.06);
   --line-strong:rgba(238,240,241,.16);
 
-  --glass-shell-bg:rgba(22,25,28,.5);
+  --glass-shell-bg:rgba(22,25,28,.46);
   --glass-shell-fallback:rgba(13,15,17,.94);
-  --glass-content-bg:rgba(22,25,28,.72);
+  --glass-content-bg:rgba(22,25,28,.68);
   --glass-content-fallback:rgba(13,15,17,.96);
   --glass-in:inset 0 1px 0 rgba(255,255,255,.07),inset 0 0 0 1px rgba(255,255,255,.05);
   --glass-sheen:linear-gradient(120deg,rgba(255,255,255,.07),transparent 45%);
 
   --navy:#050608;
 
-  --accent:#6da5c7;
-  --accent-2:#8bc2e0;
-  --accent-soft:#0a1f2a;
-  --accent-ring:rgba(109,165,199,.32);
+  --accent:#62a6ce;
+  --accent-2:#81c3e7;
+  --accent-soft:#01202f;
+  --accent-ring:rgba(98,166,206,.40);
+
+  /* En oscuro el acento es celeste, asi que lo que va encima es tinta oscura y
+     no blanco: 8,59:1 contra los 2,27:1 que medía el blanco. Es el arreglo de
+     un boton primario que no se leia. */
+  --sobre-acento:#0b0d0f;
 
   /* El texto de las pills SI se redefine en oscuro, al contrario que los
      cuatro colores de estado: el color del estado no cambia con el tema, pero
      el texto tiene que contrastar contra un fondo que si cambio. En claro se
      oscurece; en oscuro se aclara. */
-  --ok-ink:#56a88d;
-  --warn-ink:#cb9b32;
-  --pend-ink:#dc8647;
-  --crit-ink:#eb6c74;
+  --ok-ink:#54ac8f;
+  --warn-ink:#d19e2b;
+  --pend-ink:#e48945;
+  --crit-ink:#ef6a72;
 
-  --pill-tinte:24%;
+  --pill-tinte:28%;
 
   --mix-tint:#181b1e;
   --mix-ink:#f2f4f5;
