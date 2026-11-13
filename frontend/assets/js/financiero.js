@@ -284,11 +284,16 @@
         '<div class="fila-lista-acciones">' +
           '<span class="chip">' + escapar(gasto.rubro_etiqueta) + '</span>' +
           '<div class="fila-lista-botones">' +
-            '<button type="button" class="icon-btn-sm" data-editar="' + gasto.id + '" ' +
+            /* `icon-btn icon-btn-sm`, las dos: la segunda solo cambia el
+               tamanio — el borde, el fondo, la sombra y el hover estan todos en
+               `.icon-btn`. Es como lo escribe usuarios.js. */
+            '<button type="button" class="icon-btn icon-btn-sm" ' +
+                    'data-editar="' + gasto.id + '" ' +
                     'aria-label="Editar este gasto" title="Editar">' +
               svg(ICONO_EDITAR) +
             '</button>' +
-            '<button type="button" class="icon-btn-sm" data-borrar="' + gasto.id + '" ' +
+            '<button type="button" class="icon-btn icon-btn-sm" ' +
+                    'data-borrar="' + gasto.id + '" ' +
                     'aria-label="Borrar este gasto" title="Borrar">' +
               svg(ICONO_BORRAR) +
             '</button>' +

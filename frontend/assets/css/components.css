@@ -1129,13 +1129,13 @@ a{ color:inherit; }
 }
 .bloque-cabecera .bloque-titulo{ margin:0; }
 
-/* Misma regla que la del boton de .pagina-cabecera, y por el mismo motivo:
-   .boton-primario nace con width:100% porque su caso principal es el boton de
-   un formulario. Acompaniando un titulo tiene que medir lo que mide su texto. */
-.bloque-cabecera .boton-primario{ width:auto; padding:10px 16px; }
-@media (max-width:519px){
-  .bloque-cabecera .boton-primario{ width:100%; }
-}
+/* OJO: esta clase es SOLO el maquetado de la fila. El boton que va adentro se
+   encoge con `.boton-chico`, que es la clase que ya existe para eso — "la
+   misma excepcion que hace .pagina-cabecera .boton-primario, pero nombrada,
+   para poder usarla donde no hay un contenedor que la implique", dice su
+   propio comentario mas abajo. Aca hubo una regla duplicando esa excepcion y
+   se saco: repetirla era exactamente lo que el sistema de diseno pide no
+   hacer. */
 
 /* --- Fila de listado ------------------------------------------------------ */
 /* El patron de "lista de cosas + alta en modal": usuarios hoy, y despues
