@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
-"""Estructura del edificio y coeficientes — logica pura, sin ORM y sin HTTP.
+"""Estructura, coeficientes y prorrateo — logica pura, sin ORM y sin HTTP.
 
-Dos cosas que parecen lejanas y van juntas: la **forma** del edificio (cuantos
-pisos, cuantas unidades en cada uno) y el **porcentual** de cada unidad. Van
-juntas porque la primera decide cuantos porcentuales hay que repartir, y porque
-las dos se resuelven en el mismo momento real: cuando alguien da de alta un
-edificio nuevo.
+Tres cosas que parecen lejanas y van juntas: la **forma** del edificio
+(cuantos pisos, cuantas unidades en cada uno), el **porcentual** de cada
+unidad, y el **reparto** de un monto entre esas unidades segun ese porcentual.
+Las dos primeras van juntas porque la forma decide cuantos porcentuales hay que
+repartir, y porque se resuelven en el mismo momento real: cuando alguien da de
+alta un edificio nuevo. La tercera va con ellas porque usa exactamente el mismo
+mecanismo — repartir enteros por resto mayor — y repetirlo en otro archivo
+seria tener dos versiones de la cuenta de la que depende la plata.
 
 ========================================================================
 LA REGLA QUE FIJA TODO ESTE MODULO: EL COEFICIENTE ES EL DATO, NO EL CRITERIO
@@ -348,6 +351,116 @@ def validar_coeficientes(coeficientes: Sequence[Decimal | int | str]) -> bool:
         Decimal(0),
     )
     return suma == TOTAL_COEFICIENTES
+
+
+# ==========================================================================
+# EL PRORRATEO DE UN MONTO (`F2-T03`)
+# ==========================================================================
+
+DECIMALES_MONTO = 2
+"""Cuantos decimales guarda una columna de plata (`Numeric(12,2)`)."""
+
+CENTAVO = Decimal(1).scaleb(-DECIMALES_MONTO)
+"""El incremento mas chico de un monto: 0,01."""
+
+
+def prorratear(
+    total: Decimal | int | str,
+    coeficientes: Sequence[Decimal | int | str],
+) -> tuple[Decimal, ...]:
+    """Reparte un monto entre las unidades segun su coeficiente, al centavo.
+
+    Devuelve un monto por unidad, en el mismo orden en que entraron los
+    coeficientes, y la suma de lo devuelto **iguala exactamente el total**.
+
+    Es la funcion que convierte los gastos de un mes en lo que paga cada
+    departamento, asi que su contrato es el de una balanza: lo que entra sale,
+    sin que aparezca ni desaparezca un centavo.
+
+    ======================================================================
+    POR QUE NO SE REDONDEA CADA PARTE POR SEPARADO
+    ======================================================================
+
+    Multiplicar el total por cada coeficiente y redondear cada resultado es la
+    forma intuitiva, y es la que no cierra: treinta redondeos hacia arriba y
+    hacia abajo dejan una diferencia de centavos contra el total, y esa
+    diferencia es plata que el consorcio cobra de mas o de menos todos los
+    meses.
+
+    Aca se cuenta en **centavos enteros**: el total se pasa a centavos y esos
+    enteros se reparten por resto mayor, igual que los coeficientes se reparten
+    en pasos de 0,001. Con enteros no hay nada que redondear y la suma da el
+    total por construccion.
+
+    ======================================================================
+    LOS CENTAVOS SOBRANTES NO VAN SIEMPRE A LA MISMA UNIDAD
+    ======================================================================
+
+    El Roadmap decia originalmente que "la ultima unidad recibe el resto
+    exacto". Cierra la cuenta, pero significa que **el mismo vecino paga los
+    centavos sobrantes todos los meses**: con 32 unidades, hasta 31 centavos
+    cada mes, siempre al mismo. Con resto mayor, cada centavo sobrante va a la
+    unidad cuya parte quedo mas cerca de merecerlo, y ninguna se lleva mas de
+    un centavo de diferencia respecto de su parte exacta. Se decidio asi el
+    2026-11-13 y quedo escrito en `F2-T03`.
+
+    El desempate es por posicion, asi que dos corridas con los mismos datos dan
+    el mismo resultado: una liquidacion que cambia al regenerarse sin que
+    cambie ningun dato es una liquidacion en la que nadie puede confiar.
+
+    ======================================================================
+    LO QUE SE NIEGA A HACER
+    ======================================================================
+
+    - **Repartir si los coeficientes no suman 100% exacto.** No es una
+      formalidad: con 99,9% el consorcio reparte menos de lo que gasto y la
+      diferencia no la paga nadie. La pantalla de coeficientes viene avisando
+      desde `F1-T24` justamente para que esto no sorprenda aca.
+    - **Repartir un total que no sea positivo.** Un periodo sin gastos no se
+      liquida; no se liquida en cero.
+    - **Repartir un total con mas de dos decimales**, que seria un total que la
+      base no puede guardar tal como se repartio.
+    """
+    monto = _a_decimal(total)
+
+    if not monto.is_finite() or monto <= 0:
+        raise ValueError("El total a repartir tiene que ser mayor a cero.")
+
+    if -monto.as_tuple().exponent > DECIMALES_MONTO:
+        raise ValueError(
+            f"El total a repartir admite hasta {DECIMALES_MONTO} decimales."
+        )
+
+    if not coeficientes:
+        raise ValueError("No hay unidades entre las que repartir.")
+
+    valores = [_a_decimal(coeficiente) for coeficiente in coeficientes]
+
+    if any(not valor.is_finite() or valor < 0 for valor in valores):
+        raise ValueError("Ningun coeficiente puede ser negativo.")
+
+    if not validar_coeficientes(valores):
+        suma = sum(
+            (valor.quantize(PASO_COEFICIENTE) for valor in valores), Decimal(0)
+        )
+        raise ValueError(
+            f"Los coeficientes suman {suma}% y tienen que sumar "
+            f"{TOTAL_COEFICIENTES}% exacto para poder repartir."
+        )
+
+    # El total en centavos enteros. `scaleb` corre la coma en lugar de
+    # multiplicar por 100: multiplicar un `Decimal` por 100 es exacto, pero
+    # correr la coma deja claro que no hay cuenta, solo un cambio de unidad.
+    centavos = int(monto.scaleb(DECIMALES_MONTO))
+
+    pasos = _repartir_pasos(
+        [_a_fraccion(valor) for valor in valores],
+        pasos_a_repartir=centavos,
+    )
+
+    return tuple(
+        Decimal(paso).scaleb(-DECIMALES_MONTO).quantize(CENTAVO) for paso in pasos
+    )
 
 
 # ==========================================================================

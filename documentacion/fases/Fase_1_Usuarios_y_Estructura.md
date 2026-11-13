@@ -1,8 +1,8 @@
 # Fase 1 — Usuarios, roles y estructura del edificio
 
-> **Redactada el 2026-11-12.** La fase queda formalmente cerrada cuando apruebe
-> `F1-T29` y `F1-T30`, que están construidas y a la espera de mi revisión. Todo
-> lo demás está aprobado y en producción.
+> **Cerrada el 2026-11-13.** Las 30 tareas aprobadas. La única deuda que quedó
+> abierta —ampliar el módulo de usuarios al Administrador de Consorcio— tiene
+> tarea propia en la Fase 11 (`F11-T07`), y está en la tabla del final.
 
 ---
 

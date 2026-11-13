@@ -21,13 +21,19 @@ por nombre, despues de que todos esten cargados.
 """
 
 # Los modelos se van sumando fase por fase. Fase 1: Usuario y la estructura
-# del edificio.
+# del edificio. Fase 2: el dinero.
 from app.models.edificio import (
     Cochera,
     Departamento,
     Edificio,
     EspacioComun,
     Piso,
+)
+from app.models.finanzas import (
+    Expensa,
+    ExpensaDepartamento,
+    ExpensaDetalle,
+    Gasto,
 )
 from app.models.usuario import AsignacionEdificio, Usuario
 
@@ -37,6 +43,10 @@ __all__: list[str] = [
     "Departamento",
     "Edificio",
     "EspacioComun",
+    "Expensa",
+    "ExpensaDepartamento",
+    "ExpensaDetalle",
+    "Gasto",
     "Piso",
     "Usuario",
 ]

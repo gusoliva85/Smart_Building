@@ -378,6 +378,23 @@ COEFICIENTES_PASAN_CIEN = _definir(
     "Corregí alguna antes de completar el resto.",
 )
 
+# ----------------------------------------------------------------- gastos --
+#
+# Los dos son del filtro del listado, no del gasto en si: el rubro y el monto
+# del alta los valida el esquema y los ataja el CHECK de la tabla.
+
+MES_SIN_ANIO = _definir(
+    "MES_SIN_ANIO",
+    status.HTTP_400_BAD_REQUEST,
+    "Para filtrar por mes hace falta elegir tambien el anio.",
+)
+
+RUBRO_INVALIDO = _definir(
+    "RUBRO_INVALIDO",
+    status.HTTP_400_BAD_REQUEST,
+    "Ese rubro no existe. Los rubros validos son: {cuales}.",
+)
+
 # ------------------------------------------------------- genericos y sistema --
 
 PEDIDO_INVALIDO = _definir(

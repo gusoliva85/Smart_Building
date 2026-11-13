@@ -11,6 +11,18 @@ Esta skill **es el contrato visual del proyecto** y la fuente de verdad en ejecu
 
 **Documento hermano, para leer y entender:** [`documentacion/03_Documento_Frontend.md`](../../../documentacion/03_Documento_Frontend.md) es la versión completa y razonada de estas mismas reglas — tokens exactos, catálogo de componentes, arquitectura de pantallas, módulos de JavaScript compartidos, catálogo de trampas conocidas y checklist de pantalla nueva. Esta skill es el formato ejecutable; ese documento es el formato legible. **Si una regla cambia acá, cambia allá, y viceversa: son dos formatos del mismo contrato, no dos fuentes de verdad.**
 
+## Antes que nada: las reglas del proyecto
+
+**Esta skill no reemplaza a `CLAUDE.md`, que está en la raíz del repositorio y manda
+sobre todo lo demás.** Dos reglas de ahí se repiten acá porque son las que no se
+pueden olvidar ni siquiera en medio de un cambio de estilo:
+
+- **Los datos de producción no se tocan sin avisar.** Antes de ejecutar algo que
+  escriba, borre o migre datos de producción —o que pueda hacerlo de rebote— se
+  explica qué se toca, qué se puede perder y cómo se vuelve atrás, y se espera
+  respuesta. Una pantalla nueva parece inofensiva, pero las migraciones viajan con ella.
+- **Nada se sube a Git.** Ni commit ni push: eso lo hace el usuario a mano.
+
 ## Misión
 
 Producir una interfaz **premium y profesional** — vidrio auténtico ("Liquid Glass"), acabado de estudio de diseño, nunca "generada" — que funcione igual de bien como herramienta de trabajo densa en datos reales en mobile y en escritorio, sin perder elegancia en ninguno de los dos.

@@ -57,6 +57,12 @@ from app.models.edificio import (  # noqa: E402
     EspacioComun,
     Piso,
 )
+from app.models.finanzas import (  # noqa: E402
+    Expensa,
+    ExpensaDepartamento,
+    ExpensaDetalle,
+    Gasto,
+)
 from app.models.usuario import AsignacionEdificio, Usuario  # noqa: E402
 
 TABLAS_DE_PRUEBA: list = [
@@ -67,6 +73,11 @@ TABLAS_DE_PRUEBA: list = [
     Departamento.__table__,
     Cochera.__table__,
     EspacioComun.__table__,
+    # Fase 2 — el dinero.
+    Gasto.__table__,
+    Expensa.__table__,
+    ExpensaDetalle.__table__,
+    ExpensaDepartamento.__table__,
 ]
 
 
