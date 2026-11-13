@@ -16,7 +16,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core import config
 from app.core.errores import registrar_manejadores
 from app.core.migraciones import sincronizar_esquema
-from app.routers import auth, coeficientes, edificios, estructura, gastos, usuarios
+from app.routers import (
+    auth,
+    coeficientes,
+    edificios,
+    estructura,
+    expensas,
+    gastos,
+    usuarios,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -97,6 +105,7 @@ app.include_router(edificios.router, prefix=config.PREFIJO_API)
 app.include_router(estructura.router, prefix=config.PREFIJO_API)
 app.include_router(coeficientes.router, prefix=config.PREFIJO_API)
 app.include_router(gastos.router, prefix=config.PREFIJO_API)
+app.include_router(expensas.router, prefix=config.PREFIJO_API)
 
 
 @app.get(f"{config.PREFIJO_API}/salud", tags=["Sistema"])

@@ -46,6 +46,14 @@ backend/*.db
 # la skill premium-uiux es el contrato visual del proyecto (03_Documento_Frontend.md, sección 1).
 .claude/settings.local.json
 
+# Mis reglas de trabajo con el asistente. Son instrucciones para cómo trabajo
+# yo, no documentación del sistema: el que clona el repositorio no las necesita
+# y la documentación del proyecto vive en documentacion/.
+# Importante: lo que esta regla ignora es el archivo, no las reglas. Las que
+# son del proyecto —producción, secretos, errores, documentación— están además
+# en 05_Roadmap.md sección 1.5, que sí se versiona.
+CLAUDE.md
+
 # --- Editor y sistema operativo ------------------------------------------------
 .vscode/
 .idea/

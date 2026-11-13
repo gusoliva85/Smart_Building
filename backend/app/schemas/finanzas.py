@@ -28,7 +28,7 @@ esquema la usa para dar un mensaje claro, y la base la usa como ultima barrera
 para lo que entre por fuera de la API.
 """
 
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -176,6 +176,13 @@ class GastoLeer(BaseModel):
     fecha: date
     descripcion: str | None
 
+    # Un aviso para la pantalla cuando el gasto se guardo bien **pero hay algo
+    # que quien lo cargo tiene que saber**: hoy, que su fecha cae en un periodo
+    # cuya expensa ya se publico, asi que no va a aparecer en esa liquidacion.
+    # No es un error y por eso no entra en el catalogo: el gasto es real, se
+    # guardo, y lo que corresponde es informar y no bloquear.
+    aviso: str | None = None
+
 
 class RubroLeer(BaseModel):
     """Una entrada del catalogo, para armar el desplegable de la pantalla."""
@@ -183,6 +190,119 @@ class RubroLeer(BaseModel):
     nombre: str
     etiqueta: str
     descripcion: str
+
+
+class ExpensaGenerar(BaseModel):
+    """El pedido de generar la liquidacion de un periodo.
+
+    `confirmar` es el segundo paso del patron de confirmacion del proyecto: si
+    ya hay una expensa en borrador de ese periodo, el servidor responde `409`
+    diciendo exactamente que se va a reemplazar, y el cliente reenvia el mismo
+    pedido con esto en `true`. **Es lo que permite no usar nunca un `confirm()`
+    del navegador.**
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    anio: int = Field(ge=2000, le=2100)
+    mes: int = Field(ge=1, le=12)
+    confirmar: bool = False
+
+
+class DetalleLeer(BaseModel):
+    """Una linea de la apertura por rubro."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    rubro: str
+    rubro_etiqueta: str
+    monto: Decimal
+
+
+class UnidadLiquidadaLeer(BaseModel):
+    """Lo que paga una unidad, con los tres montos abiertos.
+
+    **Los tres por separado y no un total**, porque un solo numero no le
+    permite al propietario entender por que este mes le vino distinto, y es
+    exactamente ahi donde llama por telefono.
+    """
+
+    departamento_id: int
+    identificador: str
+    coeficiente: Decimal
+    monto_expensa: Decimal
+    recargo_mora: Decimal
+    saldo_a_favor_aplicado: Decimal
+    total_a_pagar: Decimal
+
+
+class ExpensaLeer(BaseModel):
+    """Una liquidacion con su apertura por rubro y su reparto por unidad."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    anio: int
+    mes: int
+    periodo: str
+    total: Decimal
+    estado: str
+    publicada_en: datetime | None
+    cantidad_unidades: int
+    detalle: list[DetalleLeer]
+    unidades: list[UnidadLiquidadaLeer]
+
+
+class ExpensaResumen(BaseModel):
+    """Una liquidacion como fila de un listado.
+
+    Trae `se_puede_regenerar` calculado por el servidor y no el estado para que
+    la pantalla lo deduzca: la regla de cuando se puede regenerar es del
+    backend, y una pantalla que la reimplemente es una pantalla que algun dia
+    ofrece un boton que el servidor va a rechazar.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    anio: int
+    mes: int
+    periodo: str
+    total: Decimal
+    estado: str
+    publicada_en: datetime | None
+    cantidad_unidades: int
+    cantidad_rubros: int
+    se_puede_regenerar: bool
+
+
+class ExpensaDeUnidad(BaseModel):
+    """La liquidacion de un periodo vista desde una unidad.
+
+    Es lo que consume "Mi cuenta" del residente, y por eso lleva **la apertura
+    por rubro del edificio** y no solo lo que le toca pagar: la transparencia
+    que pide el Documento General (seccion 6.1) es que el consorcista vea en
+    que se gasto, no solo cuanto le corresponde. Una expensa que dice un numero
+    y nada mas es la razon por la que las administraciones reciben llamados.
+    """
+
+    expensa_id: int
+    anio: int
+    mes: int
+    periodo: str
+    estado: str
+    publicada_en: datetime | None
+
+    # El total del edificio, para poder leer la propia parte en contexto.
+    total_edificio: Decimal
+
+    coeficiente: Decimal
+    monto_expensa: Decimal
+    recargo_mora: Decimal
+    saldo_a_favor_aplicado: Decimal
+    total_a_pagar: Decimal
+
+    detalle: list[DetalleLeer]
 
 
 class ListadoDeGastos(BaseModel):

@@ -386,13 +386,70 @@ COEFICIENTES_PASAN_CIEN = _definir(
 MES_SIN_ANIO = _definir(
     "MES_SIN_ANIO",
     status.HTTP_400_BAD_REQUEST,
-    "Para filtrar por mes hace falta elegir tambien el anio.",
+    "Para filtrar por mes hace falta elegir también el año.",
 )
 
 RUBRO_INVALIDO = _definir(
     "RUBRO_INVALIDO",
     status.HTTP_400_BAD_REQUEST,
-    "Ese rubro no existe. Los rubros validos son: {cuales}.",
+    "Ese rubro no existe. Los rubros válidos son: {cuales}.",
+)
+
+# --------------------------------------------------------------- expensas --
+
+PERIODO_SIN_GASTOS = _definir(
+    "PERIODO_SIN_GASTOS",
+    status.HTTP_400_BAD_REQUEST,
+    "No hay gastos cargados en {periodo}, así que no hay nada que liquidar.",
+)
+
+COEFICIENTES_INCOMPLETOS = _definir(
+    "COEFICIENTES_INCOMPLETOS",
+    status.HTTP_400_BAD_REQUEST,
+    "Hay {cuantas} sin coeficiente cargado ({cuales}). Cargá los coeficientes "
+    "antes de generar la expensa.",
+)
+
+COEFICIENTES_NO_SUMAN_CIEN = _definir(
+    "COEFICIENTES_NO_SUMAN_CIEN",
+    status.HTTP_400_BAD_REQUEST,
+    "Los coeficientes de este edificio suman {suma}% y tienen que sumar 100% "
+    "exacto para poder liquidar.",
+)
+
+EXPENSA_YA_PUBLICADA = _definir(
+    "EXPENSA_YA_PUBLICADA",
+    status.HTTP_400_BAD_REQUEST,
+    "La expensa de {periodo} ya está publicada y no se puede volver a "
+    "generar. Lo que haya que corregir de ese período se corrige en la "
+    "liquidación siguiente.",
+)
+
+EXPENSA_SE_REGENERA = _definir(
+    "EXPENSA_SE_REGENERA",
+    status.HTTP_409_CONFLICT,
+    "Ya hay una expensa de {periodo} en borrador, por {total}. Si seguís, se "
+    "reemplaza por una nueva calculada con los gastos de ahora.",
+)
+
+EXPENSA_NO_ENCONTRADA = _definir(
+    "EXPENSA_NO_ENCONTRADA",
+    status.HTTP_404_NOT_FOUND,
+    "No se encontró esa liquidación.",
+)
+
+EXPENSA_NO_SE_PUEDE_PUBLICAR = _definir(
+    "EXPENSA_NO_SE_PUEDE_PUBLICAR",
+    status.HTTP_400_BAD_REQUEST,
+    "La expensa de {periodo} ya está publicada.",
+)
+
+GASTO_DE_PERIODO_PUBLICADO = _definir(
+    "GASTO_DE_PERIODO_PUBLICADO",
+    status.HTTP_400_BAD_REQUEST,
+    "Este gasto ya entró en la expensa de {periodo}, que está publicada, "
+    "así que no se puede cambiar ni borrar. Lo que corresponde es cargar la "
+    "corrección en la liquidación siguiente.",
 )
 
 # ------------------------------------------------------- genericos y sistema --

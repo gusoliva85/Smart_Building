@@ -132,3 +132,52 @@ def puede_ver(db: Session, usuario: Usuario, edificio: Edificio) -> bool:
         return bool(db.scalar(select(exists(asignado))))
 
     return False
+
+
+def administra_el_edificio_de(db: Session, usuario: Usuario, unidad) -> bool:
+    """Si esa persona **administra** el edificio al que pertenece esa unidad.
+
+    Es una pregunta distinta de `puede_ver`: un propietario puede ver su
+    edificio y no por eso administra nada. Esto responde "¿puede ver lo que
+    todavia no se publico?", que es lo que separa a la administracion del
+    residente en todo el modulo financiero.
+    """
+    if administra_todo(usuario):
+        return True
+    if usuario.rol != autorizacion.ADMIN_CONSORCIO:
+        return False
+
+    consulta = (
+        select(Edificio.id)
+        .join(Piso, Piso.edificio_id == Edificio.id)
+        .where(Piso.id == unidad.piso_id)
+        .where(Edificio.admin_consorcio_id == usuario.id)
+    )
+    return bool(db.scalar(select(exists(consulta))))
+
+
+def puede_ver_unidad(db: Session, usuario: Usuario, unidad) -> bool:
+    """Si esa persona tiene algo que hacer con **esa unidad puntual**.
+
+    Tres formas de estar vinculado a una unidad:
+
+      1. Quien administra el edificio donde esta (General o de Consorcio).
+      2. Su propietario.
+      3. Su inquilino.
+
+    **El Encargado queda afuera a proposito.** Puede ver el edificio porque
+    trabaja ahi, pero la cuenta de una unidad es informacion economica de una
+    familia: cuanto debe el 3B no es asunto del encargado. Es la clase de
+    permiso que se concede "porque ya veia el edificio" y despues nadie revisa.
+
+    El Auditor tambien queda afuera hasta `F11-T05`, que es la tarea que crea
+    la pantalla para vincularlo con los edificios que audita; darle hoy acceso
+    a toda la cartera sin un vinculo real seria un sobre-permiso.
+    """
+    if administra_el_edificio_de(db, usuario, unidad):
+        return True
+
+    if usuario.rol in (autorizacion.PROPIETARIO, autorizacion.INQUILINO):
+        return usuario.id in (unidad.propietario_id, unidad.inquilino_id)
+
+    return False

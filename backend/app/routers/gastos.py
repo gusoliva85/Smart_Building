@@ -55,7 +55,7 @@ from sqlalchemy.orm import Session
 from app.core import errores
 from app.core.dependencies import SesionDB, SoloAdministradores
 from app.models.edificio import Edificio
-from app.models.finanzas import Gasto
+from app.models.finanzas import Expensa, Gasto
 from app.routers.edificios import buscar_edificio_que_administra
 from app.schemas.finanzas import (
     GastoCrear,
@@ -64,7 +64,7 @@ from app.schemas.finanzas import (
     ListadoDeGastos,
     RubroLeer,
 )
-from app.services import rubros
+from app.services import expensas, rubros
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +76,7 @@ router = APIRouter(tags=["Gastos"])
 # ===========================================================================
 
 
-def _leer(gasto: Gasto) -> GastoLeer:
+def _leer(gasto: Gasto, aviso: str | None = None) -> GastoLeer:
     """Arma la respuesta de un gasto, con la etiqueta de su rubro resuelta."""
     return GastoLeer(
         id=gasto.id,
@@ -85,6 +85,7 @@ def _leer(gasto: Gasto) -> GastoLeer:
         monto=gasto.monto,
         fecha=gasto.fecha,
         descripcion=gasto.descripcion,
+        aviso=aviso,
     )
 
 
@@ -104,6 +105,44 @@ def _buscar_gasto(db: Session, edificio: Edificio, gasto_id: int) -> Gasto:
         )
 
     return gasto
+
+
+def _expensa_publicada_del_periodo(
+    db: Session, edificio_id: int, fecha: date
+) -> Expensa | None:
+    """La expensa publicada del periodo al que pertenece esa fecha, si existe.
+
+    Es la consulta que sostiene las dos reglas de `F2-T05`: el candado del
+    gasto que ya se liquido, y el aviso del gasto que llega tarde. Una sola
+    consulta para las dos, porque son la misma pregunta.
+    """
+    return db.scalars(
+        select(Expensa).where(
+            Expensa.edificio_id == edificio_id,
+            Expensa.anio == fecha.year,
+            Expensa.mes == fecha.month,
+            Expensa.estado == expensas.PUBLICADA,
+        )
+    ).first()
+
+
+def _exigir_periodo_abierto(db: Session, gasto: Gasto) -> None:
+    """Se niega a tocar un gasto que ya entro en una liquidacion publicada.
+
+    La liquidacion **no se rompe** si se borra el gasto: sus montos estan
+    copiados en `expensa_detalle`. El problema es otro, y es el que importa:
+    quedaria afirmando "Limpieza: $150.000" sin que exista el gasto que lo
+    respalda, y eso es justo lo que mira un propietario que pide
+    explicaciones.
+
+    Mientras el periodo siga en **borrador** no hay candado: corregir un gasto
+    y regenerar es el flujo normal.
+    """
+    publicada = _expensa_publicada_del_periodo(db, gasto.edificio_id, gasto.fecha)
+    if publicada is not None:
+        raise errores.ErrorDeNegocio(
+            errores.GASTO_DE_PERIODO_PUBLICADO, periodo=publicada.periodo
+        )
 
 
 def _guardar(db: Session, descripcion: str) -> None:
@@ -192,16 +231,29 @@ def crear(
     db.add(gasto)
     _guardar(db, f"alta de un gasto del edificio {edificio_id}")
 
+    # El gasto que llega tarde: se guarda igual —es real y tiene que quedar
+    # registrado— pero quien lo carga tiene que enterarse de que no va a
+    # aparecer en esa liquidacion. Es un aviso, no un error.
+    publicada = _expensa_publicada_del_periodo(db, edificio.id, gasto.fecha)
+    aviso = None
+    if publicada is not None:
+        aviso = (
+            f"La expensa de {publicada.periodo} ya está publicada, así que "
+            "este gasto no va a aparecer en esa liquidación. Se va a tener en "
+            "cuenta igual en los reportes."
+        )
+
     logger.info(
-        "Gasto %s cargado en el edificio %s (%s, %s) por %s",
+        "Gasto %s cargado en el edificio %s (%s, %s) por %s%s",
         gasto.id,
         edificio_id,
         gasto.rubro,
         gasto.monto,
         quien_carga.email,
+        " [periodo ya publicado]" if publicada is not None else "",
     )
 
-    return _leer(gasto)
+    return _leer(gasto, aviso=aviso)
 
 
 @router.get(
@@ -325,6 +377,26 @@ def editar(
     if not aplicables:
         raise errores.ErrorDeNegocio(errores.SIN_CAMBIOS)
 
+    # ------------------------------- el candado del periodo ya liquidado ----
+    #
+    # La descripcion se puede corregir siempre: no altera ningun numero de la
+    # liquidacion, y es justo el campo donde se arregla un numero de factura
+    # mal tipeado. Cualquier otro campo, no.
+    if set(aplicables) - {"descripcion"}:
+        _exigir_periodo_abierto(db, gasto)
+
+        # Y si lo que cambia es la fecha, hay que mirar **las dos**: sacarlo de
+        # un periodo abierto para meterlo en uno ya publicado tambien
+        # desalinearia una liquidacion emitida.
+        if "fecha" in aplicables:
+            publicada = _expensa_publicada_del_periodo(
+                db, gasto.edificio_id, aplicables["fecha"]
+            )
+            if publicada is not None:
+                raise errores.ErrorDeNegocio(
+                    errores.GASTO_DE_PERIODO_PUBLICADO, periodo=publicada.periodo
+                )
+
     for campo, valor in aplicables.items():
         setattr(gasto, campo, valor)
 
@@ -359,12 +431,16 @@ def borrar(
     arrastrarlo con una marca obligaria a filtrarlo en cada consulta y en cada
     suma, que es exactamente donde despues falta el filtro.
 
-    **Lo que si es historico es la expensa**, y por eso no se toca: la
-    liquidacion guarda sus montos copiados (`F2-T05`), asi que borrar un gasto
-    nunca puede alterar una expensa ya emitida.
+    **Con una excepcion, y es la unica:** un gasto que ya entro en una
+    liquidacion **publicada** no se borra. La liquidacion no se rompe —sus
+    montos estan copiados— pero quedaria afirmando un rubro sin que exista el
+    gasto que lo respalda, y eso es lo que mira un propietario que pide
+    explicaciones. Mientras el periodo siga en borrador, borrar y regenerar es
+    el flujo normal.
     """
     edificio = buscar_edificio_que_administra(db, edificio_id, quien_borra)
     gasto = _buscar_gasto(db, edificio, gasto_id)
+    _exigir_periodo_abierto(db, gasto)
 
     db.delete(gasto)
     _guardar(db, f"baja del gasto {gasto_id}")
