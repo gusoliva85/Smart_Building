@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="es">
+<head>
+<!-- ============================================================================
+     Cabecera canonica: assets/plantilla-cabecera.html
+     El frontend es multi-pagina estatica sin build, asi que cada HTML repite
+     este bloque. Si cambia, se cambia primero en la plantilla.
+     ========================================================================= -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Financiero · SMART Building</title>
+
+<!-- Tema: inline, sincrono y antes de las hojas de estilo. Si esperara al
+     script del final del body, se veria un destello claro antes de pasar a
+     oscuro. El try/catch cubre el modo privado, donde leer localStorage lanza. -->
+<script>try{if(localStorage.getItem('tema')==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+
+<link rel="icon" type="image/svg+xml" href="assets/img/favicon.svg">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="assets/css/tokens.css">
+<link rel="stylesheet" href="assets/css/components.css">
+</head>
+
+<!-- ============================================================================
+     PANTALLA FINANCIERA (F2-T17).
+
+     Mismo contrato de esqueleto que las demas: la columna y el <header> vacio
+     los escribe este archivo, todo lo demas —sidebar, backdrop, contenido del
+     topbar— lo genera layout.js.
+
+     ========================================================================
+     UN ARCHIVO PARA DOS AUDIENCIAS, Y EL ROL DECIDE CUAL
+     ========================================================================
+
+     Gestion ve el modulo completo con sus pestañas; el residente vera "Mi
+     cuenta", que es F2-T22 y todavia no esta. Por eso hoy la pantalla pide
+     rol de administrador y lo dice con palabras si entra otro: una pantalla
+     que muestra un 403 crudo es una pantalla que parece rota.
+
+     ========================================================================
+     EL EDIFICIO VIAJA EN LA URL, COMO EN EDIFICIOS.HTML
+     ========================================================================
+
+     `?edificio=7`. Es la misma decision que el `?id=` del detalle de un
+     edificio, y por los mismos tres motivos: F5 no te saca del edificio en el
+     que estabas, el boton de atras del navegador funciona, y el enlace de la
+     pantalla financiera de un consorcio se puede mandar por mensaje.
+
+     ========================================================================
+     LAS PESTAÑAS QUE NO ESTAN CONSTRUIDAS NO SE DIBUJAN
+     ========================================================================
+
+     El selector se arma desde una tabla en financiero.js con un `construida`
+     por pestaña — el mismo patron que la tabla ACCESOS de layout.js. La regla
+     del proyecto (Roadmap 1.3) prohibe las pantallas con secciones vacias o
+     deshabilitadas de funcionalidad futura, y una pestaña "Fondos" que al
+     tocarla no muestra nada es exactamente eso.
+
+     Asi que la tabla declara las cinco —se lee como el plan completo del
+     modulo— y hoy se dibuja solo Gastos. Cada tarea siguiente cambia un
+     `false` por `true`.
+     ========================================================================= -->
+<body class="layout-app" data-pantalla="financiero" data-titulo="Financiero">
+  <div class="main-column">
+    <header class="topbar shell" data-topbar></header>
+
+    <main class="page-content">
+      <section class="shell panel-contenido" id="vista-financiero">
+
+        <div class="pagina-cabecera">
+          <div>
+            <h2>Financiero</h2>
+            <p>Los gastos del consorcio, las liquidaciones, los pagos y los
+               fondos. Todo lo del mes se carga acá.</p>
+          </div>
+
+          <!-- El selector de edificio. Nace oculto: si quien entra administra
+               un solo consorcio no se muestra, porque elegir entre una opcion
+               no es elegir. Lo decide financiero.js. -->
+          <div class="campo campo-sin-margen" id="campo-edificio" hidden>
+            <label for="selector-edificio">Edificio</label>
+            <div class="campo-control">
+              <select id="selector-edificio"></select>
+            </div>
+          </div>
+        </div>
+
+        <!-- El error de la pantalla entera: no se pudo saber quien sos, o no
+             se pudo traer la lista de edificios. Va arriba porque es lo que
+             impide que la pantalla exista. -->
+        <div class="mensaje-error" id="error-pantalla" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/>
+          </svg>
+          <span data-texto-error-pantalla></span>
+        </div>
+
+        <!-- El selector segmentado del sistema de diseño. view-switch.js se
+             engancha solo: el indicador deslizante, el teclado y el
+             aria-selected no los maneja esta pantalla. Los botones los
+             escribe financiero.js desde su tabla. -->
+        <div class="view-switch" id="pestanias-financiero" hidden></div>
+
+        <!-- ============================================== PESTAÑA GASTOS === -->
+        <div class="panel-pestania" data-panel="gastos" hidden>
+
+          <!-- EL FILTRO DE PERIODO ES LO PRIMERO, y no un detalle al costado.
+               Un consorcio carga entre diez y cuarenta gastos por mes: a los
+               seis meses, un listado sin filtro son doscientas filas y
+               encontrar la factura de luz de marzo es imposible. El periodo
+               arranca en el mes actual. -->
+          <div class="bloque">
+            <div class="bloque-lista">
+              <h3 class="bloque-titulo">Gastos del período</h3>
+              <button type="button" class="boton-primario" id="boton-nuevo-gasto">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                     stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 5v14M5 12h14"/>
+                </svg>
+                Cargar gasto
+              </button>
+            </div>
+
+            <div class="form-grid-3" id="filtros-gastos">
+              <div class="campo campo-sin-margen">
+                <label for="filtro-anio">Año</label>
+                <div class="campo-control">
+                  <select id="filtro-anio"></select>
+                </div>
+              </div>
+              <div class="campo campo-sin-margen">
+                <label for="filtro-mes">Mes</label>
+                <div class="campo-control">
+                  <select id="filtro-mes"></select>
+                </div>
+              </div>
+              <div class="campo campo-sin-margen">
+                <label for="filtro-rubro">Rubro</label>
+                <div class="campo-control">
+                  <select id="filtro-rubro"></select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- El total del período, calculado por el servidor. Es el numero
+               que despues se reparte entre las unidades, asi que sale del
+               mismo lugar del que va a salir la expensa; esta pantalla no suma
+               plata nunca. -->
+          <div class="panel-total" id="total-gastos" hidden>
+            <div class="panel-total-barra">
+              <div class="panel-total-cabeza">
+                <b data-total-titulo>Total del período</b>
+                <span data-total-monto></span>
+              </div>
+              <div class="panel-total-chips" data-total-chips></div>
+            </div>
+          </div>
+
+          <div class="mensaje-error" id="error-gastos" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/>
+            </svg>
+            <span data-texto-error-gastos></span>
+          </div>
+
+          <div class="lista-filas" id="lista-gastos"></div>
+        </div>
+
+      </section>
+    </main>
+  </div>
+
+  <!-- ==========================================================================
+       MODAL DE ALTA Y EDICION DE UN GASTO.
+
+       Uno solo para las dos operaciones. El titulo y el boton cambian de texto;
+       el formulario es el mismo, porque los campos son los mismos y dos modales
+       serian dos formularios que algun dia validan distinto.
+       ======================================================================= -->
+  <div class="modal-backdrop" id="modal-gasto" hidden>
+    <div class="modal modal-formulario" role="dialog" aria-modal="true"
+         aria-labelledby="titulo-modal-gasto">
+      <button type="button" class="modal-cerrar" data-cerrar-gasto
+              aria-label="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
+
+      <h3 id="titulo-modal-gasto">Cargar gasto</h3>
+      <p class="modal-formulario-sub" data-sub-modal-gasto>
+        Un gasto del consorcio en este período.
+      </p>
+
+      <form id="formulario-gasto" novalidate>
+        <!-- El resumen de errores del formulario: aparece arriba y cada campo
+             con problema se marca en rojo. Lo maneja Formularios.marcarErrores,
+             que es el mismo mecanismo del alta de edificios. -->
+        <div class="resumen-errores" data-resumen-errores hidden></div>
+
+        <div class="campo">
+          <label for="gasto-rubro">Rubro</label>
+          <div class="campo-control">
+            <select id="gasto-rubro" name="rubro" required></select>
+          </div>
+          <span class="campo-error" data-error-de="rubro"></span>
+          <p class="campo-ayuda" data-ayuda-rubro></p>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="campo">
+            <label for="gasto-monto">Monto</label>
+            <div class="campo-control">
+              <!-- type="text" con inputmode="decimal", NUNCA type="number":
+                   su modelo de valor no agrupa miles y rechaza la coma
+                   decimal. El formato lo hace monto-input.js. -->
+              <input type="text" id="gasto-monto" name="monto" data-monto
+                     inputmode="decimal" autocomplete="off" required
+                     placeholder="0,00">
+            </div>
+            <span class="campo-error" data-error-de="monto"></span>
+          </div>
+
+          <div class="campo">
+            <label for="gasto-fecha">Fecha</label>
+            <div class="campo-control">
+              <input type="date" id="gasto-fecha" name="fecha" required>
+            </div>
+            <span class="campo-error" data-error-de="fecha"></span>
+            <p class="campo-ayuda">
+              Decide a qué período pertenece el gasto.
+            </p>
+          </div>
+        </div>
+
+        <div class="campo">
+          <label for="gasto-descripcion">Descripción <span class="campo-opcional">(opcional)</span></label>
+          <div class="campo-control">
+            <input type="text" id="gasto-descripcion" name="descripcion"
+                   maxlength="500" autocomplete="off"
+                   placeholder="Número de factura, detalle, proveedor…">
+          </div>
+          <span class="campo-error" data-error-de="descripcion"></span>
+        </div>
+
+        <!-- El aviso del gasto que llega tarde: cuando el backend contesta que
+             la expensa de ese período ya está publicada, el gasto se guardó
+             igual y esto lo explica. No es un error. -->
+        <div class="mensaje-aviso" data-aviso-gasto hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 9v4M12 17h.01"/>
+            <path d="M10.3 3.9 2.6 17a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>
+          </svg>
+          <span data-texto-aviso-gasto></span>
+        </div>
+
+        <div class="modal-formulario-acciones">
+          <button type="button" class="boton-secundario" data-cerrar-gasto>
+            Cancelar
+          </button>
+          <button type="submit" class="boton-primario" data-guardar-gasto>
+            Guardar gasto
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- El orden importa: los modulos compartidos antes de la pantalla, porque
+       financiero.js usa Api, Moneda, MontoInput, Formularios y Confirmar en
+       cuanto arranca. -->
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/cargando.js"></script>
+  <script src="assets/js/conexion.js"></script>
+  <script src="assets/js/theme.js"></script>
+  <script src="assets/js/layout.js"></script>
+  <script src="assets/js/view-switch.js"></script>
+  <script src="assets/js/formularios.js"></script>
+  <script src="assets/js/confirmar.js"></script>
+  <script src="assets/js/moneda.js"></script>
+  <script src="assets/js/monto-input.js"></script>
+  <script src="assets/js/financiero.js"></script>
+</body>
+</html>

@@ -85,6 +85,23 @@
              '<path d="M3 21h18"/>' +
              '<path d="M8 21v-4h3v4"/>' +
              '<path d="M7 8h.01M11 8h.01M7 12h.01M11 12h.01"/>'
+    },
+    {
+      id: 'financiero',
+      etiqueta: 'Financiero',
+      archivo: 'financiero.html',
+      construida: true,          /* construida en F2-T17 */
+      /* Los dos administradores. El residente va a entrar al mismo archivo
+         cuando exista "Mi cuenta" (`F2-T22`): es un solo archivo para dos
+         audiencias y el rol decide cual se dibuja. Hasta entonces no se le
+         ofrece, porque hoy no hay nada para el ahi adentro. */
+      roles: ['admin_general', 'admin_consorcio'],
+      /* Un billete visto de frente con el circulo del centro. Mismo trazo y
+         mismo viewBox que los demas; nada de simbolos de moneda, que cambian
+         de forma segun la tipografia. */
+      icono: '<rect x="2.5" y="6.5" width="19" height="11" rx="2"/>' +
+             '<circle cx="12" cy="12" r="2.4"/>' +
+             '<path d="M6 10v4M18 10v4"/>'
     }
   ];
 

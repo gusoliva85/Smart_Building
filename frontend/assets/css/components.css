@@ -721,6 +721,35 @@ a{ color:inherit; }
   .form-grid-2{ grid-template-columns:1fr 1fr; }
 }
 
+/* Tres columnas para una fila de filtros (F2-T17). Hereda el comportamiento de
+   .form-grid-2 y agrega un paso intermedio: en telefono una columna, en tablet
+   dos —porque tres selectores de 110px no se tocan con el pulgar— y en
+   escritorio las tres. */
+.form-grid-3{ display:grid; grid-template-columns:1fr; gap:0 12px; }
+@media (min-width: 480px){
+  .form-grid-3{ grid-template-columns:1fr 1fr; }
+}
+@media (min-width: 760px){
+  .form-grid-3{ grid-template-columns:1fr 1fr 1fr; }
+}
+
+/* Un campo que no esta en un formulario sino en una cabecera o en una fila de
+   filtros, donde el margen de abajo de .campo deja un hueco suelto. */
+.campo-sin-margen{ margin-bottom:0; }
+
+/* La marca de que un campo no es obligatorio.
+
+   Va en el label y en minuscula, al lado del nombre. La alternativa habitual
+   —marcar los obligatorios con un asterisco— obliga a leer una leyenda para
+   saber que significa, y en un formulario donde casi todo es obligatorio
+   termina lleno de asteriscos. Se marca la excepcion, que es mas corta. */
+.campo-opcional{
+  font-weight:500;
+  color:var(--ink-3);
+  text-transform:none;
+  letter-spacing:0;
+}
+
 /* --- Boton primario ------------------------------------------------------ */
 .boton-primario{
   width:100%;
@@ -990,6 +1019,41 @@ a{ color:inherit; }
   background:color-mix(in srgb, var(--ok) var(--pill-tinte), var(--mix-tint));
   color:var(--ok-ink);
 }
+/* El tercer mensaje de la familia, de F2-T17: **algo salio bien pero hay algo
+   que saber**. Hoy lo usa un caso concreto: el gasto que se carga con fecha de
+   un periodo cuya expensa ya se publico. El gasto se guardo —es real y tiene
+   que quedar registrado— pero no va a aparecer en esa liquidacion, y eso hay
+   que decirlo.
+
+   NO USA UN COLOR DEL SEMAFORO, y es deliberado. El semaforo de cuatro estados
+   es una regla de negocio sobre el estado del edificio —una unidad en deuda, un
+   activo por vencer, un reclamo critico— y no una paleta para pintar cualquier
+   cosa que llame la atencion. Un aviso de formulario no es un estado del
+   edificio. Asi que lleva el acento de marca, que es el otro unico sistema de
+   color con licencia para existir.
+
+   El ancho de borde a la izquierda queda prohibido por la skill, asi que el
+   aviso se distingue por el tinte del fondo y nada mas, igual que sus dos
+   hermanos. */
+.mensaje-aviso{
+  display:flex;
+  align-items:flex-start;
+  gap:8px;
+  padding:10px 13px;
+  margin-bottom:14px;
+  border-radius:var(--r-sm);
+  font-size:12.5px;
+  font-weight:600;
+  line-height:1.45;
+  background:color-mix(in srgb, var(--accent) var(--pill-tinte), var(--mix-tint));
+  /* La tinta fuerte y no un token derivado del acento: sobre un tinte tan
+     tenue, --ink ya cumple el contraste con holgura en los dos temas, y crear
+     un --accent-ink nuevo obligaria a medirlo para ganar nada. Los tokens de
+     tinta del semaforo existen porque ahi el fondo SI es saturado. */
+  color:var(--ink);
+}
+.mensaje-aviso svg{ width:16px; height:16px; flex:none; margin-top:1px; }
+
 .mensaje-error svg,
 .mensaje-exito svg{ width:16px; height:16px; flex:none; }
 
