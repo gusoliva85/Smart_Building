@@ -27,6 +27,36 @@ pueden olvidar ni siquiera en medio de un cambio de estilo:
 
 Producir una interfaz **premium y profesional** — vidrio auténtico ("Liquid Glass"), acabado de estudio de diseño, nunca "generada" — que funcione igual de bien como herramienta de trabajo densa en datos reales en mobile y en escritorio, sin perder elegancia en ninguno de los dos.
 
+## Antes de escribir una clase en un HTML: leer su regla en el CSS
+
+Tres bugs de la misma pantalla, el mismo día, salieron de **usar una clase por
+su nombre sin leer qué hace**. El nombre no alcanza, y los tres se ven mal sin
+fallar — que es lo caro.
+
+- **Hay clases que son modificadores y solas no hacen nada.** `.boton-secundario`
+  va **encima** de `.boton-primario` (solo cambia fondo y color); `.icon-btn-sm`
+  encima de `.icon-btn` (solo cambia el tamaño). Sola, la clase no tiene ningún
+  estilo de base y el botón queda sin forma. Se escriben las dos:
+  `class="boton-primario boton-secundario"`.
+- **Hay clases que necesitan compañera.** `.modal` va con `.shell` — es lo que
+  le da la superficie de vidrio— y `.fila-lista` con `.content-glass`.
+- **Un `.boton-primario` fuera de un formulario lleva `.boton-chico`.** Nace con
+  `width:100%` porque su caso principal es el pie de un formulario; acompañando
+  un título hay que encogerlo. `.boton-chico` existe nombrada **justamente para
+  eso**, así que no se inventa una regla de contenedor: ya está resuelto.
+- **Hay clases que son listas y el nombre no lo dice.** `.bloque-lista` es un
+  `<ol>` con contador, no un encabezado: su contenido va en `<li>`.
+
+**La forma corta de no equivocarse:** antes de escribir un componente, buscar
+uno igual en `usuarios.html` o `edificios.html` y copiar el `class` entero. Si
+no hay ninguno igual, leer la regla en `components.css`.
+
+**Y hay un verificador que atrapa estos cuatro casos:**
+`python frontend/verificar_pantallas.py`. Recorre las pantallas, aprende de las
+ya aprobadas qué combinaciones de clases son válidas, y avisa. Se corre antes
+de dar por terminada una pantalla. Tiene `--probar`, que le inyecta los diez
+bugs conocidos en memoria y comprueba que los encuentre.
+
 ## Regla de oro: reutilizar, nunca reinventar
 
 Cuando una tarea nueva necesite un botón, un ícono, una tarjeta, un badge, una animación o un patrón de interacción, la pregunta correcta **no es** "¿cómo lo diseño?" sino **"¿cuál de los patrones ya definidos en `references/componentes.md` uso acá?"**. Si de verdad no existe un patrón que sirva, se diseña uno nuevo siguiendo los mismos tokens (color, radio, sombra, tipografía, timing de transición) de esta skill y se agrega a `references/componentes.md` para que la próxima tarea lo reutilice. La consistencia es el producto: un usuario que pasa de Reclamos a Activos a Reservas tiene que sentir que es la misma app, no tres experimentos distintos.

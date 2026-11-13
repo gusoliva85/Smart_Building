@@ -1109,7 +1109,7 @@ la sección 1.3.
 
 > `financiero.html` es **un solo archivo para dos audiencias**, no dos pantallas. El JS rutea por rol al inicio: gestión ve el módulo completo con pestañas; residente ve "Mi cuenta".
 
-- [ ] **F2-T17 · Frontend — cascarón con pestañas y pestaña Gastos.**
+- [x] **F2-T17 · Frontend — cascarón con pestañas y pestaña Gastos.**
   **Qué se construye:** la página con el selector segmentado que organiza todo el módulo (Gastos / Expensas / Pagos / Deudores / Fondos), con la primera pestaña funcional: carga, edición y listado de gastos con filtro por rubro y período.
   **Incluye:** `assets/js/moneda.js` (formato argentino para **mostrar** montos, centralizado para que ninguna pantalla arme su propio formateador) y `assets/js/monto-input.js` (formato de miles **mientras el usuario tipea**).
   **Cuidado con el campo de monto:** un `<input type="number">` **no sirve**: su modelo de valor nunca agrupa miles. Se usa `type="text"` con `inputmode="decimal"` (que mantiene el teclado numérico en mobile) y formateo propio que reposiciona el cursor según cuánto cambió el largo.
@@ -1133,20 +1133,77 @@ la sección 1.3.
   - `moneda.js` no pasa los montos por `Number()` ni las fechas por `new Date()`.
   - `monto-input.js` mueve el cursor **lo que cambió el largo del texto**, así queda pegado al
     dígito que se estaba tocando. La coma a medio escribir se conserva.
-  - Verifiqué con un chequeo estático que las 45 clases existen y que cada `window.X.y()` existe
-    de verdad: encontró dos errores míos antes de que los vieras. **No verifiqué cómo se ve**: no
-    tengo navegador.
+  - Verifiqué con un chequeo estático que las clases existen y que cada `window.X.y()` existe de
+    verdad: encontró dos errores míos antes de la primera entrega.
+  **Aprobada el 2026-11-13, después de tres correcciones que me marcó el usuario.**
+  - **Tres botones estaban mal, los tres por el mismo error:** usar una clase por su nombre sin
+    leer el CSS. "Cargar gasto" sin `.boton-chico`, así que medía el ancho de la pantalla; el
+    Cancelar con `.boton-secundario` sola — es un modificador, sin `.boton-primario` no tiene
+    estilo—; y los íconos de editar y borrar con `.icon-btn-sm` sola, por lo mismo.
+  - **El modal se abría invisible:** `.modal-backdrop` nace en `opacity:0` y se abre con la clase
+    `.abierto`, no quitándole `hidden`. Era "el botón que no hace nada". Y le faltaba `.shell`.
+  - Usé `.bloque-lista` como encabezado y **es un `<ol>` con contador**: por eso se apilaba. Quedó
+    `.bloque-cabecera`, que sí es "título + acción en una fila".
+  - **Quedó guardado `frontend/verificar_pantallas.py`.** Aprende de `usuarios.html` y
+    `edificios.html` qué combinaciones de clases son válidas, y **encontró el tercer botón, que yo
+    no había visto**. Con `--probar` inyecta los diez bugs conocidos en memoria y verifica que los
+    encuentre. Las tres pantallas pasan.
+  - Las reglas quedaron en la skill `premium-uiux`, en el catálogo de trampas del Documento de
+    Frontend y en `CLAUDE.md`.
 
-- [ ] **F2-T18 · Frontend — pestaña Expensas (gestión).**
-  **Qué se construye:** generación de la expensa del período, listado de liquidaciones, y detalle con la apertura por rubro. El botón de regenerar aparece **solo en la última** y usa el patrón de confirmación de `F2-T05`: el formulario pasa a modo confirmación con el texto explícito de qué se reemplaza.
+- [ ] **F2-T18 · Frontend — pestaña Expensas (gestión).** *(construida, falta tu revisión)*
+  **Qué se construye:** generación de la expensa del período, listado de liquidaciones, y detalle con la apertura por rubro.
+  **Actualizado el 2026-11-13, porque `F2-T05` cambió la regla:** la expensa nace en **borrador** y
+  hay **dos botones, no uno**. *Regenerar* aparece solo mientras esté en borrador, con el patrón de
+  confirmación de `F2-T05`. *Publicar* la vuelve visible para los residentes, arranca el
+  vencimiento y **cierra la regeneración para siempre**, así que también confirma y el texto lo
+  dice con todas las letras. El estado se ve en el listado con una `.pill`: una expensa en borrador
+  que nadie publicó es plata que no se está cobrando. El servidor manda `se_puede_regenerar`, así
+  que la pantalla no deduce la regla.
   **Cuidado con:** si el usuario cambia algún dato del formulario, el estado de confirmación **se reinicia**.
+  **Construida, falta tu revisión.** El panel de expensas y el modal de detalle en `financiero.html`,
+  y la pestaña en `financiero.js`. **Con esto aparece el selector por primera vez**: con una sola
+  pestaña no se dibujaba.
+  - **Tres acciones:** generar (elegís año y mes), regenerar y publicar. Regenerar y publicar
+    aparecen **solo mientras esté en borrador**, y eso lo decide `se_puede_regenerar` que manda el
+    servidor — la pantalla no deduce la regla.
+  - **El 409 se contesta con el modal `Confirmar`**, igual que el atajo de coeficientes, y el texto
+    de la pregunta es el del servidor: es el que sabe por cuánto era la que se reemplaza.
+  - **Y por eso no hay "modo confirmación" en el formulario**, que es como lo describía esta tarea:
+    con el modal la pregunta se contesta en el acto, así que no queda un estado intermedio colgado
+    que haya que reiniciar. **La salvedad del "Cuidado con" de arriba deja de aplicar.**
+  - **Publicar avisa que es irreversible**, porque lo es: lo que habría que deshacer no está en la
+    base, está en la cabeza de los propietarios que ya anotaron cuánto pagar. Y el botón va con el
+    acento y no en rojo (`destructiva: false`): no borra nada.
+  - **El aviso del borrador sin publicar va arriba de la pestaña**, con el período nombrado. Es el
+    estado más fácil de dejar olvidado, porque desde la pantalla se ve "liquidado" igual.
+  - **El estado va como `.chip` y no como `.pill`**: las pills son el semáforo del edificio, y el
+    estado de un documento contable no es eso.
+  - El detalle es de solo lectura y trae los dos niveles: la apertura por rubro con su porcentaje y
+    el reparto unidad por unidad. **El recargo y el saldo a favor se muestran solo si existen**:
+    veinte líneas que digan "recargo $0,00" tapan la única que sí tiene.
+  - **Y una nota explica por qué los dos totales pueden no coincidir**, que es la primera pregunta
+    que se hace alguien mirando esto: el total son los gastos, y lo que paga cada unidad incluye su
+    recargo y descuenta su saldo a favor. Sin la explicación parece un error de cuentas.
+  - **Probado contra la API** con datos inventados en la base local: negarse sin coeficientes (y
+    decir cuáles), generar, el 409 al regenerar, publicar, y el rechazo al intentar regenerar
+    después. El reparto cierra exacto y se ve el resto mayor (89.204,82 / 89.204,83 / 89.215,53).
+  - Las tres pantallas pasan `verificar_pantallas.py`, y sus diez casos de prueba siguen en verde.
+    **El verificador encontró dos cosas mías acá también:** el botón de cerrar del modal nuevo no
+    estaba escrito como los otros tres, y al haber dos modales el chequeo viejo no detectaba que
+    faltara abrir uno — ahora cuenta.
 
 - [ ] **F2-T19 · Frontend — pestaña Pagos, vista de gestión.**
   **Qué se construye:** la cola de pagos pendientes con sus botones de confirmar y rechazar en la misma fila, y el listado histórico con su estado.
 
 - [ ] **F2-T20 · Frontend — pestaña Deudores.**
   **Qué se construye:** listado ordenado por antigüedad con el detalle de las expensas impagas de cada unidad. Consume tal cual `F2-T11`, sin cambios de backend.
-  **Nota de alcance:** el acceso del rol Auditor a esta pestaña depende de cómo se haya resuelto `F1-T02`. Si quedó pendiente, se habilita en `F11-T05` y **no antes** — darle acceso a toda la cartera sin un vínculo real sería un sobre-permiso.
+  **Nota de alcance, corregida el 2026-11-13:** `F1-T02` **ya está resuelta**, así que la condición
+  que decía esta nota quedó vieja. Lo que falta es la **pantalla de asignación** de un Auditor a
+  sus edificios, que es `F11-T05`: hasta que exista no entra acá, porque darle toda la cartera sin
+  un vínculo real sería un sobre-permiso.
+  **Y el atraso y el recargo van en líneas separadas** (`F2-T11`): es un solo saldo, pero un número
+  único más grande de lo esperado hace que el vecino crea que el sistema se equivocó.
 
 - [ ] **F2-T21 · Frontend — pestaña Fondos, con su sub-navegación.**
   **Qué se construye:** una única pestaña principal con **cuatro secciones internas** (Fondos / Caja chica / Presupuestos / Facturas) mediante una segunda fila de pestañas.
@@ -1156,13 +1213,29 @@ la sección 1.3.
 - [ ] **F2-T22 · Frontend — "Mi cuenta" del residente.**
   **Qué se construye:** la rama de rol para Propietario e Inquilino dentro del mismo archivo: sus unidades, la expensa del período **con su apertura por rubro** (no solo el total), el saldo, el CBU y el alias con botón de copiar, y el formulario de carga de pago.
   **Regla visible en pantalla:** un pago cargado aparece como pendiente con el texto que explica que el saldo se actualiza recién cuando la administración lo concilia.
+  **Los tres montos van por separado** (decidido el 2026-11-13): lo que le toca de los gastos, el
+  **recargo** por lo que arrastraba, y el **saldo a favor** aplicado. Un solo total no le permite
+  entender por qué este mes le vino distinto, y es ahí donde llama por teléfono.
+  **El aviso del saldo a favor que no alcanza**, que es el caso que genera el problema: quien pagó
+  por adelantado cree que está cubierto y no vuelve a mirar. Va como aviso destacado y no como una
+  fila más — "se aplicaron $X de tu saldo a favor; quedan $Y por pagar antes del 10". El faltante
+  es **deuda común**, no una categoría aparte (`F2-T08`).
+  **Una expensa en borrador no se muestra acá** (`F2-T04`).
   **Cuidado con:** el Propietario a veces necesita elegir de cuál de sus unidades habla; el Inquilino **nunca** — con una sola unidad, el selector ni se muestra.
 
 - [ ] **F2-T23 · Prueba de punta a punta — financiero.**
-  **Qué se prueba, con datos cargados a mano y en el frontend real:** cargar los gastos de un mes; generar la expensa; verificar que la suma de lo repartido da exactamente el total; corregir un gasto y regenerar la última expensa confirmando el reemplazo; cargar pagos desde la sesión del residente y dejarlos pendientes; confirmar uno, rechazar otro; verificar que solo el confirmado bajó el saldo; dejar unidades con uno, dos y cuatro meses de deuda y confirmar que Deudores calcula bien meses y monto en cada caso. Repetir con el edificio de 28 unidades.
+  **Qué se prueba, con datos cargados a mano y en el frontend real:** cargar los gastos de un mes; generar la expensa; verificar que la suma de lo repartido da exactamente el total; corregir un gasto y regenerar la expensa **en borrador** confirmando el reemplazo; **publicarla**, y comprobar que después el botón de regenerar ya no está y que recién ahí la ve el residente; cargar pagos desde la sesión del residente y dejarlos pendientes; confirmar uno, rechazar otro; verificar que solo el confirmado bajó el saldo; dejar unidades con uno, dos y cuatro meses de deuda y confirmar que Deudores calcula bien meses y monto en cada caso. Repetir con el edificio de 28 unidades.
+  **Y los tres casos que agregaron las decisiones del 2026-11-13:** dejar una unidad impaga, generar
+  el mes siguiente y verificar que **el recargo aparece cargado a esa unidad y a ninguna otra** (y
+  que el total de la expensa no lo incluye); pagar de más y verificar que el excedente se descuenta
+  del siguiente; y hacer que ese saldo a favor **no alcance** para ver el aviso de `F2-T22`.
 
 - [ ] **F2-DOC · Documentación de la Fase 2.**
   Redactar `documentacion/fases/Fase_2_Gestion_Financiera.md` según la sección 1.6. Foco particular: el ejemplo numérico completo de una liquidación (gastos por rubro → total → reparto por coeficiente → lo que ve cada unidad), el circuito de conciliación explicado como se le explicaría a un administrador, y por qué no hay QR.
+  **Y las seis decisiones del 2026-11-13 explicadas como decisiones**, no como características: qué
+  decía el Roadmap, qué hueco tenía y por qué se resolvió así. Están indexadas en la cabecera de
+  la fase. Las dos que más importa dejar escritas: **por qué el recargo se le cobra a la unidad
+  pero no entra en el total que se reparte**, y **por qué publicar es irreversible**.
 
 ---
 

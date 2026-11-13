@@ -96,3 +96,8 @@ real del producto: si algo se probó con datos inventados, se dice que son inven
 - El frontend no tiene paso de compilación: los archivos que se editan son los que se
   sirven. Todo lo visual sale de la skill `premium-uiux`, que es obligatoria antes de
   tocar una sola línea de pantalla.
+- **Antes de dar por terminada una pantalla se corre
+  `python frontend/verificar_pantallas.py`.** Atrapa la clase de error que no falla y
+  solo se ve mal: una clase inventada, un modificador usado solo, un modal que se abre
+  invisible, un botón sin su clase de ancho. Y antes de escribir un componente nuevo,
+  buscar uno igual en `usuarios.html` o `edificios.html` y copiar el `class` entero.

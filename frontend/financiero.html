@@ -181,6 +181,88 @@
           <div class="lista-filas" id="lista-gastos"></div>
         </div>
 
+
+        <!-- ============================================ PESTAÑA EXPENSAS === -->
+        <div class="panel-pestania" data-panel="expensas" hidden>
+
+          <!-- EL AVISO DEL BORRADOR SIN PUBLICAR VA ARRIBA DE TODO, y no es
+               decorativo: una liquidación generada que nadie publicó es plata
+               que no se está cobrando, y el residente no la ve. Es el estado
+               más fácil de dejar olvidado, porque desde la pantalla se ve
+               "liquidado" igual. -->
+          <div class="mensaje-aviso" id="aviso-borrador" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 9v4M12 17h.01"/>
+              <path d="M10.3 3.9 2.6 17a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>
+            </svg>
+            <span data-texto-aviso-borrador></span>
+          </div>
+
+          <div class="bloque">
+            <div class="bloque-cabecera">
+              <h3 class="bloque-titulo">Generar una liquidación</h3>
+            </div>
+            <p class="bloque-nota">
+              Toma los gastos cargados del período y los reparte entre las
+              unidades según su coeficiente. Queda en borrador: hasta que la
+              publiques, el residente no la ve.
+            </p>
+
+            <div class="form-grid-3">
+              <div class="campo campo-sin-margen">
+                <label for="generar-anio">Año</label>
+                <div class="campo-control">
+                  <select id="generar-anio"></select>
+                </div>
+              </div>
+              <div class="campo campo-sin-margen">
+                <label for="generar-mes">Mes</label>
+                <div class="campo-control">
+                  <select id="generar-mes"></select>
+                </div>
+              </div>
+              <div class="campo campo-sin-margen">
+                <!-- El label vacío mantiene al botón alineado con los dos
+                     desplegables en escritorio. Lleva `aria-hidden` porque no
+                     tiene nada que anunciar. -->
+                <label aria-hidden="true">&nbsp;</label>
+                <button type="button" class="boton-primario boton-chico"
+                        id="boton-generar">
+                  <svg viewBox="0 0 24 24" width="15" height="15" fill="none"
+                       stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+                       stroke-linejoin="round" aria-hidden="true">
+                    <path d="M12 5v14M5 12h14"/>
+                  </svg>
+                  Generar expensa
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="mensaje-error" id="error-expensas" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/>
+            </svg>
+            <span data-texto-error-expensas></span>
+          </div>
+
+          <div class="mensaje-exito" id="exito-expensas" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20 6L9 17l-5-5"/>
+            </svg>
+            <span data-texto-exito-expensas></span>
+          </div>
+
+          <div class="bloque">
+            <div class="bloque-cabecera">
+              <h3 class="bloque-titulo">Liquidaciones</h3>
+            </div>
+            <div class="lista-filas" id="lista-expensas"></div>
+          </div>
+        </div>
       </section>
     </main>
   </div>
@@ -292,6 +374,63 @@
           </button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       DETALLE DE UNA LIQUIDACION.
+
+       Es de solo lectura: una expensa publicada es un documento contable y no
+       se edita. Lo que se puede hacer desde acá es publicar una en borrador o
+       regenerarla, y esos dos botones están en la fila del listado, no acá
+       adentro: la acción va donde está el objeto.
+
+       Lleva los dos niveles de la liquidación —la apertura por rubro, que es la
+       transparencia que pide el Documento General, y el reparto unidad por
+       unidad— porque son las dos preguntas que se le hacen a una expensa: en
+       qué se gastó y cuánto le toca a cada uno.
+       ======================================================================= -->
+  <div class="modal-backdrop" id="modal-expensa">
+    <div class="modal modal-formulario shell" role="dialog" aria-modal="true"
+         aria-labelledby="titulo-modal-expensa">
+      <button type="button" class="modal-cerrar" data-cerrar-expensa
+              aria-label="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
+
+      <h3 id="titulo-modal-expensa">Liquidación</h3>
+      <p class="modal-formulario-sub" data-sub-modal-expensa></p>
+
+      <div class="panel-total" data-total-expensa>
+        <div class="panel-total-barra">
+          <div class="panel-total-cabeza">
+            <b>Total del período</b>
+            <span data-expensa-total></span>
+          </div>
+          <div class="panel-total-chips" data-expensa-chips></div>
+        </div>
+      </div>
+
+      <div class="bloque">
+        <h3 class="bloque-titulo">En qué se gastó</h3>
+        <div class="lista-filas" data-expensa-rubros></div>
+      </div>
+
+      <div class="bloque">
+        <h3 class="bloque-titulo">Lo que paga cada unidad</h3>
+        <p class="bloque-nota" data-nota-reparto></p>
+        <div class="lista-filas" data-expensa-unidades></div>
+      </div>
+
+      <div class="modal-formulario-acciones">
+        <button type="button" class="boton-primario boton-secundario"
+                data-cerrar-expensa>
+          Cerrar
+        </button>
+      </div>
     </div>
   </div>
 
