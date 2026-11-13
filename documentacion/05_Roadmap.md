@@ -819,26 +819,31 @@ de la seccion 1.6, no un olvido.
 
 **Temas:** 2.1 Gastos · 2.2 Prorrateo y expensas · 2.3 Pagos y conciliación · 2.4 Deudores · 2.5 Fondos, caja chica, presupuestos y facturas · 2.6 Reportes · 2.7 Pantalla financiera.
 
-### El orden de ejecución de esta fase, decidido el 2026-11-13
+### Decisiones del 2026-11-13, antes de empezar
 
-La sección 1.3 pide que toda alteración del orden se escriba antes de saltear nada, así que esto queda acá. **Había pensado hacer los temas 2.1 a 2.4 y saltar directo a la Fase 3**, para llegar antes al Dashboard Visual, que es el diferencial del producto. Al terminar el 2.4 lo revisé y **decidí terminar la Fase 2 completa**.
+Leí la fase entera antes de construirla y aparecieron seis huecos. Cada decisión quedó escrita en
+la tarea que la implementa; esta tabla es para encontrarlas.
 
-El motivo es concreto: elegí probar las tareas de backend **en la pantalla** y no desde `/docs`, así que saltar dejaba seis tareas sin verificar en el navegador por mucho tiempo. Y la pantalla financiera **no se puede construir salteando el tema 2.5**, porque tendría una pestaña de Fondos vacía — y la sección 1.3 prohíbe las pantallas con secciones de funcionalidad futura. Así que el orden vuelve a ser el del documento: 2.5, 2.6, 2.7, y la Fase 3 después.
-
-### Decisiones tomadas el 2026-11-13, antes de empezar la fase
-
-Leí la fase entera antes de construirla y aparecieron seis huecos. Los resolví con el usuario y **cada decisión quedó escrita en la tarea que la implementa**, no en una lista suelta que después nadie lee. Este índice es solo para encontrarlas:
-
-| Qué estaba sin definir | Dónde quedó resuelto |
+| Qué estaba sin definir | Dónde se resolvió |
 |---|---|
-| El `rubro` del gasto era texto libre, y la expensa agrupa por ese valor | `F2-T01` — catálogo cerrado en `services/rubros.py` |
-| Los centavos sobrantes del reparto caían siempre en la misma unidad | `F2-T03` — reparto por resto mayor |
-| Nada impedía dos liquidaciones del mismo período | `F2-T04` — `UNIQUE (edificio_id, anio, mes)` |
-| `recargo_mora_porcentual` se configuraba y **ninguna tarea lo usaba** | `F2-T05` lo cobra · `F2-T04` lo guarda · `F2-T11` lo informa |
-| "Regenerar la última expensa" permitía pisar una que la gente ya estaba pagando | `F2-T05` — se regenera en borrador, publicar cierra la puerta |
-| El saldo a favor no existía como concepto | `F2-T08` lo define · `F2-T04` lo guarda · `F2-T22` lo avisa |
+| El `rubro` del gasto era texto libre, y la expensa agrupa por ese valor | `F2-T01` |
+| Los centavos sobrantes caían siempre en la misma unidad | `F2-T03` |
+| Nada impedía dos liquidaciones del mismo período | `F2-T04` |
+| `recargo_mora_porcentual` se configuraba y ninguna tarea lo usaba | `F2-T05` · `F2-T11` |
+| "Regenerar la última" permitía pisar una que la gente ya pagaba | `F2-T05` |
+| El saldo a favor no existía como concepto | `F2-T08` · `F2-T22` |
 
-**Y el vocabulario de la fase, que conviene fijar porque se confunde solo:** el **atraso** es la expensa vencida que la unidad no pagó; el **recargo** es la plata que se le cobra por ese atraso. Las dos son deuda y las dos pintan el Dashboard Visual, pero **solo el atraso genera recargo** — nunca al revés, nunca recargo sobre recargo.
+**El vocabulario de la fase**, que se confunde solo: el **atraso** es la expensa vencida que la
+unidad no pagó; el **recargo** es lo que se le cobra por ese atraso. Las dos son deuda y las dos
+pintan el Dashboard, pero **solo el atraso genera recargo**.
+
+### El orden de ejecución, decidido el 2026-11-13
+
+Había pensado hacer los temas 2.1 a 2.4 y saltar a la Fase 3. Al terminar el 2.4 decidí
+**terminar la fase completa**: elegí probar el backend en la pantalla, y la pantalla financiera no
+se puede construir salteando el 2.5 — tendría una pestaña de Fondos vacía, que es lo que prohíbe
+la sección 1.3.
+
 
 ## Tema 2.1 — Gastos
 
@@ -846,90 +851,91 @@ Leí la fase entera antes de construirla y aparecieron seis huecos. Los resolví
   **Qué se construye:** `edificio_id`, `rubro`, `monto` (`Numeric(12,2)`, nunca `float`, que pierde centavos), `fecha`, `descripcion`, `proveedor_id`*, `activo_id`*, `creado_en`. CHECK de monto mayor a cero.
   **Sobre los campos marcados con asterisco:** son **enteros sueltos sin clave foránea real**, deliberadamente. Una columna sin FK no depende de que la tabla destino exista, así que se puede crear desde el primer día; lo que sí necesita la tabla destino es la restricción. `activo_id` se formaliza en la Fase 4 y `proveedor_id` en la Fase 7. **Cada columna diferida se documenta en el modelo con un comentario que diga en qué fase se formaliza.**
   **Regla:** un gasto es editable (se carga mal un monto y se corrige), pero esa edición **no reescribe una expensa ya liquidada**.
-  **Aprobada el 2026-11-13.** `app/models/finanzas.py` (archivo nuevo, donde van a vivir también las expensas, los pagos y los fondos) y `app/services/rubros.py` (archivo nuevo). **27 tests** en `tests/test_gasto.py`; suite completa: **903**.
-  **Una decisión que tuve que tomar porque la tarea no la definía: el rubro es un catálogo cerrado, no texto libre.** La tarea pedía una columna `rubro` sin decir qué valores admite, y la expensa y los reportes **agrupan por ese valor**: con texto libre, "Limpieza" y "limpieza" son dos líneas distintas en la liquidación que ve el consorcista. Quedó en `services/rubros.py` con diez entradas y su etiqueta legible, y el CHECK de la tabla se arma desde esa misma tupla — el mismo patrón que los roles. Lo anoté en el Documento Técnico junto con la diferencia con los rubros de proveedor de la Fase 7, que es otro concepto y por eso no comparten tabla.
-  **Las dos columnas diferidas quedaron documentadas en el modelo**, como pide la tarea: `activo_id` se formaliza en la Fase 4 y `proveedor_id` en la Fase 7, y el comentario avisa que el mecanismo de arranque es **aditivo** —agrega columnas que faltan, nunca restricciones a columnas que ya existen—, así que convertirlas en clave foránea real necesita una migración escrita a mano.
-  **Lo que probé, que no es que la fila se guarde:** que el monto vuelve de la base como `Decimal` exacto y que la columna es `Numeric(12,2)` —se mira el tipo declarado y no solo el valor, porque una columna `Float` también devolvería 1234,56 en un caso fácil—, que un monto en cero o negativo se rechaza, que los diez rubros del catálogo los acepta la base y que uno fuera del catálogo no, y que las dos columnas diferidas no tienen clave foránea.
-  **Y una regla del modelo que conviene tener escrita:** la expensa guarda su **propia** apertura por rubro con los montos copiados al liquidar, no una referencia a estas filas. Eso es lo que hace que un gasto sea editable y una expensa liquidada no se reescriba — las dos cosas a la vez, sin contradicción.
+  **Aprobada el 2026-11-13.** `models/finanzas.py` y `services/rubros.py`, nuevos. 27 tests.
+  - **El rubro es un catálogo cerrado de diez, no texto libre.** La expensa y los reportes agrupan
+    por ese valor: con texto libre, "Limpieza" y "limpieza" son dos líneas en la liquidación.
+  - El CHECK de la tabla se arma desde la misma tupla que usa la pantalla.
+  - No es el mismo "rubro" que el de un proveedor (Fase 7): ese es un oficio, este una categoría
+    contable. No comparten tabla.
+  - Las dos columnas diferidas dicen en el modelo en qué fase se formalizan.
 
 - [x] **F2-T02 · Backend — CRUD de gastos con filtro por período.**
   **Qué se construye:** alta, edición, baja y listado bajo `/api/edificios/{id}/gastos`, con filtro por año y mes.
   **Cuidado con:** la edición es obligatoria desde el principio, no un agregado posterior. Sin ella, un gasto mal cargado obliga a recargar el edificio entero a mano — pasó.
-  **Aprobada el 2026-11-13.** `routers/gastos.py` y `schemas/finanzas.py` (los dos nuevos), dos entradas nuevas en el catálogo de errores y el router montado en `main.py`. **50 tests** en `tests/test_gastos_api.py`.
-  **Son cinco endpoints y no cuatro.** El quinto es `GET /api/gastos/rubros`, el catálogo con su etiqueta legible, y existe para que la pantalla de `F2-T17` **no tenga su propia copia de la lista de rubros en JavaScript**. Una copia en el frontend es exactamente la que queda vieja el día que se agregue un rubro, y el síntoma sería un desplegable al que le falta una opción sin que nada falle. Por el mismo motivo cada gasto viaja con `rubro` y `rubro_etiqueta`: el primero es el valor con el que se filtra y agrupa, el segundo el que se muestra.
-  **El filtro de período se arma por rango de fechas, no extrayendo el mes de la columna.** Un `EXTRACT(MONTH FROM fecha)` no puede usar el índice `(edificio_id, fecha)` —la base calcula la función fila por fila— y además se escribe distinto en SQLite y en PostgreSQL, que son los dos motores de este proyecto. El rango es **medio abierto**, `[desde, hasta)`: con `< 1 de abril` en vez de `<= 31 de marzo` no hay que saber cuántos días tiene cada mes y febrero deja de ser un caso especial. Hay tests del 31, del 1 del mes siguiente, de diciembre (el único mes cuyo límite cambia de año) y del 29 de febrero de 2028.
-  **`mes` sin `año` se rechaza en vez de adivinar:** "los gastos de marzo" de un edificio con tres años de historia son tres marzos distintos.
-  **El total lo calcula el servidor y no lo suma la pantalla.** Es el número que después se reparte entre las unidades, así que tiene que salir del mismo lugar del que va a salir la expensa: dos sumas hechas en dos lados distintos son dos números que algún día no coinciden.
-  **Tres decisiones del alta que conviene tener escritas.** Un monto con tres decimales **se rechaza en vez de redondearse** (1234,567 guardado como 1234,57 es plata que nadie decidió, y la diferencia aparece al cerrar el período sin forma de rastrearla). Una **fecha futura se acepta**, porque un seguro o un abono se cargan con su fecha de vencimiento y rechazarlos obligaría a esperar al día exacto. Y `proveedor_id` y `activo_id` **no se piden todavía**, aunque las columnas existan: sin las pantallas que eligen un proveedor (Fase 7) o un activo (Fase 4), un campo que acepta cualquier entero sin nada que lo valide es una invitación a guardar basura.
-  **La edición es un PATCH de verdad**, con `exclude_unset`: mandar solo el monto no borra la fecha, y "no mandaste descripción" se distingue de "mandaste descripción vacía", que son dos cosas distintas y las dos válidas. Editar con los mismos valores **avisa** en vez de guardar sin hacer nada: un "guardado" que no guardó nada es la forma más fácil de creer que se corrigió algo que sigue mal.
-  **El gasto se borra de verdad, no se marca como inactivo.** Un gasto mal cargado no es un hecho histórico: es un error de tipeo, y arrastrarlo con una marca obligaría a filtrarlo en cada consulta y en cada suma, que es donde después falta el filtro. Lo histórico es la expensa, que guarda sus montos copiados (`F2-T05`), así que borrar un gasto nunca puede alterar una liquidación emitida.
-  **Pero con una condición que puse el 2026-11-13, y que todavía no se puede implementar: un gasto que ya entró en una expensa publicada no se borra ni se modifica.** La liquidación no se rompe —sus montos están copiados—, pero quedaría diciendo "Limpieza: $150.000" sin que exista el gasto que lo justifica, y eso es lo que mira un propietario que pide explicaciones. Lo único que sigue siendo editable en ese caso es la **descripción**, que no altera ningún número.
-  **Por qué no está hecho acá:** la restricción necesita preguntarle a la expensa del período si está publicada, y las expensas no existen hasta `F2-T04`. **Se implementa en `F2-T05`**, en la misma tarea que crea el estado `publicada`, junto con el aviso del gasto que llega tarde — son la misma consulta. Queda anotado también ahí para que no se pierda.
-  **El alcance, con su prueba del caso prohibido:** solo administradores —el General sobre la cartera, el de Consorcio sobre su edificio—, y el gasto se busca **siempre dentro del edificio ya verificado**, nunca por id suelto con una comparación posterior, que es el error que deja pasar el id de un gasto ajeno. Un edificio ajeno da **404 y no 403**: un 403 confirmaría que ese edificio existe.
-  **Lo que falta y no se podía hacer acá:** el aviso de "este gasto es de un período cuya expensa ya se publicó". Necesita que las expensas existan, así que la regla vive en `F2-T05` y la pantalla la muestra en `F2-T17`.
+  **Aprobada el 2026-11-13.** `routers/gastos.py` y `schemas/finanzas.py`, nuevos. 50 tests.
+  - Cinco endpoints. El quinto, `GET /api/gastos/rubros`, existe para que la pantalla no tenga su
+    propia copia de la lista de rubros: esa copia es la que queda vieja.
+  - **El filtro de período es por rango de fechas**, no extrayendo el mes: un `EXTRACT` no usa el
+    índice y se escribe distinto en SQLite y PostgreSQL. Rango medio abierto, así febrero no es
+    un caso especial.
+  - `mes` sin `año` se rechaza en vez de adivinar.
+  - Un monto con tres decimales **se rechaza**, no se redondea.
+  - Una fecha futura se acepta: un seguro se carga con su vencimiento.
+  - El total lo calcula el servidor, no la pantalla.
 
 ## Tema 2.2 — Prorrateo y expensas
 
 - [x] **F2-T03 · Lógica — `services/finanzas.py`, reparto de un monto entre unidades.**
   **Qué se construye:** la función pura que, dado un total y la lista de coeficientes de las unidades, devuelve cuánto le toca a cada una.
-  **Regla de precisión no negociable:** al repartir un monto entre N unidades **nunca se redondea cada parte por separado** — eso deja centavos sin asignar. La suma de lo repartido tiene que igualar el total, al centavo.
-  **Cómo se asignan los centavos sobrantes, decidido el 2026-11-13: por resto mayor, no a la última unidad.** La tarea decía que la última unidad recibe el resto exacto. Funciona, pero significa que **la misma unidad paga los centavos sobrantes todos los meses** — con 32 unidades, hasta 31 centavos, siempre al mismo vecino. Con reparto por resto mayor cada centavo sobrante va a la unidad cuya parte quedó más cerca de merecerlo, ninguna se lleva más de un centavo de diferencia, y la suma sigue dando el total exacto. **Es la misma función que ya reparte los coeficientes** (`_repartir_pasos` en `services/finanzas.py`, construida en `F1-T27`): se generaliza, no se escribe de nuevo.
+  **Regla de precisión no negociable:** al repartir un monto entre N unidades **nunca se redondea cada parte por separado** — eso deja centavos sin asignar. La última unidad recibe el **resto exacto**, de modo que la suma de lo repartido siempre iguala el total.
   **Listo cuando:** hay tests con montos que no dividen exacto (por ejemplo, $4.849.900 entre 32 unidades con coeficientes desiguales) verificando que la suma de las partes da **exactamente** el total, al centavo.
-  **Aprobada el 2026-11-13.** `finanzas.prorratear(total, coeficientes)`, una función pura en el archivo que ya reparte los coeficientes. **35 tests** en `tests/test_prorrateo.py`, incluido el caso textual de la tarea.
-  **Reutiliza el reparto que ya existía, no escribe otro.** `_repartir_pasos` ya repartía los 100.000 pasos de 0,001 de los coeficientes por resto mayor (`F1-T27`); ahora recibe cuántas unidades repartir y el prorrateo le pasa **el total en centavos enteros**. Es el mismo mecanismo con otra unidad de medida: en los dos casos se reparten enteros, y con enteros no hay nada que redondear. Tener dos versiones de la cuenta de la que depende la plata era el riesgo real de escribirla aparte.
-  **Qué se prueba, que no es que devuelva números plausibles.** Cuatro propiedades: que **la suma de las partes iguale el total exacto** (con 1, 2, 3, 7, 13, 28, 31, 32, 99 y 160 unidades, y con totales desde un centavo hasta diez millones); que **ninguna unidad se desvíe más de un centavo de su parte exacta** —comparada contra una fracción, no contra otro redondeo—, que es la prueba que justifica el cambio de regla; que **dos corridas con los mismos datos den lo mismo**, porque una liquidación que cambia al regenerarse sin que cambie ningún dato es una liquidación en la que nadie puede confiar; y que **el orden de salida sea el de entrada**, porque el endpoint va a emparejar las dos listas por posición.
-  **Y las cinco cosas que se niega a hacer**, en vez de devolver un número que parece correcto: repartir si los coeficientes no suman 100% exacto (el mensaje dice cuánto suman, que es el dato con el que se arregla), repartir un total que no sea positivo —un período sin gastos no se liquida, no se liquida en cero—, repartir un total con tres decimales (sería un total que la base no puede guardar tal como se repartió), repartir sin unidades, y repartir con un coeficiente negativo. También ataja `Decimal('NaN')`, que atraviesa cualquier comparación `>` sin levantar nada y llegaría hasta el reparto.
-  **Las unidades exentas funcionan:** un coeficiente en 0% paga 0,00 y **nunca recibe un centavo sobrante**, porque su resto es cero y no puede quedar primera en la cola del reparto. Hay test de las dos mitades.
+  **Aprobada el 2026-11-13.** `finanzas.prorratear()`. 35 tests.
+  - **Los centavos sobrantes se reparten por resto mayor, no a la última unidad.** Con la regla
+    vieja, el mismo vecino pagaba hasta 31 centavos de más todos los meses.
+  - Reutiliza el reparto que ya existía para los coeficientes: mismo mecanismo, otra unidad.
+  - Probado con 1 a 160 unidades y montos de un centavo a diez millones: la suma da el total exacto
+    y ninguna unidad se desvía más de un centavo de su parte.
+  - Se niega a repartir si los coeficientes no suman 100%, si el total no es positivo o si tiene
+    tres decimales.
 
 - [x] **F2-T04 · Backend — modelos `Expensa`, `ExpensaDetalle` y `ExpensaDepartamento`.**
-  **Qué se construye:** `Expensa` (edificio, año, mes, total, **estado**, **publicada_en**, creado_en; CHECK de mes entre 1 y 12 y total mayor a cero); `ExpensaDetalle` (la apertura por rubro de esa liquidación — la transparencia que pide `01` sección 6.1, no solo un total); `ExpensaDepartamento` (lo que le toca a cada unidad).
-  **Agregado el 2026-11-13: `UNIQUE (edificio_id, anio, mes)`.** Sin esa restricción se pueden generar dos liquidaciones del mismo período para el mismo edificio, y toda la regla de regenerar se vuelve ambigua: ¿cuál de las dos? Un período, una expensa.
-  **Agregado el 2026-11-13: la expensa tiene dos estados, `borrador` y `publicada`.** Es lo que sostiene la regla de regeneración de `F2-T05`. Una expensa en borrador **no existe para el residente**: no se ve en Mi cuenta, no genera deuda y no pinta nada en el Dashboard Visual. Al publicarla se guarda `publicada_en` y recién ahí empieza a contar el vencimiento.
-  **Agregado el 2026-11-13: `ExpensaDepartamento` lleva tres montos, no uno.** `monto_expensa` (lo que salió del prorrateo de los gastos), `recargo_mora` (el recargo por el atraso arrastrado, ver `F2-T05`) y `saldo_a_favor_aplicado` (ver `F2-T08`). El total a pagar de la unidad es la suma de los tres.
-  **Y una consecuencia que conviene tener escrita antes de que alguien la "corrija":** por eso mismo, **la suma de los `ExpensaDepartamento` no tiene por qué dar el total de la `Expensa`**. El total de la expensa son los gastos del período; lo que paga cada unidad incluye además su propio recargo y su propio saldo a favor, que son cuentas de esa unidad y no gastos del consorcio. Lo que **sí** tiene que cerrar exacto es la suma de los `monto_expensa` contra el total. Hay un test que verifica las dos mitades de esta frase.
-  **Aprobada el 2026-11-13.** Los tres modelos en `models/finanzas.py`, más `services/expensas.py` (archivo nuevo) con los dos estados y sus transiciones. **36 tests** en `tests/test_expensa.py`.
-  **Los estados viven en un servicio y no en el modelo.** Es la misma separación que tienen los roles y los rubros: la regla es una estructura de datos en `services/`, y el CHECK de la tabla se arma desde esa misma tupla, así que la base y la aplicación no pueden quedar en desacuerdo. El servicio expone `se_puede_regenerar()` y `es_visible_para_el_residente()` como funciones propias en vez de dejar un `estado == "borrador"` escrito en cada endpoint: es **la** regla de la fase, y así se revisa en un solo lugar.
-  **Y ahí quedó escrito por qué son dos estados y no cuatro:** "vencida" y "pagada" **no son estados de la expensa**. Vencida sale de comparar la fecha de publicación con los días de vencimiento del edificio; pagada sale de los pagos confirmados, unidad por unidad — una expensa puede estar pagada por la mitad del edificio y no por la otra, así que no es un estado del documento. Guardarlos como estado obligaría a mantenerlos al día con un proceso diario, y el día que ese proceso no corra el sistema miente.
-  **La transición es de ida y no existe "despublicar".** Lo que habría que deshacer no está en la base: está en la cabeza de cuarenta propietarios que ya anotaron cuánto tenían que pagar. Y publicar una expensa **ya publicada** tampoco es una transición válida: no es inofensivo, volvería a escribir la fecha de publicación y con eso correría el vencimiento de todo el edificio. Hay test de las dos cosas.
-  **Una columna que agregué y no estaba pedida: `ExpensaDepartamento.coeficiente`.** Guarda el porcentual que tenía la unidad **el día que se liquidó**. Parece redundante porque la unidad ya lo tiene, pero ese valor cambia: un reglamento de propiedad horizontal se modifica, y el sistema permite corregir un coeficiente mal cargado. Sin la copia, una expensa de hace ocho meses queda **sin forma de explicarse** — el monto no se deduce del coeficiente actual, y nadie puede decir si el error está en el monto o en el coeficiente. Es el mismo criterio que copia los montos por rubro: una liquidación emitida se explica con los datos con los que se emitió. Hay un test que cambia el coeficiente de la unidad y verifica que el de la liquidación no se movió.
-  **`total_a_pagar` no es una columna, se calcula.** Guardar una suma al lado de sus tres sumandos es guardar algo que puede quedar desincronizado, y la única forma de detectarlo sería sumar a mano justo la fila que quedó mal. El saldo a favor se guarda **en positivo** y se resta: con signo negativo habría que acordarse del signo en cada suma.
-  **Lo que ataja la base, además del `UNIQUE` del período:** un mes fuera de 1–12, un total que no sea positivo (un período sin gastos no se liquida, no se liquida en cero), un estado fuera de la tupla, un rubro fuera del catálogo en el detalle, **un rubro repetido en la misma liquidación** (dos renglones "Limpieza" y el propietario que suma a mano no llega al total), una unidad repetida en la misma liquidación, un monto negativo en cualquiera de las tres columnas de plata, y un coeficiente copiado fuera de 0–100.
-  **El detalle y el reparto se borran con su expensa** (`delete-orphan`): son parte del documento, no datos sueltos. Es además lo que hace que regenerar sea limpio — se vacían las dos colecciones y se vuelven a llenar en la misma transacción, **sin borrar la expensa**, que conserva su identidad y con ella los pagos que le apunten.
-  **Dos cosas que el modelo admite a propósito:** una unidad **exenta** (coeficiente 0%, paga 0,00) y un `total_a_pagar` en **cero** cuando el saldo a favor cubre todo. Las dos pasan de verdad y ninguna es un error.
+  **Qué se construye:** `Expensa` (edificio, año, mes, total, creado_en; CHECK de mes entre 1 y 12 y total mayor a cero); `ExpensaDetalle` (la apertura por rubro de esa liquidación — la transparencia que pide `01` sección 6.1, no solo un total); `ExpensaDepartamento` (lo que le toca a cada unidad).
+  **Aprobada el 2026-11-13.** Los tres modelos más `services/expensas.py`, nuevo. 36 tests.
+  - **`UNIQUE (edificio, año, mes)`**: un período, una expensa. Sin eso, "regenerar la última" es
+    ambiguo.
+  - **Dos estados: `borrador` y `publicada`.** "Vencida" y "pagada" no son estados: se calculan, y
+    guardarlos obligaría a un proceso diario que algún día no corre.
+  - La transición es de ida. No existe despublicar.
+  - `ExpensaDepartamento` lleva tres montos: prorrateo, recargo y saldo a favor aplicado.
+  - **El coeficiente se copia** en cada fila: un porcentual se corrige, y sin la copia una
+    liquidación vieja no se puede explicar.
+  - `total_a_pagar` se calcula, no es columna.
+  - Consecuencia a tener escrita: la suma de los `total_a_pagar` **no** da el total de la expensa.
+    Lo que cierra exacto es la suma de los `monto_expensa`.
 
 - [x] **F2-T05 · Backend — generación de la expensa del período.**
   **Qué se construye:** `POST /api/edificios/{id}/expensas`: toma los gastos reales del período, los agrupa por rubro, aplica el prorrateo de `F2-T03` y genera la expensa completa en una transacción.
-  **El recargo por mora: se cobra, pero no se prorratea. Decidido el 2026-11-13.** Son dos cosas distintas y conviene nombrarlas distinto: el **atraso** es la expensa vencida que la unidad no pagó, y el **recargo** es la plata que se le cobra por ese atraso. El atraso ya existe como deuda; el recargo se calcula al generar la expensa del mes siguiente, sobre el saldo vencido de cada unidad, y **se le carga a esa unidad en su `ExpensaDepartamento`** (columna `recargo_mora`). Queda registrado, con nombre y apellido, y se arrastra como deuda igual que cualquier otra — así que **pinta el Dashboard Visual** como el resto.
-  **Pero no entra en el prorrateo ni en la apertura por rubro.** El total de la expensa y sus líneas por rubro son los gastos del consorcio del período, y nada más. El recargo no es un gasto del consorcio: es una cuenta entre el consorcio y **esa** unidad. Si entrara en el total a repartir, lo estarían pagando todos los vecinos — incluidos los que pagaron en fecha.
-  **Dos reglas que lo acotan, y que son las que evitan el absurdo:** el recargo se calcula **una sola vez** sobre el atraso de capital, así que **no hay recargo sobre el recargo** (si no, una deuda chica se multiplica sola y el número deja de tener relación con lo que se debe); y con `recargo_mora_porcentual` en cero —el valor por defecto— todo esto da cero y el sistema se comporta exactamente como si no existiera.
-  **Regla de inmutabilidad:** una expensa **publicada** es un documento contable y **no se edita**. Editar un gasto viejo no la altera retroactivamente.
-  **La única excepción, redefinida el 2026-11-13: se regenera mientras esté en borrador, y la publicación es la puerta que se cierra.** La tarea decía "solo la última expensa", que es una regla débil: la última puede llevar quince días publicada y con pagos encima. La regla real es la que importa: **mientras la expensa no se publicó, nadie la vio y nadie pagó contra ella**, así que regenerarla no rompe nada y es exactamente lo que hay que hacer si se cargó mal un gasto. **Una vez publicada ya no se regenera nunca**, sea la última o no: los residentes ya tienen su comprobante y ya empezaron a pagar, y cambiarles el monto abajo de los pies es inaceptable. Un error descubierto después de publicar se corrige en la liquidación siguiente, que es como se corrige en la realidad del rubro.
-  **Lo que esta tarea tiene que implementar ademas, anotado el 2026-11-13:** **un gasto que ya entró en una expensa publicada no se borra ni se modifica** en sus números (sí su descripción). La liquidación no se rompe, porque sus montos están copiados, pero quedaría afirmando un rubro sin que exista el gasto que lo respalda. Es la misma consulta que el aviso de abajo — "¿la expensa de este período está publicada?"— y por eso va junto, y no en `F2-T02`, donde las expensas todavía no existían.
-  **Y con eso se resuelve también el gasto que llega tarde:** un gasto cargado con fecha de un período que todavía está en borrador entra al regenerar; si el período ya se publicó, la pantalla lo avisa al guardarlo — "este gasto es de un período ya publicado, no va a aparecer en esa liquidación"— y no lo bloquea, porque el gasto es real y tiene que quedar registrado.
+  **Regla de inmutabilidad:** una expensa liquidada es un documento contable y **no se edita**. Editar un gasto viejo no la altera retroactivamente.
+  **La única excepción, deliberada y acotada:** regenerar **la última** expensa del edificio, para el caso real de haber liquidado con un gasto mal cargado. Regenerar un período que no sea el último está **prohibido**: rompería la cadena contable de los meses posteriores.
   **Cómo se implementa la confirmación:** el servidor responde `409` explicando exactamente qué se va a reemplazar, y el cliente reenvía la misma petición con un campo booleano de confirmación. **Este es el mecanismo que permite no usar nunca un `confirm()` del navegador**, y se reutiliza en todo el sistema.
-  **Cuidado con:** al regenerar se **conserva la identidad de la expensa** (se reemplazan su detalle y su reparto, no se la borra y recrea). Con la regla de publicación no debería haber pagos contra una expensa en borrador, pero conservar la identidad mantiene estables las referencias y evita agujeros si alguna vez se carga un pago adelantado.
-  **Aprobada el 2026-11-13, y la pruebo en la pantalla.** Decidí no probarla desde `/docs`: la verifico cuando esté el frontend, en `F2-T18`. Queda anotado acá para que la prueba no se dé por hecha. `routers/expensas.py` (archivo nuevo), el cálculo en `services/expensas.liquidar()`, nueve entradas nuevas en el catálogo de errores y el candado sobre los gastos en `routers/gastos.py`. **61 tests** nuevos: 20 del cálculo en `tests/test_liquidacion.py` y 41 de los endpoints en `tests/test_expensas_api.py`.
-  **Son dos endpoints, porque generar y publicar son dos actos distintos.** `POST /api/edificios/{id}/expensas` calcula y deja la liquidación en **borrador**; `POST /api/edificios/{id}/expensas/{id}/publicar` es el que le dice al edificio "esto es lo que hay que pagar". El segundo no estaba pedido en la tarea: lo pide la regla de regeneración que decidimos el 2026-11-13, y sin él el estado `publicada` no tendría forma de existir.
-  **Lo que no se pudo calcular, y por qué no es una deuda oculta.** El recargo por mora se calcula sobre lo que cada unidad debe **vencido e impago**, y el saldo a favor sobre lo que pagó **de más**: las dos cosas necesitan el modelo `Pago`, que llega en `F2-T08`, **después** de esta tarea. Es una inconsistencia de orden del Roadmap, no un problema del diseño. Se resolvió escribiendo el cálculo **completo** en `services/expensas.liquidar()`, que recibe la deuda vencida y el saldo a favor **como argumentos**: hoy el endpoint le pasa dos diccionarios vacíos y los dos dan cero —que es exactamente el resultado correcto con el recargo configurado en 0%, el valor por defecto— y cuando los pagos existan se le pasan los datos reales **sin tocar una línea de la lógica**. Los dos lugares están marcados en el código con `PENDIENTE F2-T08`, y el cálculo está probado con datos a mano: la alternativa era escribir la lógica dos veces, una ahora sin probar y otra después.
-  **El orden de las tres operaciones del cálculo, que no es intercambiable:** se prorratea el total, se suma el recargo de cada unidad, y **al final** se aplica el saldo a favor. El saldo a favor va último a propósito: si se aplicara antes del recargo, estaría pagando el recargo con plata que el vecino adelantó para sus expensas, y el recargo quedaría cancelado sin que nadie decidiera perdonarlo. Y **el saldo a favor no se sobregira**: se aplica el mínimo entre lo que hay y lo que hay que pagar, así que el total a pagar nunca da negativo — a lo sumo da cero.
-  **Se niega a liquidar en tres situaciones, con tres mensajes distintos porque se arreglan distinto:** sin gastos en el período (no hay nada que repartir), con unidades sin coeficiente (**y el mensaje dice cuáles**, porque "faltan coeficientes" obliga a buscarlos a mano unidad por unidad), y con coeficientes que no suman 100% exacto (**y el mensaje dice cuánto suman**, que es el dato con el que se corrige). El orden de las verificaciones está elegido: primero lo que se arregla solo, después lo que necesita una decisión — pedir una confirmación para después fallar por falta de coeficientes sería hacer confirmar algo que no iba a pasar. Hay un test de eso.
-  **La apertura por rubro la agrupa la base, no Python**, y sale **en el orden del catálogo** y no por monto ni alfabético: la liquidación se lee con los rubros en el mismo orden mes a mes, así que comparar dos meses es mirar la misma fila. El filtro de período es **la misma función** que usa el listado de gastos, reutilizada tal cual: las dos pantallas no pueden discrepar sobre qué gastos son de noviembre.
-  **El candado sobre los gastos ya liquidados quedó implementado**, como estaba anotado: un gasto de un período **publicado** no se borra ni cambia de monto, rubro ni fecha. **La descripción sí se puede corregir**, porque no altera ningún número y es justo el campo donde se arregla un número de factura mal tipeado. Y se verifica **en los dos sentidos**: tampoco se puede mover un gasto a un período ya publicado cambiándole la fecha. Mientras el período siga en borrador no hay candado: corregir y regenerar es el flujo normal.
-  **Y el aviso del gasto que llega tarde**: si se carga un gasto con fecha de un período ya publicado, **se guarda igual** —es real y tiene que quedar registrado— y la respuesta trae un campo `aviso` con el texto para la pantalla. No es un error y por eso no entra en el catálogo: lo que corresponde es informar, no bloquear.
-  **Y un error mío que la suite completa atrapó:** escribí los nueve mensajes nuevos **sin tildes**, con la convención del código. Un mensaje del catálogo no es código: es lo que lee la persona, y va con tildes. Lo atrapó el test que recorre el catálogo entero — que además se queja de la palabra "error" dentro de un mensaje, así que uno quedó mejor redactado de paso. Es exactamente la trampa que ya estaba anotada en el Documento Técnico y la volví a pisar.
-  **Un error real que apareció al construirlo y quedó en el catálogo de trampas:** al regenerar, vaciar las colecciones y volver a llenarlas en el mismo flush **rompe el `UNIQUE`**. SQLAlchemy agrupa todos los INSERT de una tabla antes de los DELETE, así que intentaba insertar la fila nueva de la unidad 1A con la vieja todavía presente. El síntoma era un 500 al regenerar y nada al generar por primera vez. Se resuelve con un `flush()` explícito entre vaciar y volver a llenar, que ordena las operaciones **sin romper la transacción** — un flush no confirma nada.
-  **El caso de rollback documentado que `FX-T01` venía esperando es este.** Generar escribe tres tablas en una sola transacción; si falla a mitad de camino no queda nada a medio crear. Una expensa con la apertura cargada y la mitad de las unidades repartidas no suma el total, y nadie se daría cuenta hasta que un propietario llame.
+  **Cuidado con:** al regenerar se **conserva la identidad de la expensa** (se reemplazan su detalle y su reparto, no se la borra y recrea) para que los pagos ya registrados contra ella sigan siendo válidos.
+  **Aprobada el 2026-11-13, y la pruebo en la pantalla.** `routers/expensas.py`, nuevo, más el
+  cálculo en `services/expensas.liquidar()`. 61 tests.
+  - **Generar y publicar son dos endpoints**, porque son dos actos. Publicar es lo que hace que la
+    vea el residente y empiece a correr el vencimiento.
+  - **Se regenera mientras esté en borrador; publicar cierra la puerta para siempre.** La regla
+    vieja ("solo la última") era débil: la última puede llevar quince días con gente pagando.
+  - Se niega a liquidar sin gastos, con unidades sin coeficiente (y dice cuáles) o con coeficientes
+    que no suman 100% (y dice cuánto suman).
+  - La apertura por rubro la agrupa la base y sale en el orden del catálogo, no por monto.
+  - Un gasto de un período publicado no se borra ni cambia de monto; la descripción sí.
+  - Un gasto cargado en un período publicado se guarda igual y la respuesta trae un aviso.
+  - **Trampa encontrada:** al regenerar, vaciar las colecciones y volver a llenarlas en el mismo
+    flush rompe el UNIQUE — SQLAlchemy agrupa los INSERT antes de los DELETE. Se arregla con un
+    `flush()` explícito. Quedó en el catálogo de trampas.
+  - Este es el caso de rollback documentado que `FX-T01` esperaba.
 
 - [x] **F2-T06 · Backend — consulta de expensas y su detalle.**
   **Qué se construye:** listado de expensas del edificio, detalle con su apertura por rubro, y la expensa de una unidad puntual con su apertura — que es lo que después consume "Mi cuenta" del residente.
-  **Aprobada el 2026-11-13, y la pruebo en la pantalla** — igual que `F2-T05`: la verifico en `F2-T18` y en "Mi cuenta" (`F2-T22`), no desde `/docs`. Tres endpoints más en `routers/expensas.py`, dos funciones de alcance nuevas en `core/alcance.py`, y **23 tests** en `tests/test_expensas_consulta.py`.
-  **La pregunta de fondo de esta tarea es quién ve qué**, y ahi hay tres decisiones. **(1)** El listado y el detalle son de la administración, con el alcance de siempre. **(2)** La vista de una unidad —`GET /api/edificios/{id}/departamentos/{id}/expensas`— es el **único endpoint del módulo que no pide administrador**: la abre también el propietario y el inquilino de esa unidad, porque es la que consume Mi cuenta. **(3)** El residente ve **solo las publicadas**; la administración ve las dos cosas.
-  **Por qué el residente no ve los borradores:** mostrarle un borrador sería anticiparle un monto que la administración todavía puede cambiar, y después reclama por la diferencia. Es la otra mitad de la regla de `F2-T05`: lo que se puede regenerar es, exactamente, lo que el residente no vio.
-  **Y dos roles que quedaron deliberadamente afuera de la cuenta de una unidad.** El **Encargado** puede ver el edificio porque trabaja ahí, pero cuánto debe el 3B es información económica de una familia: es la clase de permiso que se concede "porque ya veía el edificio" y después nadie revisa. Y el **Auditor**, hasta `F11-T05`, que es la tarea que crea la pantalla para vincularlo con los edificios que audita. Hay un test del encargado.
-  **El listado trae los borradores a propósito:** una expensa en borrador que nadie publicó es **plata que no se está cobrando**, así que tiene que estar a la vista de la administración y no escondida. Y trae `se_puede_regenerar` **calculado por el servidor**: la regla es del backend, y una pantalla que la deduzca del estado es una pantalla que algún día ofrece un botón que el servidor va a rechazar.
-  **El detalle devuelve exactamente la misma forma que generar**, y eso es una decisión: la pantalla que muestra una expensa recién generada y la que muestra una vieja son la misma pantalla, así que dos respuestas distintas obligarían a escribirla dos veces. Hay un test que compara las dos respuestas enteras.
-  **La unidad se busca dentro del edificio de la ruta**, no por id suelto. Sin eso, pedir la unidad del edificio 2 por la ruta del edificio 1 contestaría igual y el id del edificio en la ruta sería decorativo. Y una unidad ajena da **404 y no 403**: con un 403, probar ids sería una forma de averiguar qué unidades existen.
-  **Cada período de la unidad viene con la apertura por rubro del edificio y con el coeficiente con el que se calculó**, no solo con el monto. Es la transparencia que pide `01` sección 6.1 — el consorcista tiene derecho a ver en qué se gastó— y el coeficiente es lo que le permite verificar la cuenta.
+  **Aprobada el 2026-11-13, y la pruebo en la pantalla.** Tres endpoints más. 23 tests.
+  - El listado y el detalle son de la administración; la vista de una unidad la abre también su
+    propietario o inquilino, y es lo que consume Mi cuenta.
+  - **El residente ve solo las publicadas.** Un borrador es un monto que todavía puede cambiar.
+  - El Encargado **no** ve la cuenta de una unidad: cuánto debe el 3B es información económica de
+    una familia. El Auditor tampoco, hasta `F11-T05`.
+  - El listado trae los borradores: una expensa sin publicar es plata que no se está cobrando.
+  - `se_puede_regenerar` lo calcula el servidor, no la pantalla.
+  - El detalle devuelve la misma forma que generar, así la pantalla es una sola.
 
 ## Tema 2.3 — Pagos y conciliación
 
@@ -938,157 +944,166 @@ Leí la fase entera antes de construirla y aparecieron seis huecos. Los resolví
   **Regla fundamental:** **solo un pago confirmado reduce la deuda.** Si el sistema diera por saldado un pago apenas el residente lo carga, cualquiera podría subir un comprobante falso y aparecer sin deuda sin que la plata haya entrado. La conciliación es un paso humano, no automático.
   **Segunda regla:** el propio residente **nunca** puede confirmar su pago, aunque tenga permisos sobre su unidad.
   **Tercera regla:** un pago pendiente no baja el saldo, **pero sí se le muestra al residente** como "ya lo cargaste, está esperando confirmación". Sin ese aviso, el residente ve su saldo intacto y vuelve a pagar.
-  **Aprobada el 2026-11-13.** `services/pagos.py` (archivo nuevo), **23 tests** en `tests/test_pagos_logica.py`. No toca la base ni HTTP: son las reglas solas, y el modelo llega en `F2-T08`.
-  **Las dos preguntas que parecen la misma y no lo son.** `reduce_la_deuda()` y `se_le_muestra_al_residente()` son funciones distintas, y **la diferencia entre las dos es exactamente el problema que esta tarea resuelve**: el pago pendiente se muestra y no baja el saldo. Si alguien las unificara, o el residente deja de ver su pago cargado y vuelve a pagar, o un comprobante sin verificar le borra la deuda. Hay un test que fija las dos cosas juntas.
-  **Y los tres estados se le muestran al residente**, también el rechazado: es la única forma de que se entere. Un pago que desaparece sin explicación es un llamado telefónico garantizado.
-  **Ninguna transición vuelve.** Las dos salen de `pendiente` y los dos estados finales son finales: un pago confirmado **no se des-confirma** — si la administración confirmó por equivocación, lo que corresponde es registrar el movimiento que lo corrige, no reescribir el historial— y un pago rechazado no se reactiva: el residente carga uno nuevo y queda la traza de los dos intentos. Pasar al mismo estado tampoco es válido: confirmar dos veces no es inofensivo si queda registrado quién confirmó y cuándo.
-  **`puede_confirmar()` no recibe roles, y eso es la decisión de la tarea.** El permiso de rol lo resuelve el endpoint, que exige administrador; esta función contesta la otra mitad, la que no depende del rol: **quien cargó el pago no lo concilia**. Escribirla por rol dejaría pasar el caso que de verdad ocurre — **un administrador que vive en el edificio**, propietario de una unidad y a la vez responsable del consorcio. Esa persona concilia los pagos de sus vecinos, no el suyo. Hay un test de ese caso exacto.
-  **`estados_siguientes()` existe para la pantalla**, para que el JavaScript no tenga su propia copia de la tabla de transiciones — que es la copia que un día ofrece un botón que el servidor va a rechazar. Es el mismo criterio que `se_puede_regenerar` en `F2-T06`.
+  **Aprobada el 2026-11-13.** `services/pagos.py`, nuevo. 23 tests.
+  - **`reduce_la_deuda()` y `se_le_muestra_al_residente()` son dos funciones distintas**, y la
+    diferencia entre ellas es el problema que la tarea resuelve: el pendiente se muestra y no baja
+    el saldo.
+  - Los tres estados se le muestran, también el rechazado: un pago que desaparece sin explicación
+    es un llamado telefónico.
+  - Ninguna transición vuelve: un pago confirmado no se des-confirma.
+  - **`puede_confirmar()` no recibe roles.** La regla es "quien cargó no concilia", y se decide por
+    persona: el caso real es el administrador que vive en el edificio.
 
 - [x] **F2-T08 · Backend — modelo `Pago` y carga por el residente.**
   **Qué se construye:** el modelo (`departamento_id`, `expensa_id`, `monto`, `fecha`, `medio_pago`, `comprobante_url`, `estado` con CHECK y por defecto `pendiente`, `creado_en`), el endpoint con el que **el propio usuario logueado** carga su pago sin tener que elegir edificio ni piso (el backend resuelve sus departamentos solo), y el endpoint que le devuelve sus unidades con su estado de cuenta.
   **Regla:** los **pagos parciales están permitidos** y el sistema los muestra como tales, con el saldo restante calculado — son habituales en la realidad del rubro.
-  **El saldo a favor, definido el 2026-11-13.** Si una unidad paga de más —adelanta plata, o la expensa del mes siguiente baja— ese excedente **no se devuelve ni se pierde: queda como saldo a favor y se descuenta solo** de la próxima liquidación, en la columna `saldo_a_favor_aplicado` de `ExpensaDepartamento`.
-  **Lo que hay que tener claro es que el saldo a favor no congela el precio.** Las expensas varían mes a mes, casi siempre hacia arriba, así que alguien que adelantó el equivalente a tres meses puede descubrir que le alcanzó para dos y medio. **Ese faltante no es una categoría nueva de deuda.** Es el saldo impago de esa expensa y se comporta igual que cualquier otro: si se paga antes del vencimiento no pasa nada, y si no, es atraso y pinta amarillo. Inventar una "deuda leve" aparte obligaría a duplicar toda la regla del semáforo y a explicarle al vecino una distinción que no existe en su resumen.
-  **Lo que sí cambia es el aviso, que es donde está el problema real.** Alguien que pagó por adelantado cree que está cubierto y no va a mirar: por eso, cuando el saldo a favor **no alcanza a cubrir** la expensa del período, Mi cuenta lo dice en la cara — "se aplicaron $X de tu saldo a favor; quedan $Y por pagar antes del (fecha)"— y es un aviso, no una línea más de la tabla. La deuda se trata igual; al vecino se le avisa distinto.
-  **Aprobada el 2026-11-13, y la pruebo en la pantalla.** El modelo `Pago` en `models/finanzas.py`, el catálogo de medios y el cálculo del estado de cuenta en `services/pagos.py`, `routers/pagos.py` (archivo nuevo) con tres endpoints, cuatro errores nuevos en el catálogo, y **37 tests** en `tests/test_pagos_api.py`.
-  **Una pregunta que surgió al revisarla, y la respuesta que quedó:** ¿por qué el pago admite elegir unidad, si un usuario está en un solo departamento? Porque eso vale para el **inquilino** — y lo garantiza la base con `UNIQUE (inquilino_id)`— pero **no para el propietario**, que puede tener varias unidades y hasta en edificios distintos: así quedó decidido en la Fase 1 y así lo dice la nota de `F2-T22`. El caso real es alguien que compró el 1A y el 1B. **Se mantiene** (confirmado el 2026-11-13): el costo de permitirlo es un campo opcional que casi nunca se usa, y el de prohibirlo es que ese propietario no se pueda cargar en el sistema. Si alguna vez se decide limitarlo, el cambio es un `UNIQUE (propietario_id)` **con migración escrita a mano**, porque el arranque es aditivo y no agrega restricciones a columnas que ya existen.
-  **Las rutas son `/api/mis-pagos` y `/api/mis-unidades`, y no cuelgan del edificio.** El residente **no tiene por qué saber en qué edificio está su unidad dentro del sistema**, ni cuál es el id de su piso: entra, ve lo que debe y paga. Una pantalla que le pide elegir edificio, después piso y después unidad para pagar su propia expensa es una pantalla hecha desde la forma de la base de datos y no desde la persona — y es la que existía en la iteración anterior. Con más de una unidad en el mismo edificio el servidor pide cuál **y dice cuáles son**: "elegí una unidad" sin la lista obliga a adivinar.
-  **Dos columnas que la tarea no pedía y sin las cuales la regla de `F2-T07` no se puede cumplir:** `cargado_por_id` y `conciliado_por_id`. La regla dice que quien carga un pago no lo concilia, **y eso se decide por persona, no por rol** — el caso real es el administrador que vive en el edificio. Sin guardar quién cargó el pago no hay forma de aplicarla. Y `conciliado_por_id` es quién se hizo responsable de decir "esta plata entró": un circuito de dinero sin ese nombre no se puede auditar, y la Fase 6 lo va a necesitar.
-  **El esquema de entrada no tiene campo `estado`**, y eso es la defensa principal: si lo tuviera, un pago podría llegar **confirmado** desde el navegador y la conciliación dejaría de existir como control. Lo mismo con `cargado_por_id`, que sale del token y no del cuerpo del pedido. Hay un test de cada uno.
-  **El medio de pago es un catálogo cerrado** —transferencia, efectivo, débito automático, cheque, otro— por el mismo motivo que los rubros: se agrupa en los reportes y se filtra en la cola de conciliación, y con texto libre "Transferencia", "transferencia" y "transf" serían tres medios distintos. **Pero no cambia ninguna regla**: un pago en efectivo y uno por transferencia siguen el mismo ciclo y los dos necesitan conciliación humana.
-  **El saldo a favor no es una tabla ni una columna: es un saldo negativo.** Es lo que sobra cuando una unidad pagó más de lo que debía, y se deduce de los pagos. Guardarlo sería guardar un número que hay que acordarse de recalcular cada vez que un pago se rechaza.
-  **Y los tres totales de la cuenta van por separado, nunca neteados:** lo que **debe**, lo que tiene **a favor**, y lo que **cargó y falta confirmar**. Un único "saldo final" mezclaría plata verificada con plata declarada, que es la distinción que todo el módulo existe para mantener. Y deuda y saldo a favor **pueden convivir**: se puede deber marzo y haber adelantado mayo, y un neto escondería justamente eso.
-  **La regla fundamental quedó verificada de punta a punta y no solo en la lógica:** hay un test que carga un pago, consulta la cuenta y comprueba que **la deuda no bajó** y que el monto aparece como pendiente de confirmar.
-  **El cálculo de la cuenta vive en `services/pagos.py` y no en el endpoint**, porque lo van a usar tres pantallas: Mi cuenta (`F2-T22`), el cálculo de deudores (`F2-T11`) y el resumen del edificio. Si cada una armara su propia cuenta, tarde o temprano dos pantallas le dirían al mismo propietario dos saldos distintos — y la que estaría mal sería siempre la que nadie revisó.
-  **Dos cosas que se aceptan a propósito:** un **pago parcial** y un **pago de más**. Las dos pasan en la realidad del rubro, y rechazar la segunda obligaría a devolver plata. Por eso tampoco hay `UNIQUE (expensa, unidad)`: una unidad puede pagar la misma expensa en dos o tres veces, y un pago rechazado deja su fila.
-  **Y el comprobante es opcional pero validado:** si se manda, tiene que empezar con `http://` o `https://`. No se verifica que exista — eso sería pedirle al backend que salga a internet por cada pago— pero la forma ataja el caso real, que es pegar el nombre del archivo en vez del enlace. Es opcional porque un pago en efectivo en la administración no tiene comprobante digital, y exigirlo haría que se cargue cualquier cosa en el campo.
+  **Aprobada el 2026-11-13, y la pruebo en la pantalla.** Modelo `Pago`, catálogo de medios,
+  cálculo de la cuenta y `routers/pagos.py`, nuevo. 37 tests.
+  - **Las rutas son `/mis-pagos` y `/mis-unidades`.** El residente no tiene por qué saber en qué
+    edificio está su unidad dentro del sistema.
+  - Dos columnas que el Roadmap no pedía y sin las que la regla de `F2-T07` no se cumple:
+    `cargado_por_id` y `conciliado_por_id`.
+  - **El esquema de entrada no tiene `estado`**: si lo tuviera, un pago podría llegar confirmado
+    desde el navegador.
+  - El medio de pago es catálogo cerrado, pero no cambia ninguna regla.
+  - **El saldo a favor no es tabla ni columna: es un saldo negativo.**
+  - Los tres totales de la cuenta van por separado, nunca neteados: deuda, saldo a favor y
+    pendiente de confirmar.
+  - Pagos parciales y pagos de más se aceptan: los dos pasan.
+  - Sobre tu pregunta de las unidades: el **inquilino** tiene una sola y lo garantiza la base; el
+    **propietario** puede tener varias, y así quedó decidido en la Fase 1.
 
 - [x] **F2-T09 · Backend — conciliación y listado de pagos.**
   **Qué se construye:** el cambio de estado (solo administración) y el listado de pagos del edificio con filtro por estado.
   **Cuidado con:** el listado es parte de esta tarea, no un agregado posterior. Sin él, la cola de conciliación no existe como pantalla.
-  **Aprobada el 2026-11-13, y la pruebo en la pantalla.** Dos endpoints más en `routers/pagos.py`, tres errores nuevos en el catálogo, y **34 tests** en `tests/test_conciliacion.py`.
-  **Qué es un pago en este sistema, confirmado al revisar la tarea:** es **un aviso del residente** de que pagó, con un comprobante que puede adjuntar. El administrador lo ve con todo lo necesario para cotejarlo —unidad, período, monto, fecha, medio, quién lo cargó y el comprobante— y decide: confirmarlo (ahí sí baja la deuda) o rechazarlo, sea por el importe, por el comprobante o por cualquier otro motivo.
-  **Esta tarea cierra el circuito del dinero.** Hasta acá **ningún pago podía llegar a `confirmado` por la vía normal**: en los tests de `F2-T08` hubo que escribir el estado a mano en la base. Ahora hay un test que carga un pago como residente, lo confirma como administración y verifica que **la deuda bajó** — de punta a punta y por la vía real.
-  **Es un solo endpoint y no dos.** `PATCH /api/edificios/{id}/pagos/{pago}` con el estado al que pasa, en vez de `/confirmar` y `/rechazar` por separado: la validación es la misma — la tabla de transiciones de `F2-T07`— y dos endpoints significaría escribirla dos veces.
-  **Tres verificaciones, y ninguna es redundante.** Que el pago sea **de ese edificio** —resuelto en la consulta, con el salto por el piso, porque la tabla de pagos no tiene `edificio_id`: cuelga de la unidad—; que **la transición sea válida**, así un pago ya conciliado no se vuelve a conciliar en ningún sentido; y que **quien cargó el pago no lo concilie**. Hay un test de cada una, y el de la tercera construye el caso real: **el administrador que vive en el edificio**, que carga su propio pago y después intenta conciliarlo — el suyo da 403 y el de su vecino, 200.
-  **La cola sale del más viejo al más nuevo**, al revés que todos los demás listados del proyecto, y es a propósito: **esto es una cola de trabajo**. El pago que lleva cinco días esperando es el que hay que mirar, no el que entró hace un minuto. El histórico es la otra mitad de la misma pantalla y se obtiene filtrando por estado.
-  **La cola trae su total calculado por el servidor**, porque "hay 12 pagos esperando por $840.000" es la frase que hace que alguien se siente a conciliar. Sumarlo en el navegador daría el total de la página y no el del filtro.
-  **Y cada fila dice `puedo_conciliarlo`**, calculado por el servidor: la pantalla no tiene por qué saber la regla de que quien carga no concilia, y si la supiera tendría una copia que algún día no coincide. Es el mismo criterio que `se_puede_regenerar` en `F2-T06` y `estados_siguientes` en `F2-T07`.
-  **Lo que la administración ve y el residente no:** quién cargó el pago, quién lo concilió y cuándo. Es su propia traza de auditoría, y la Fase 6 la va a necesitar; al residente no le aporta nada saber qué persona de la administración apretó el botón.
-  **El motivo del rechazo, agregado el 2026-11-13 a tu pedido.** Columna `motivo_rechazo` en `pagos` y campo `motivo` al conciliar. **Es obligatorio al rechazar y está prohibido al confirmar**, y las dos mitades importan: sin motivo, un rechazo le dice al residente que hable con la administración y nada más — que es justo el llamado telefónico que el sistema existe para evitar— y un motivo guardado en un pago confirmado es un texto que ninguna pantalla muestra, que es como empiezan los datos que nadie sabe de dónde salieron.
-  **Y el motivo entra dentro del mensaje que lee el residente**, armado por el servidor: "La administración rechazó este pago: el monto no coincide con el comprobante. Corregilo y cargalo de nuevo." Un rechazo así se resuelve solo; uno que dice "hablalo con la administración" obliga a llamar.
-  **Un detalle que vale la pena: el motivo exige cinco caracteres.** Con menos no se escribió un motivo, se escribió cualquier cosa para pasar la validación — "no", "mal". Cinco deja pasar "error" y frena "x". Y un motivo de solo espacios tampoco pasa. Hay test de los tres casos.
-  **La columna no necesita migración a mano:** es anulable y se agrega sola con el mecanismo aditivo de arranque. Que sea obligatoria **cuando se rechaza** lo garantiza el esquema de entrada y no la base, porque un CHECK condicional sobre dos columnas es más frágil de leer que la regla escrita donde se aplica.
+  **Aprobada el 2026-11-13, y la pruebo en la pantalla.** Dos endpoints más. 34 tests.
+  - Un pago es **un aviso del residente** con su comprobante; el administrador lo coteja y lo
+    confirma o lo rechaza.
+  - **Esta tarea cierra el circuito del dinero:** hasta acá ningún pago podía llegar a confirmado
+    por la vía normal.
+  - Es un endpoint y no dos: la validación es la misma tabla de transiciones.
+  - Tres barreras: que el pago sea de ese edificio, que la transición valga, y que quien cargó no
+    concilie. El test de la tercera arma el caso del administrador que vive en el edificio.
+  - **La cola sale del más viejo al más nuevo**, al revés que todo el resto: es una cola de
+    trabajo.
+  - **El motivo del rechazo es obligatorio** (agregado a tu pedido) y prohibido al confirmar. Entra
+    dentro del mensaje que lee el residente, así el rechazo se resuelve solo.
 
 - [x] **F2-T10 · Decisión ya tomada — cómo se muestran los datos de cobro.**
   **Qué queda fijado (no se rediscute, se implementa):** se muestran **el CBU y el alias como texto, cada uno con su botón de copiar**, para pegarlos en la app del banco. **No hay QR de ningún tipo.**
   **Por qué:** el QR interoperable de Argentina ("Transferencias 3.0", regulado por el BCRA) **solo lo pueden emitir entidades financieras y proveedores de servicios de pago registrados** — una aplicación de terceros no puede generar un QR de pago real y válido. La alternativa de un "QR de conveniencia" que al escanearlo solo muestra el CBU se descartó por innecesaria: copiar un texto es un toque, y escanear un QR para volver a copiar el texto que tenía adentro es un paso de más. Fundamento completo en `investigaciones/Pagos_y_Conciliacion.md`.
   **Consecuencia legal, que conviene tener escrita:** mostrar el CBU del consorcio **no convierte a SMART Building en un procesador de pagos**. La plata nunca pasa por la plataforma.
-  **Verificada y tildada el 2026-11-13, y no por inspección: con dos tests.** Esta tarea no agrega código propio — se cumple implementando— así que lo que hice fue volverla **verificable**. Un test comprueba que el CBU y el alias llegan como texto tal cual se guardaron, sin transformarlos ni enmascararlos, en `GET /api/mis-unidades`. El otro **recorre el esquema completo de la API buscando cualquier campo o endpoint de QR**: si alguna vez alguien agrega uno, el test lo encuentra, y entonces lo primero que hay que leer es `investigaciones/Pagos_y_Conciliacion.md` y no el código.
-  **Las dos piezas ya estaban, de fases anteriores:** el CBU y el alias se validan en `F1-T22` (22 dígitos exactos, sin espacios ni guiones) y el botón de copiar es `assets/js/copiar.js`, construido en `F1-T26`. Lo que falta es solo armar la pantalla, que es `F2-T22`.
+  **Verificada y tildada el 2026-11-13, con dos tests.** No agrega código propio: se cumple
+  implementando, así que la volví verificable.
+  - Un test comprueba que el CBU y el alias llegan como texto tal cual se guardaron.
+  - El otro **recorre el esquema entero de la API buscando cualquier campo o endpoint de QR**. Si
+    alguien agrega uno, el test lo encuentra.
+  - Las dos piezas ya estaban: la validación del CBU es de `F1-T22` y el botón de copiar de
+    `F1-T26`. Falta solo la pantalla, que es `F2-T22`.
 
 ## Tema 2.4 — Deudores
 
-- [ ] **F2-T11 · Backend — cálculo de deudores.** *(construida, falta tu revisión)*
+- [x] **F2-T11 · Backend — cálculo de deudores.**
   **Qué se construye:** `GET /api/edificios/{id}/deudores` como **vista calculada, no como tabla propia**: se arma sobre `ExpensaDepartamento` menos los pagos **confirmados**, devolviendo por unidad el saldo y la antigüedad de la deuda en meses, ordenado de más a menos atrasada.
   **Regla:** la deuda del mes corriente **no cuenta como atraso** hasta pasado el vencimiento configurado del edificio.
   **Regla:** es **siempre de solo lectura**. La única forma de saldar una deuda es conciliar el pago correspondiente.
   **Este es el dato que alimenta el amarillo y el rojo del Dashboard Visual:** un mes de deuda pinta amarillo, más de un mes pinta rojo.
-  **El recargo por mora ya viene cargado, no se calcula acá.** Lo carga la generación de la expensa del mes siguiente en `recargo_mora` (ver `F2-T05`, decidido el 2026-11-13), así que para esta vista es deuda como cualquier otra y no necesita lógica propia. Esta vista suma lo que la unidad debe —capital más recargos ya cargados— menos los pagos confirmados.
-  **Separar las dos cosas al mostrar, igual:** Deudores y Mi cuenta muestran el atraso y el recargo en líneas distintas. Es el mismo saldo, pero un vecino que ve un solo número más grande de lo que esperaba piensa que el sistema se equivocó.
-  **Una expensa en borrador no cuenta acá.** Deuda es lo publicado: hasta que la administración no publicó la liquidación, el vecino no tuvo forma de pagarla.
-  **Construida, falta tu revisión.** `services/deudores.py` (archivo nuevo), un endpoint más en `routers/pagos.py`, y **44 tests**: 24 de la lógica en `tests/test_deudores_logica.py` y 20 del endpoint en `tests/test_deudores_api.py`.
-  **Por qué esto no puede ser una tabla, escrito donde se va a leer.** Una tabla de deudores tendría que mantenerse al día con cada pago conciliado, cada expensa publicada **y cada día que pasa** — porque la antigüedad de una deuda cambia sola con el calendario. El día que ese proceso no corra, el sistema le dice a un propietario que está al día cuando no lo está, o lo pinta de rojo cuando ya pagó. Hay un test que muestra el efecto: **la misma deuda, con los mismos datos, pasa de "en término" a "un mes de atraso" solo porque cambió la fecha.**
-  **El saldo y lo vencido son dos números distintos, y van por separado.** `saldo` es todo lo impago — es lo que hay que cobrarle— y `vencido` es solo la parte que pasó su fecha, que es la que **decide el color** y la que genera recargo. Una unidad que debe la expensa publicada hace tres días aparece con saldo, con cero meses de atraso y en verde, porque hay que cobrarle pero no es una deudora. El filtro `solo_vencidos` deja afuera justamente a esas: la pantalla de cobranza quiere las atrasadas, el resumen del edificio quiere todas.
-  **El día del vencimiento todavía no es atraso.** Se vence al día siguiente: pagar el último día del plazo es pagar en término, y la comparación estricta es lo que evita marcar en rojo a quien pagó el mismo día que vencía. Y los días se cuentan **desde la publicación** y no desde el fin del período liquidado, porque es desde la publicación que el residente puede pagar: si se liquida noviembre el 20 de diciembre, los diez días corren desde el 20.
-  **Los meses de atraso se cuentan por períodos impagos, no por calendario.** Una unidad que debe marzo y mayo y pagó abril tiene **dos** meses de atraso; el calendario diría tres.
-  **La severidad la decide el backend**, con los nombres del sistema de diseño (`ok`, `warn`, `crit`), no una escala paralela. Si la pantalla la dedujera de los meses, el Dashboard Visual y la pantalla de Deudores podrían pintar la misma unidad de colores distintos. El naranja no participa: está reservado para mantenimiento en curso.
-  **Y el listado dice a quién llamar** — propietario e inquilino por nombre— porque sin eso la pantalla de cobranza obliga a abrir la ficha de cada unidad. Más los totales de la cartera calculados por el servidor: "17 unidades deben $2.400.000, de las cuales $1.900.000 están vencidos" es la foto que la administración necesita.
-  **Es de solo lectura y no hay forma de saldar una deuda desde acá.** Hay un test que lo recorre entero: el pago **pendiente** no saca a la unidad del listado, y el **confirmado** sí.
-  ---
-  **Y acá se cerró la costura que `F2-T05` dejó abierta.** Ahora que el modelo `Pago` existe, el **recargo por mora** y el **saldo a favor** se calculan de verdad al generar la liquidación siguiente. **La lógica de `expensas.liquidar()` no cambió una línea**: lo único que cambió es que recibe datos reales en vez de diccionarios vacíos, que es exactamente para lo que se había escrito así. Los comentarios `PENDIENTE F2-T08` ya no están.
-  **Y al cerrarla apareció una ambigüedad de mi propia redacción, que conviene dejar resuelta.** Había escrito que el recargo "se calcula una sola vez", y eso se puede leer de dos formas. **Lo implementado:** cada liquidación cobra recargo sobre el **capital que sigue impago** — así que una unidad que debe noviembre recibe recargo al generarse diciembre, y si en enero sigue sin pagar, **vuelve a recibirlo sobre ese mismo capital**. Es interés simple mensual, que es como funciona en la práctica del rubro. Lo que **no** pasa es interés compuesto: el capital nunca crece.
-  **La pieza que lo garantiza es que la base del recargo es el capital y no el saldo.** El saldo de un período impago **incluye el recargo que ya se le cargó**, así que calcular el recargo nuevo sobre el saldo sería cobrar recargo sobre el recargo y una deuda chica se multiplicaría sola. Hay un test que lo verifica con tres meses encadenados: noviembre impago da 10.000 de recargo en diciembre, y noviembre más diciembre impagos dan 20.000 en enero — **y no 21.000**, que es lo que daría si el recargo entrara en la base.
-  **Con eso quedó escrita también la regla de imputación:** los pagos se aplican **primero al recargo y después al capital**. Es la regla habitual del rubro (intereses primero) y la que hace que la cuenta cierre: mientras el capital no se pague, sigue generando recargo. **Si alguna vez querés que el recargo se cobre una sola vez en la vida de la deuda, se cambia en un solo lugar** (`_deuda_y_saldo_de_las_unidades` en `routers/expensas.py`).
-  **Una consecuencia que conviene tener presente:** un pago **pendiente** no evita el recargo. Es coherente con la regla fundamental — un pago sin conciliar no reduce la deuda, así que tampoco saca del atraso— pero significa que una conciliación que tarda le puede costar un recargo al vecino que sí pagó en fecha. **La solución es operativa, no técnica: conciliar seguido.** Lo dejo anotado porque es la clase de cosa que se descubre con un reclamo.
-  **Un detalle de implementación que vale la pena:** la lectura de los períodos de una unidad es **la misma función** que usa el estado de cuenta del residente (`periodos_publicados_de`, en `routers/pagos.py`, sin underscore justamente porque la usan dos routers). Dos consultas paralelas serían dos saldos distintos para el mismo propietario, y la que estaría mal sería siempre la que nadie revisó.
+  **Aprobada el 2026-11-13, y la pruebo en la pantalla.** `services/deudores.py`, nuevo, y un
+  endpoint más. 44 tests.
+  - **El saldo y lo vencido son dos números distintos:** el saldo es lo que hay que cobrarle, lo
+    vencido es lo que decide el color.
+  - El día del vencimiento todavía no es atraso, y los días corren desde la **publicación**.
+  - Los meses de atraso se cuentan por períodos impagos, no por calendario.
+  - La severidad la decide el backend, con los nombres del semáforo: un mes amarillo, más rojo.
+  - Hay un test que muestra por qué no puede ser tabla: la misma deuda pasa de "en término" a
+    "un mes de atraso" solo porque cambió la fecha.
+  - **Acá se cerró la costura de `F2-T05`:** el recargo y el saldo a favor ya se calculan de
+    verdad, sin tocar una línea de la lógica.
+  - **La base del recargo es el capital y no el saldo**, así no hay recargo sobre recargo. Test con
+    tres meses encadenados: da 20.000 y no 21.000.
+  - Decisión a confirmar: cada liquidación cobra recargo sobre el capital que sigue impago
+    (interés simple mensual). Si lo querés una sola vez por deuda, se cambia en un solo lugar.
+  - Los pagos se imputan primero al recargo y después al capital.
+  - Un pago pendiente no evita el recargo: la solución es operativa, conciliar seguido.
 
 ## Tema 2.5 — Fondos, caja chica, presupuestos y facturas
 
 - [x] **F2-T12 · Backend — `Fondo` y `MovimientoFondo`.**
   **Qué se construye:** fondo de reserva y otros fondos especiales, cada uno con sus movimientos de ingreso y egreso (CHECK de tipo). **El saldo se calcula, no se guarda.**
-  **Aprobada el 2026-11-13.** Los dos modelos en `models/finanzas.py` y `services/fondos.py` (archivo nuevo) con los tipos y el cálculo del saldo. **28 tests** en `tests/test_fondos.py`. Los endpoints son `F2-T15`.
-  **La decisión principal: el signo lo da el tipo, nunca el número.** El monto **siempre se guarda positivo** y hay dos tipos, `ingreso` y `egreso`. La alternativa —guardar egresos en negativo con un solo campo— parece más simple y es la fuente del error clásico del rubro: **un egreso cargado por error en positivo suma en vez de restar**, y la única forma de notarlo es que el saldo no cierre, meses después, sin pista de qué fila fue. Con un tipo explícito ese error no se puede cometer: no hay signo que cargar. La base lo refuerza con un CHECK de monto positivo.
-  **Y la traducción de tipo a signo existe una sola vez en todo el sistema** (`fondos.con_signo()`). Repetir `if tipo == "ingreso"` en cada consulta es como se termina con un reporte que resta lo que otro suma. Revienta con un tipo desconocido en vez de devolver cero: un movimiento que el sistema no entiende no puede valer cero en un saldo, porque desaparecería del total sin que nadie lo note.
-  **El saldo no es una columna, y hay un test que lo verifica contra la tabla real.** Es la misma decisión que ya rige para el saldo de una unidad y para la vista de deudores: un saldo guardado hay que actualizarlo en cada movimiento, y el día que alguien inserte uno sin pasar por el endpoint —un script, una corrección a mano— el número queda mal **sin que nada falle**.
-  **El cálculo devuelve tres números y no uno:** ingresos, egresos y saldo. Responden preguntas distintas — "cuánto juntó el consorcio para la obra" no es lo mismo que "cuánto queda disponible"— y un fondo con mucho movimiento y saldo chico es una situación muy distinta de uno que nunca se usó.
-  **Un saldo negativo se informa, no se impide.** Casi siempre significa que falta cargar el ingreso que lo financió — la transferencia, el aporte extraordinario que se cobró en la expensa— y bloquear el egreso obligaría a **inventar el ingreso** para poder registrar un gasto que ya ocurrió.
-  **Por qué los fondos no son gastos**, que es la razón de que sean tablas aparte: un gasto del mes se reparte entre las unidades y se cobra en la expensa de ese mes; la plata de un fondo **ya se cobró**, está guardada, y gastarla no genera expensa nueva. Mezclarlas haría que la suma de los gastos de un período incluyera plata que no hay que repartir, y la expensa saldría mal.
-  **Dos detalles menores con su motivo:** un fondo **se desactiva en vez de borrarse** (tiene historial, y el historial de la plata de un consorcio no se tira), y **no puede haber dos fondos con el mismo nombre en el mismo edificio** — serían dos bolsas indistinguibles en cualquier reporte y nadie se acordaría cuál es cuál tres meses después. Entre edificios distintos sí: todos los consorcios tienen un fondo de reserva.
+  **Aprobada el 2026-11-13.** Los dos modelos y `services/fondos.py`, nuevo. 28 tests.
+  - **El signo lo da el tipo, nunca el número.** El monto se guarda siempre positivo: un egreso
+    cargado en positivo sumaría, y la única señal sería que el saldo no cierra meses después.
+  - La traducción de tipo a signo existe una sola vez en el sistema.
+  - **El saldo no es columna**, y hay un test que lo verifica contra la tabla.
+  - Devuelve tres números: ingresos, egresos y saldo. Responden preguntas distintas.
+  - Un saldo negativo se informa, no se impide: casi siempre falta cargar el ingreso.
+  - Un fondo se desactiva, no se borra.
 
 - [x] **F2-T13 · Backend — `Caja` y `MovimientoCaja` (sistema de fondo fijo).**
   **Qué se construye:** caja chica con `monto_fijo` (CHECK mayor a cero) y `responsable_id`, con sus movimientos.
   **Regla contable:** es un **sistema de fondo fijo**, que es como funciona en la práctica en las administraciones: la caja tiene un monto fijo definido, se gasta contra ella durante el mes y se **repone hasta ese monto** cada vez que se rinde. **No es una cuenta de saldo libre**: el disponible y lo pendiente de reposición se derivan del monto fijo y los movimientos. Fundamento en `investigaciones/Caja_chica.md`.
   **Cuidado con:** el primer diseño no tenía movimientos propios y quedó incompleto; el modelo correcto es este.
-  **Aprobada el 2026-11-13.** Los dos modelos en `models/finanzas.py` y `services/caja.py` (archivo nuevo). **26 tests** en `tests/test_caja.py`. Los endpoints son `F2-T15`. Seguí al pie de la letra las decisiones de `investigaciones/Caja_chica.md`, que ya las tenía tomadas y fundamentadas.
-  **Toda la tarea es una sola diferencia: una caja chica no se mide contra cero, se mide contra su monto fijo.** A un fondo se le pregunta "cuánto hay". A una caja se le preguntan tres cosas distintas: cuánto queda **disponible**, cuánto hay que **reponer** para volver al monto fijo, y si ya es momento de **rendir**.
-  **Y lo pendiente de reposición es, exactamente, lo que el responsable gastó y todavía no le devolvieron** — que es la cifra que se mira al rendir cuentas. El test que lo muestra mejor es el de la caja recién abierta: no tiene "saldo cero y listo", tiene **50.000 pendientes de reposición**, porque todavía no se le entregó el efectivo.
-  **Una reposición es un movimiento de tipo `ingreso`**, no una operación especial ni un campo de "última reposición". Es cómo funciona en la práctica: la reposición **es** el movimiento que trae el disponible de vuelta al monto fijo. Y la pantalla va a poner la cifra sugerida como valor por defecto del formulario, porque quien repone casi nunca quiere otro número y tipearlo a mano es la forma de equivocarse.
-  **Los tipos de movimiento son los mismos que los de un fondo, importados del mismo catálogo.** Es el mismo concepto —entra plata o sale plata— y dos tuplas paralelas con los mismos dos valores son el camino corto a que un reporte sume lo que otro resta. Hay un test que verifica que son literalmente la misma tupla y no una copia.
-  **Un valor que elegí yo y conviene que sepas: el umbral de reposición es el 30%.** Las fuentes dicen "cuando el efectivo baja a un mínimo" **sin fijar cuál**, porque depende de cada administración. Un 30% avisa temprano: deja margen para seguir operando mientras se junta la rendición, y evita quedarse sin efectivo el día que aparece un gasto chico urgente. Si alguna vez querés que sea configurable por edificio, es una columna en `cajas` y este valor pasa a ser el default — la lógica no se toca.
-  **Dos situaciones que se informan y no se impiden**, igual que en los fondos. La caja **en rojo**: casi siempre falta cargar la reposición con la que se financió el gasto, y bloquearlo obligaría a inventarla para registrar algo que ya se pagó. Y la caja que **excede su monto fijo**: significa que se repuso de más o que el fondo fijo cambió en la práctica y nadie actualizó la columna — **una caja chica que crece sola deja de ser una caja chica**.
-  **Una caja por edificio, y lo garantiza la base.** Dos cajas en el mismo edificio no son dos cajas chicas: son un fondo mal modelado. Si de verdad hace falta separar plata para un destino propio, eso es un `Fondo`.
-  **El responsable es obligatorio:** una caja chica sin responsable es plata de nadie, y la rendición no tiene a quién pedírsele. Pero **quién registra cada movimiento puede ser otra persona** — el administrador carga la reposición que le entregó al encargado— y por eso son dos columnas distintas.
+  **Aprobada el 2026-11-13.** Los dos modelos y `services/caja.py`, nuevo. 26 tests. Seguí las
+  decisiones ya tomadas en `investigaciones/Caja_chica.md`.
+  - **Una caja no se mide contra cero: se mide contra su monto fijo.** Una caja nueva no tiene
+    "saldo cero": tiene todo pendiente de reposición.
+  - Lo pendiente es **lo que el responsable gastó y no le devolvieron**, la cifra de la rendición.
+  - **Una reposición es un movimiento de tipo ingreso**, no una operación especial.
+  - Los tipos son el mismo catálogo que los de un fondo, no una copia.
+  - El umbral de aviso (30%) lo elegí yo: las fuentes no fijan uno.
+  - Se informan sin impedirse la caja en rojo y la que excede su monto fijo.
+  - Una caja por edificio, garantizado por la base.
 
 - [x] **F2-T14 · Backend — `Presupuesto` y `Factura`.**
   **Qué se construye:** `Presupuesto` (edificio, proveedor_id*, descripción, monto, fecha, estado con CHECK `pendiente`/`aprobado`/`rechazado`, `gasto_id` para vincularlo al gasto real cuando se aprueba) y `Factura` (siempre vinculada a un gasto real).
   **Regla:** completan la cadena de trazabilidad **presupuesto → gasto → factura → pago**. Un presupuesto nace pendiente; al aprobarse se lo puede vincular al gasto que generó, cerrando la comparación entre "lo que se presupuestó" y "lo que finalmente se pagó".
-  **Aprobada el 2026-11-13, con una corrección que salió de revisarla.** Los dos modelos en `models/finanzas.py` y `services/presupuestos.py` (archivo nuevo). **31 tests** en `tests/test_presupuestos.py`. Los endpoints son `F2-T15`. Seguí las decisiones de `investigaciones/Presupuestos_y_Facturas.md`, que ya estaban tomadas y fundamentadas.
-  **Para qué sirve el estado, que es lo que no se ve a primera vista:** para registrar **cuál de varios presupuestos se eligió**. Sin estado, tres presupuestos cargados para el mismo arreglo son tres filas indistinguibles y la decisión — la parte que importa— no queda escrita en ningún lado. Hay un test que lo recorre: tres montos, uno aprobado, y la consulta que contesta cuál fue.
-  **No se exige ninguna cantidad de presupuestos.** Ni la Ley de Propiedad Horizontal ni el Código Civil y Comercial piden un mínimo antes de aprobar un gasto: es buena práctica de gestión y lo fija el reglamento de cada consorcio. **El modelo admite cero, uno o diez y no objeta nada.** Si alguna vez se pide "a partir de tal monto, exigir tres", eso es configuración del edificio — como `dias_vencimiento_expensas`— y no una constante de código.
-  **Un CHECK que vale la pena: un presupuesto rechazado no puede estar ligado a un gasto.** Diría "no elegimos esto" y "esto es lo que gastamos" a la vez. Lo ataja **la base** y no el endpoint, porque es una contradicción de datos y no una regla de flujo.
-  **`gasto_id` sí es clave foránea real, a diferencia de `proveedor_id`.** La tabla `gastos` ya existe, así que no hay motivo para diferir el vínculo. `proveedor_id` sigue siendo un entero suelto hasta la Fase 7, igual que en `Gasto`. Hay un test que verifica las dos cosas a la vez.
-  **Dos columnas que agregué y no estaban pedidas: `decidido_por_id` y `decidido_en`.** Un presupuesto aprobado sin nombre es una decisión de nadie, y es la clase de dato que se pide meses después — el mismo criterio que ya aplicamos a `conciliado_por_id` en los pagos.
-  **La descripción es obligatoria**, al contrario que en un gasto: un gasto se entiende por su rubro y su monto, pero **comparar tres números sin saber de qué son no es comparar nada**.
-  **De la factura, tres decisiones.** `gasto_id` es **obligatorio** — una factura suelta no sirve para nada: lo que se audita es el gasto y la factura es lo que lo respalda. **No tiene `edificio_id` propio**, porque el edificio sale del gasto; repetirlo permitiría guardar una factura de un edificio contra un gasto de otro. Y el `numero` es **texto libre**: una factura argentina real lleva tipo, CUIT, punto de venta y CAE, y nada de eso se modela por separado porque este sistema **no tiene integración con AFIP ni la tiene planeada en ninguna fase del Roadmap**. Hay un test que verifica que esas columnas no existen, para que la decisión quede verificable y no solo escrita.
-  **Y un `UNIQUE (gasto_id, numero)`:** la misma factura cargada dos veces contra el mismo gasto es el error de doble carga más fácil de cometer — dos personas archivando el mismo papel— y duplicaría el respaldo de un gasto que es uno solo. Pero **un gasto sí puede tener dos facturas distintas**, porque un arreglo facturado en dos partes pasa de verdad.
-  **Corrección del 2026-11-13: el `numero` de la factura pasó a ser opcional.** Al revisar la tarea quedó claro que **cargar un comprobante es opcional y que lo que se carga no tiene que ser una factura fiscal**: un recibo, un remito, un ticket, o nada — muchos gastos reales de un consorcio no tienen comprobante formal (el arreglo que hizo un vecino, el flete en efectivo). Eso ya era así, porque la factura es una tabla aparte y nada la exige. **Lo que estaba mal era el `numero` obligatorio:** un recibo escrito a mano no tiene número, y exigirlo haría que alguien escriba "sin número" o "1" para poder guardar el monto, que es el dato que sí tiene.
-  **Y el `UNIQUE (gasto_id, numero)` sigue teniendo sentido con el número nulo**, porque la unicidad sobre una columna anulable admite muchos NULL en SQLite y en PostgreSQL: **dos recibos sin número contra el mismo gasto son dos comprobantes distintos** y tienen que poder cargarse. Lo que se ataja es repetir **un número**, que es lo que identifica un papel concreto. Hay test de las dos mitades.
-  **Queda pendiente, y es tu propia observación:** cómo se almacenan las imágenes y los archivos. Hoy el comprobante es un enlace que alguien pega, igual que la foto de un reclamo y el comprobante de un pago. **La decisión de almacenamiento propio es de la Fase 7** (gestión documental) y conviene tomarla una sola vez para los tres casos, no de a uno.
-  **Lo que deliberadamente no validé: que el monto de la factura coincida con el del gasto.** Una factura puede llegar con un ajuste, y un gasto puede cubrirse con dos facturas; forzar la igualdad bloquearía los dos casos reales. La diferencia entre lo presupuestado, lo gastado y lo facturado **es información**, no un error — y es justamente lo que la cadena existe para poder mirar.
+  **Aprobada el 2026-11-13.** Los dos modelos y `services/presupuestos.py`, nuevo. 35 tests.
+  - **El estado existe para registrar cuál de varios se eligió.** Sin él, tres cotizaciones son
+    tres filas indistinguibles.
+  - No se exige ninguna cantidad de presupuestos: ninguna norma la pide.
+  - CHECK: un presupuesto rechazado **no puede estar ligado a un gasto**.
+  - `gasto_id` sí es clave foránea real; `proveedor_id` sigue suelto hasta la Fase 7.
+  - Agregué `decidido_por_id` y `decidido_en`: una decisión sin nombre no se audita.
+  - **Cargar una factura es opcional y no tiene que ser una factura fiscal** (confirmado con vos):
+    un recibo, un remito, o nada. Por eso el `numero` también es opcional.
+  - `UNIQUE (gasto, numero)` para la doble carga del mismo papel; con número vacío no aplica.
+  - No se valida que la factura coincida con el gasto: puede traer un ajuste.
+  - Pendiente tuyo: cómo se almacenan las imágenes. Hoy es un enlace, igual que la foto de un
+    reclamo y el comprobante de un pago — conviene decidirlo una sola vez, en la Fase 7.
 
 - [x] **F2-T15 · Backend — CRUD de fondos, caja, presupuestos y facturas.**
   **Qué se construye:** los cuatro conjuntos de endpoints, todos anidados bajo edificio.
-  **Aprobada el 2026-11-13, y la pruebo en la pantalla.** `routers/fondos.py` y `routers/presupuestos.py` (los dos nuevos), `schemas/tesoreria.py` (nuevo), nueve errores nuevos en el catálogo. **48 tests** en `tests/test_tesoreria_api.py`. Son **19 endpoints**, y la API pasó de 53 a 72 rutas.
-  **Fondos y caja van en el mismo router, y presupuestos y facturas en el otro.** No es por tamaño: un fondo y una caja **comparten el mecanismo** — movimientos de ingreso y egreso con el mismo catálogo de tipos— y se diferencian solo en contra qué se mide el resultado. Separarlos duplicaría las mismas cuatro operaciones.
-  **Los esquemas de movimiento son uno solo para fondo y caja**, por la misma razón: los dos modelos tienen las mismas columnas y el mismo catálogo, así que dos esquemas serían dos copias que algún día se separan.
-  **Un movimiento se borra, no se edita.** Hay `DELETE` y no hay `PATCH`, en fondos y en caja. Un movimiento mal cargado es un error de tipeo: se saca y se vuelve a cargar bien. Editarle el monto o el tipo a uno ya registrado es **reescribir el historial de la plata**, y ese historial es justamente para lo que existe el libro de movimientos.
-  **Y un fondo no se borra: se desactiva.** No hay endpoint de baja — un `DELETE` da 405— porque tiene historial. Desactivarlo lo saca de la pantalla de todos los días y le cierra la puerta a movimientos nuevos, sin perder nada. **Pero su plata sigue contando** cuando se piden los inactivos: no se puede dar por perdido el saldo de un fondo solo porque se dejó de usar. Hay test de eso.
-  **Cada respuesta trae el saldo calculado**, y el movimiento devuelve **el fondo entero** y no el movimiento: quien carga un movimiento quiere ver el saldo nuevo, y pedirlo aparte sería el doble de pedidos para el dato que importa. Es el mismo criterio que la carga de coeficientes de `F1-T24`.
-  **De la caja, dos cosas que agregué y conviene que sepas.** La primera: **el responsable tiene que trabajar en el edificio** — vale el encargado o quien administra el consorcio, **no un residente** y no alguien de otro edificio. El efectivo del edificio no lo maneja un vecino, y darle la caja a quien no pisa el lugar no tiene sentido. La segunda: **cambiar el monto fijo no mueve ni un peso**; cambia el objetivo contra el que se mide el disponible, así que si se sube el fondo fijo la diferencia aparece como pendiente de reposición hasta que se entregue el efectivo — que es, de nuevo, un movimiento de ingreso.
-  **Y no hay endpoint de "reponer".** La reposición es un movimiento de tipo `ingreso`, y la respuesta trae `reposicion_sugerida` para que la pantalla lo proponga: quien repone casi nunca quiere otro número.
-  **De los presupuestos: la decisión no se cambia y el decidido no se borra.** Lo primero porque cuál se eligió es información que un consorcista puede pedir ver, y reescribirla la borra. Lo segundo por la misma razón, con un giro: **borrar el rechazado dejaría la aprobación sin contexto** — "aprobamos este" sin los otros dos no dice nada. Un presupuesto **pendiente** sí se borra, para el caso de haberlo cargado mal.
-  **El monto del gasto viaja al lado del presupuestado** cuando están vinculados. La comparación entre lo que se cotizó y lo que se pagó es para lo que existe el vínculo, y pedirla en otra consulta la volvería opcional.
-  **Las facturas cuelgan del gasto y eso se ve en la ruta:** `/edificios/{id}/gastos/{gasto}/facturas`. Un endpoint `/edificios/{id}/facturas` permitiría cargar una factura sin decir de qué gasto es, que es exactamente lo que el modelo prohíbe. Y **una lista vacía es una respuesta normal**: cargar un comprobante es opcional.
+  **Aprobada el 2026-11-13, y la pruebo en la pantalla.** `routers/fondos.py` y
+  `routers/presupuestos.py`, nuevos, más `schemas/tesoreria.py`. 48 tests, 19 endpoints.
+  - Fondos y caja van en el mismo router: comparten el mecanismo de movimientos.
+  - **Un movimiento se borra, no se edita.** Editarlo sería reescribir el historial de la plata.
+  - Un fondo no se borra: un DELETE da 405.
+  - El responsable de la caja tiene que trabajar en el edificio: no un residente.
+  - Cambiar el monto fijo no mueve plata; cambia cuánto hay que reponer.
+  - La decisión sobre un presupuesto no se cambia, y el decidido no se borra: borrar el rechazado
+    dejaría la aprobación sin contexto.
+  - Las facturas cuelgan del gasto, y eso se ve en la ruta.
 
 ## Tema 2.6 — Reportes
 
 - [x] **F2-T16 · Backend — endpoint consolidado de reportes financieros.**
   **Qué se construye:** un endpoint que devuelve, por período: recaudado contra esperado, morosidad, y gastos agrupados por rubro con su evolución.
   **Cuidado con:** **consolida, no recalcula de cero.** La morosidad ya sale de `F2-T11`, la evolución de gastos por rubro de `F2-T02`, y el recaudado contra esperado del total de la expensa contra la suma de pagos confirmados de `F2-T09`. Es la data cruda de la Analítica de la Fase 6.
-  **Aprobada el 2026-11-13, y la pruebo en la pantalla.** `routers/reportes.py`, `schemas/reportes.py` y `services/reportes.py` (los tres nuevos). **Con esto el backend de la Fase 2 quedó completo: 1411 tests en verde.** **26 tests** en `tests/test_reportes.py`. Un solo endpoint: `GET /api/edificios/{id}/reportes/financiero`.
-  **"Consolida, no recalcula" se cumplió literalmente, y se ve en los imports:** este módulo **no tiene una sola consulta propia** de morosidad ni de agrupación por rubro. Reutiliza `_gastos_por_rubro` de la generación de expensas, y `periodos_publicados_de` más `services/deudores.py` de la vista de deudores. **Y hay dos tests que lo verifican de verdad**: uno compara los gastos del reporte contra el listado de gastos, y el otro la morosidad del reporte contra la vista de deudores. Tienen que dar el mismo número, no uno parecido.
-  **El motivo de esa regla, escrito donde se va a leer:** si el reporte tuviera sus propias consultas, el día que cambie una regla —qué es "vencido", qué pago cuenta— habría **dos respuestas distintas a la misma pregunta**, y la que estaría mal sería siempre la del reporte, porque es la que nadie mira todos los días. **Un reporte que no coincide con la pantalla de la que sale es peor que no tener reporte.**
-  **Tres números que parecen el mismo, y el reporte trae los tres.** `gastos` es lo que gastó el consorcio (el total de la expensa); `esperado` es lo que hay que cobrar (la suma de lo que debe cada unidad, **que incluye recargos y descuenta saldos a favor**, así que **no es igual a `gastos`**); y `recaudado` es lo que entró, contando solo pagos confirmados. Mostrar uno solo hace que alguien saque conclusiones del que no corresponde.
-  **Más un cuarto que no se suma a ninguno: `pendiente_de_confirmar`.** No cuenta como recaudado — es la regla fundamental del módulo— pero se muestra, porque un reporte que lo esconde hace creer que falta **cobrar** plata que en realidad falta **conciliar**.
-  **Los porcentajes pueden ser nulos, y eso significa algo distinto de cero.** `null` es "no hay nada contra qué medir" — un mes sin liquidación— y `0` es "no se cobró nada". **Un cero en lugar de un hueco es la forma más fácil de que un gráfico muestre una caída que nunca existió.** Por eso también cada período trae `liquidada`: sin ese campo, un mes con gastos cargados y sin expensa parecería un mes en el que nadie pagó, cuando lo que falta es generar la liquidación.
-  **Y el porcentaje del resumen se calcula sobre los totales, no es el promedio de los mensuales.** Un mes al 100% sobre una expensa chica no compensa uno al 50% sobre una grande: promediarlos diría 75% cuando el real es otro. Hay un test con ese caso exacto.
-  **Los pagos se imputan al período de su expensa y no a su fecha de pago**, porque la pregunta que el reporte contesta es "cuánto de la expensa de noviembre se cobró". Alguien que paga noviembre en enero suma a noviembre. Hay test.
-  **La morosidad es una foto de hoy y no una serie, y el campo se llama `morosidad_de_hoy` para que nadie la lea mal.** No es un descuido: **la deuda no tiene período** — una unidad que debe marzo sigue debiéndolo en noviembre— y preguntar "cuánta morosidad había en marzo" obligaría a reconstruir qué estaba pagado en ese momento, que solo se podría responder guardando un historial de saldos: exactamente lo que se decidió no hacer. Lo mismo vale para el total en fondos.
-  **Dos detalles de la evolución por rubro.** Cada rubro trae **un valor por cada período, en el mismo orden, con cero donde no hubo gasto**: la pantalla lo grafica sin rellenar huecos, y el relleno en el cliente es como se terminan desalineando dos series. Y el orden de los rubros es **el del catálogo y no el del monto**, para que comparar dos meses sea mirar la misma fila; los rubros sin gastos quedan afuera, porque diez filas en cero no son información.
-  **Es un endpoint y no cuatro** porque la pantalla los muestra juntos: con cuatro pedidos puede quedar con la recaudación de un rango y los gastos de otro si uno falla, y eso es peor que no mostrar nada.
-  **El rango por defecto es de seis meses** — medio año: suficiente para ver una tendencia y poco para leerlo de un vistazo— y admite hasta 36. También se puede mirar hacia atrás desde un mes que no es el actual, que es lo que se hace al cerrar un ejercicio.
+  **Aprobada el 2026-11-13, y la pruebo en la pantalla.** `routers/`, `schemas/` y
+  `services/reportes.py`, los tres nuevos. 26 tests. **Con esto el backend de la fase quedó
+  completo: 1411 tests.**
+  - **Consolida y no recalcula, y se ve en los imports:** no tiene una sola consulta propia de
+    morosidad ni de agrupación por rubro. Dos tests comparan el reporte contra el listado de
+    gastos y contra la vista de deudores: tienen que dar el mismo número.
+  - Trae tres números que parecen el mismo: **gastos** (lo gastado), **esperado** (lo que hay que
+    cobrar, con recargos y saldos a favor) y **recaudado** (solo pagos confirmados).
+  - Más `pendiente_de_confirmar`, que no suma a ninguno: esconderlo hace creer que falta cobrar
+    plata que falta conciliar.
+  - **Un porcentaje nulo no es cero:** nulo es "no hay nada contra qué medir". Un cero en lugar de
+    un hueco muestra una caída que nunca existió.
+  - El porcentaje del resumen sale de los totales, no es el promedio de los mensuales.
+  - Los pagos se imputan al período de su expensa, no a su fecha.
+  - **La morosidad es una foto de hoy**, y el campo se llama así: la deuda no tiene período.
 
 ## Tema 2.7 — Pantalla financiera
 
@@ -1099,36 +1114,31 @@ Leí la fase entera antes de construirla y aparecieron seis huecos. Los resolví
   **Incluye:** `assets/js/moneda.js` (formato argentino para **mostrar** montos, centralizado para que ninguna pantalla arme su propio formateador) y `assets/js/monto-input.js` (formato de miles **mientras el usuario tipea**).
   **Cuidado con el campo de monto:** un `<input type="number">` **no sirve**: su modelo de valor nunca agrupa miles. Se usa `type="text"` con `inputmode="decimal"` (que mantiene el teclado numérico en mobile) y formateo propio que reposiciona el cursor según cuánto cambió el largo.
   **Cuidado con las fechas:** nunca pasar una fecha `YYYY-MM-DD` del backend por `new Date()` — se interpreta como medianoche UTC y en Argentina (UTC-3) se muestra un día antes. Se separa el texto y se reordena a mano.
-  **Construida, falta tu revisión.** `financiero.html` y `assets/js/financiero.js` (los dos nuevos), más `assets/js/moneda.js` y `assets/js/monto-input.js` (los dos módulos compartidos que pedía la tarea). Cuatro clases nuevas en `components.css` y el acceso **Financiero** en la tabla `ACCESOS` de `layout.js`.
-  **Todo sale del vocabulario visual ya aprobado y no hay nada inventado.** El selector es el `.view-switch` del sistema (view-switch.js se engancha solo), el total del período usa el `.panel-total` con su barra y sus chips — el mismo que la pestaña de coeficientes—, cada gasto es una `.fila-lista` sobre `.content-glass` con `.icon-btn-sm` para editar y borrar, el rubro va como `.chip` y los errores de campo usan `Formularios.marcarErrores`, que es el mismo mecanismo del alta de edificios.
-  **El rubro va como `.chip` y no como `.pill`, y es una regla y no un gusto:** las pills son el semáforo de cuatro estados del edificio, que es una regla de negocio sobre su estado real. Un rubro contable no es un estado.
-  **Cuatro clases nuevas, las cuatro derivadas de los tokens:** `.form-grid-3` (la fila de filtros, con un paso intermedio en tablet porque tres selectores de 110 px no se tocan con el pulgar), `.campo-sin-margen`, `.campo-opcional` y `.mensaje-aviso`.
-  **`.mensaje-aviso` no usa un color del semáforo, y es deliberado.** Es el tercer mensaje de la familia — "salió bien pero hay algo que saber"— y hoy lo usa un caso: el gasto cargado con fecha de un período ya publicado. El semáforo es una regla sobre el estado del edificio y no una paleta para pintar cualquier cosa que llame la atención, así que el aviso lleva el acento de marca, que es el otro único sistema de color con licencia para existir.
-  ---
-  **La contradicción del Roadmap que hubo que resolver.** Esta tarea pide "el selector que organiza todo el módulo (Gastos / Expensas / Pagos / Deudores / Fondos), con la primera pestaña funcional", y la **sección 1.3 prohíbe las pantallas con secciones vacías o deshabilitadas de funcionalidad futura**. Una pestaña "Fondos" que al tocarla no muestra nada es exactamente eso.
-  **Se resolvió con el patrón que el proyecto ya usa:** una tabla en `financiero.js` declara las cinco pestañas con un `construida` por cada una, igual que la tabla `ACCESOS` de `layout.js` declara el menú completo y dibuja solo lo construido. Así el archivo **se lee como el plan del módulo** y la pantalla muestra solo lo que existe. Cada tarea siguiente cambia un `false` por `true`.
-  **Y con una sola pestaña construida el selector no se dibuja**: un selector de una opción no es un selector, es un título que parece un botón. Aparece cuando haya a dónde ir, en `F2-T18`.
-  ---
-  **El edificio viaja en la URL (`?edificio=7`)**, igual que el `?id=` del detalle de un edificio y por los mismos motivos: F5 no te saca del edificio en el que estabas, el botón de atrás funciona, y el enlace se puede mandar por mensaje. El selector de edificio **no se muestra si administrás uno solo**, porque elegir entre una opción no es elegir — le pasa a todo Administrador de Consorcio. Y si la URL trae un edificio que no administrás, cae al primero de los tuyos en vez de un 404: el enlace puede venir de otra persona con otra cartera, y eso no es un error de quien lo abrió.
-  **El filtro de período es lo primero de la pantalla y no un detalle al costado.** Un consorcio carga entre diez y cuarenta gastos por mes: a los seis meses, un listado sin filtro son doscientas filas y encontrar la factura de luz de marzo es imposible. Arranca en el mes actual, y "Todo el año" es una opción real porque al cerrar un ejercicio se mira el año entero.
-  **El catálogo de rubros lo sirve el backend y la pantalla no tiene su propia copia.** Una copia en JavaScript es la que queda vieja el día que se agregue un rubro, y el síntoma sería un desplegable al que le falta una opción **sin que nada falle**. De paso, la descripción del rubro elegido se muestra abajo del desplegable: sirve justo cuando alguien duda entre "mantenimiento" y "ascensores", y evita que el mismo gasto se cargue en dos rubros distintos según quién lo cargue.
-  **Esta pantalla no suma plata. Nunca.** El total del período viene calculado del backend, porque es el número que después se reparte entre las unidades y tiene que salir del mismo lugar del que va a salir la expensa. `moneda.js` formatea para mostrar y nada más.
-  **Y sin gastos no se muestra un total de cero:** cero y "no hay nada" son dos cosas distintas, y en una pantalla de plata confundirlas es como se lee un hueco como un mes sin gastos cuando lo que falta es cargarlos. El listado vacío explica qué hacer en vez de decir "no hay datos".
-  ---
-  **`moneda.js`, y por qué es un módulo y no tres líneas en cada pantalla:** en la iteración anterior "tres líneas en cada pantalla" fueron **cuatro formatos distintos del mismo número** — "$4849900", "4.849.900", "$ 4849900.00" y "$4.849.900,00" según dónde se mirara— y el consorcista que compara su recibo con la pantalla no sabe si son el mismo número.
-  **Y no pasa los montos por `Number()`.** Llegan del backend como texto decimal exacto porque son `Numeric` de un extremo al otro; convertirlos para mostrarlos y después sumar esos números es como se pierde un centavo. Se parte el texto por la coma y se agrupan los miles a mano: es más código y nunca deja de ser texto. Tampoco usa `new Date()` para nada — ni para el período ni para la fecha— que es la trampa de UTC ya anotada en el catálogo del proyecto.
-  **`monto-input.js` y el problema del cursor, que es lo que hace difícil esto.** Reescribir el valor de un input manda el cursor al final: si alguien corrige el tercer dígito de "1.234.567" y el cursor salta, el campo es inusable. La solución no es recordar la posición — al agregar un separador el largo cambia y la posición vieja ya no apunta al mismo lugar— sino **mover el cursor exactamente lo que cambió el largo del texto**. Con eso queda pegado al dígito que se estaba tocando.
-  **Tres decisiones más de ese módulo.** La coma a medio escribir **se conserva**: si "1234," se formateara como "1.234", el siguiente dígito sería un millar en vez de un centavo y la persona vería su número multiplicarse por cien. Los centavos se completan **al salir del campo** y no mientras se tipea, porque agregar ",00" en medio de la escritura pelea con la persona en cada tecla. Y el punto del teclado numérico del teléfono **se trata como coma decimal**, porque ahí el punto está a mano y la coma no.
-  **El valor que se manda al backend no es el que se ve:** la pantalla muestra "1.234.567,89" y el pedido lleva "1234567.89". Mandar el texto del input tal cual convertiría "1.234" en mil doscientos treinta y cuatro pesos... o en uno con veintitrés centavos.
-  ---
-  **Lo que verifiqué y lo que no.** Verifiqué con un chequeo estático que **las 45 clases CSS usadas estén definidas** (una clase inventada no falla: simplemente no se ve), que los 17 `id` y todos los `data-` que busca el JS existan en el HTML, y que **cada `window.X.y()` exista de verdad en el módulo que lo expone** — ese chequeo encontró dos errores míos antes de que los vieras: el usuario sale de `Layout.montar` y no de un endpoint `/usuarios/yo` que no existe, y la firma de `Confirmar.pedir` es `{titulo, mensaje, textoAccion}` y no la que yo supuse. También probé las dos funciones puras nuevas con 21 casos en Node, todos correctos, y los endpoints con `curl` contra la base local.
-  **Lo que NO verifiqué: cómo se ve.** No hay navegador en mi entorno, así que el recorrido visual —los dos temas, 390/768/1280 px, la consola limpia— es tuyo. Para probarla cargué **datos inventados en la base local de desarrollo**: un "Consorcio Prueba Mitre 500" con cuatro pisos y tres gastos de noviembre más uno de octubre. No se tocó producción.
-  **El aviso del gasto que llega tarde (decidido el 2026-11-13):** si la fecha del gasto cae en un período cuya expensa **ya está publicada**, la pantalla lo avisa al guardarlo — el gasto se registra igual, pero no va a aparecer en esa liquidación. Ver la regla en `F2-T05`. **No es un error ni bloquea el guardado**: es un aviso, porque el gasto es real y tiene que quedar registrado.
+  **Construida, falta tu revisión.** `financiero.html` y `financiero.js`, más `moneda.js` y
+  `monto-input.js`. Cuatro clases nuevas en `components.css` y el acceso en `layout.js`.
+  - **Todo sale del vocabulario ya aprobado:** `.view-switch`, `.panel-total` con su barra y sus
+    chips, `.fila-lista` sobre `.content-glass`, `.icon-btn-sm`, y `marcarErrores` para los errores
+    por campo.
+  - El rubro va como `.chip` y no como `.pill`: las pills son el semáforo del edificio, y un rubro
+    contable no es un estado.
+  - `.mensaje-aviso` es nueva y **no usa un color del semáforo**, por lo mismo: lleva el acento.
+  - **Contradicción del Roadmap resuelta:** la tarea pide el selector con las cinco pestañas y la
+    sección 1.3 prohíbe secciones de funcionalidad futura. Se declaran las cinco con un
+    `construida` — igual que la tabla `ACCESOS`— y se dibuja solo lo que existe. Con una sola
+    pestaña el selector no se muestra.
+  - El edificio viaja en la URL (`?edificio=7`). Con un solo edificio el selector no se muestra.
+  - El filtro de período es lo primero: a los seis meses, sin filtro son doscientas filas.
+  - El catálogo de rubros lo sirve el backend; la pantalla no tiene su propia copia.
+  - **Esta pantalla no suma plata:** el total viene calculado.
+  - `moneda.js` no pasa los montos por `Number()` ni las fechas por `new Date()`.
+  - `monto-input.js` mueve el cursor **lo que cambió el largo del texto**, así queda pegado al
+    dígito que se estaba tocando. La coma a medio escribir se conserva.
+  - Verifiqué con un chequeo estático que las 45 clases existen y que cada `window.X.y()` existe
+    de verdad: encontró dos errores míos antes de que los vieras. **No verifiqué cómo se ve**: no
+    tengo navegador.
 
 - [ ] **F2-T18 · Frontend — pestaña Expensas (gestión).**
-  **Qué se construye:** generación de la expensa del período, listado de liquidaciones, y detalle con la apertura por rubro.
-  **Actualizado el 2026-11-13, porque `F2-T05` cambió la regla:** la expensa nace en **borrador** y hay **dos botones, no uno**. **Regenerar** aparece solo mientras esté en borrador y usa el patrón de confirmación de `F2-T05` (el formulario pasa a modo confirmación con el texto explícito de qué se reemplaza). **Publicar** es el paso que la vuelve visible para los residentes, arranca el vencimiento y **cierra la posibilidad de regenerar para siempre** — así que pide confirmación con el mismo patrón y el texto lo dice con todas las letras.
-  **Y el estado se ve en el listado**, con una `.pill` por liquidación: una expensa en borrador que nadie publicó es plata que no se está cobrando, y tiene que saltar a la vista. El `.mensaje-error` de la pantalla de gestión no alcanza para eso.
+  **Qué se construye:** generación de la expensa del período, listado de liquidaciones, y detalle con la apertura por rubro. El botón de regenerar aparece **solo en la última** y usa el patrón de confirmación de `F2-T05`: el formulario pasa a modo confirmación con el texto explícito de qué se reemplaza.
   **Cuidado con:** si el usuario cambia algún dato del formulario, el estado de confirmación **se reinicia**.
 
 - [ ] **F2-T19 · Frontend — pestaña Pagos, vista de gestión.**
@@ -1136,8 +1146,7 @@ Leí la fase entera antes de construirla y aparecieron seis huecos. Los resolví
 
 - [ ] **F2-T20 · Frontend — pestaña Deudores.**
   **Qué se construye:** listado ordenado por antigüedad con el detalle de las expensas impagas de cada unidad. Consume tal cual `F2-T11`, sin cambios de backend.
-  **El atraso y el recargo van en líneas separadas** (decidido el 2026-11-13, ver `F2-T11`). Es un solo saldo, pero mostrarlo como un único número más grande de lo esperado hace que el vecino crea que el sistema se equivocó.
-  **Nota de alcance, corregida el 2026-11-13:** `F1-T02` **ya está resuelta**, así que la condición que decía esta nota quedó vieja. Lo que falta es la **pantalla de asignación** de un Auditor a sus edificios, que es `F11-T05`: hasta que exista, el Auditor no entra acá, porque darle acceso a toda la cartera sin un vínculo real sería un sobre-permiso.
+  **Nota de alcance:** el acceso del rol Auditor a esta pestaña depende de cómo se haya resuelto `F1-T02`. Si quedó pendiente, se habilita en `F11-T05` y **no antes** — darle acceso a toda la cartera sin un vínculo real sería un sobre-permiso.
 
 - [ ] **F2-T21 · Frontend — pestaña Fondos, con su sub-navegación.**
   **Qué se construye:** una única pestaña principal con **cuatro secciones internas** (Fondos / Caja chica / Presupuestos / Facturas) mediante una segunda fila de pestañas.
@@ -1147,18 +1156,13 @@ Leí la fase entera antes de construirla y aparecieron seis huecos. Los resolví
 - [ ] **F2-T22 · Frontend — "Mi cuenta" del residente.**
   **Qué se construye:** la rama de rol para Propietario e Inquilino dentro del mismo archivo: sus unidades, la expensa del período **con su apertura por rubro** (no solo el total), el saldo, el CBU y el alias con botón de copiar, y el formulario de carga de pago.
   **Regla visible en pantalla:** un pago cargado aparece como pendiente con el texto que explica que el saldo se actualiza recién cuando la administración lo concilia.
-  **Los tres montos de la liquidación se muestran por separado** (decidido el 2026-11-13): lo que le toca por los gastos del período, el **recargo** por lo que venía atrasado, y el **saldo a favor** que se le aplicó. Un solo total no le permite al vecino entender por qué este mes le vino distinto, y es exactamente ahí donde llama por teléfono.
-  **El aviso del saldo a favor que no alcanza, que es el caso que genera el problema:** el que pagó por adelantado cree que está cubierto y no vuelve a mirar. Cuando el saldo a favor **no cubre** la expensa del período —porque la expensa subió— la pantalla lo dice como aviso destacado y no como una fila más: "se aplicaron $X de tu saldo a favor; quedan $Y por pagar antes del (fecha)". Ver `F2-T08`: **el faltante es deuda común**, no una categoría aparte; lo que cambia es el aviso.
-  **Una expensa en borrador no se muestra acá.** Hasta que la administración no la publica, para el residente no existe (`F2-T04`).
   **Cuidado con:** el Propietario a veces necesita elegir de cuál de sus unidades habla; el Inquilino **nunca** — con una sola unidad, el selector ni se muestra.
 
 - [ ] **F2-T23 · Prueba de punta a punta — financiero.**
-  **Qué se prueba, con datos cargados a mano y en el frontend real:** cargar los gastos de un mes; generar la expensa; verificar que la suma de lo repartido da exactamente el total; corregir un gasto y **regenerar la expensa en borrador** confirmando el reemplazo; **publicarla**, y comprobar que después de publicada el botón de regenerar ya no está y que recién ahí la ve el residente; cargar pagos desde la sesión del residente y dejarlos pendientes; confirmar uno, rechazar otro; verificar que solo el confirmado bajó el saldo; dejar unidades con uno, dos y cuatro meses de deuda y confirmar que Deudores calcula bien meses y monto en cada caso. Repetir con el edificio de 28 unidades.
-  **Y los tres casos que agregaron las decisiones del 2026-11-13:** dejar una unidad impaga, generar el mes siguiente y verificar que **el recargo aparece cargado a esa unidad y a ninguna otra** (y que el total de la expensa no lo incluye); pagar de más en un período y verificar que el excedente se descuenta solo del siguiente; y hacer que ese saldo a favor **no alcance** — subiendo los gastos del mes siguiente— para ver el aviso de `F2-T22` y que el faltante queda como deuda común.
+  **Qué se prueba, con datos cargados a mano y en el frontend real:** cargar los gastos de un mes; generar la expensa; verificar que la suma de lo repartido da exactamente el total; corregir un gasto y regenerar la última expensa confirmando el reemplazo; cargar pagos desde la sesión del residente y dejarlos pendientes; confirmar uno, rechazar otro; verificar que solo el confirmado bajó el saldo; dejar unidades con uno, dos y cuatro meses de deuda y confirmar que Deudores calcula bien meses y monto en cada caso. Repetir con el edificio de 28 unidades.
 
 - [ ] **F2-DOC · Documentación de la Fase 2.**
   Redactar `documentacion/fases/Fase_2_Gestion_Financiera.md` según la sección 1.6. Foco particular: el ejemplo numérico completo de una liquidación (gastos por rubro → total → reparto por coeficiente → lo que ve cada unidad), el circuito de conciliación explicado como se le explicaría a un administrador, y por qué no hay QR.
-  **Y las seis decisiones del 2026-11-13 explicadas como decisiones**, no como características: qué decía el Roadmap original, qué hueco tenía y por qué se resolvió así. Están indexadas en la cabecera de la fase. Las dos que más cuestan de explicar y más importa dejar escritas: **por qué el recargo por mora se le cobra a la unidad pero no entra en el total que se reparte**, y **por qué publicar una expensa es irreversible**.
 
 ---
 

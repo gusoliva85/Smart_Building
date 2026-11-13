@@ -62,6 +62,7 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.sql import expression
 
 from app.database import Base
 from app.services import expensas, fondos, pagos, presupuestos, rubros
@@ -416,13 +417,13 @@ class ExpensaDepartamento(Base):
         Numeric(12, 2),
         nullable=False,
         default=Decimal("0.00"),
-        server_default="0",
+        server_default=text("0"),
     )
     saldo_a_favor_aplicado: Mapped[Decimal] = mapped_column(
         Numeric(12, 2),
         nullable=False,
         default=Decimal("0.00"),
-        server_default="0",
+        server_default=text("0"),
     )
 
     expensa = relationship("Expensa", back_populates="por_departamento")
@@ -696,8 +697,14 @@ class Fondo(Base):
     activo: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
+        # `expression.true()` y NO text("1"): SQLite acepta DEFAULT 1 en una
+        # columna booleana y PostgreSQL lo rechaza ("column is of type boolean
+        # but default expression is of type integer"). Como el esquema se
+        # sincroniza al arrancar, eso tira la aplicacion entera en produccion y
+        # anda perfecto en desarrollo. Es el mismo helper que usan `usuarios` y
+        # `edificios`, que llevan meses funcionando.
         default=True,
-        server_default=text("1"),
+        server_default=expression.true(),
     )
 
     creado_en: Mapped[datetime] = mapped_column(
@@ -852,8 +859,14 @@ class Caja(Base):
     activo: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
+        # `expression.true()` y NO text("1"): SQLite acepta DEFAULT 1 en una
+        # columna booleana y PostgreSQL lo rechaza ("column is of type boolean
+        # but default expression is of type integer"). Como el esquema se
+        # sincroniza al arrancar, eso tira la aplicacion entera en produccion y
+        # anda perfecto en desarrollo. Es el mismo helper que usan `usuarios` y
+        # `edificios`, que llevan meses funcionando.
         default=True,
-        server_default=text("1"),
+        server_default=expression.true(),
     )
 
     creado_en: Mapped[datetime] = mapped_column(

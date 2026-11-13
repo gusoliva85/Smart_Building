@@ -62,6 +62,13 @@ inconsistencia se revisa contra lo que viene más adelante antes de resolverla.
 implementa**, no en el chat y no en una lista suelta al final. Lo que no está escrito
 en el Roadmap, no existe.
 
+**Pero corta.** Una nota de tarea en el Roadmap son viñetas de una o dos líneas, y
+**ninguna línea pasa de 120 caracteres**. La explicación larga de una decisión va en
+el docstring del módulo que la implementa, que es donde la va a leer quien toque ese
+código: repetirla en el Roadmap es escribirla dos veces y deja el archivo ilegible.
+Ya pasó — las notas de la Fase 2 llegaron a párrafos de 1.300 caracteres en una sola
+viñeta y la fase pasó de 15.000 a 94.000 caracteres. Se reescribió el 2026-11-13.
+
 ## 5. Cómo se escribe
 
 - **La documentación va en primera persona, como si la hubiera escrito yo.** Sin rastros
