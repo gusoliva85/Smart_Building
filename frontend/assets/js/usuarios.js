@@ -618,6 +618,8 @@
        es `pendiente` y aprobando() diria que no. */
     var aprueba = aprobando();
 
+    window.Formularios.limpiarErrores(pantalla.formulario);
+
     pedido.then(function (guardado) {
       var mensaje = aprueba
         ? 'Se aprobó la cuenta de ' + guardado.nombre + ' como ' +
@@ -631,8 +633,25 @@
     }).catch(function (error) {
       /* El error se muestra DENTRO del modal, que sigue abierto con todo lo
          tipeado en su lugar. Cerrarlo obligaria a escribir todo de nuevo por
-         un email repetido. */
-      mostrarError(pantalla.errorAlta, pantalla.textoErrorAlta, error.message);
+         un email repetido.
+
+         Y si el backend dice de que campo es —un email con formato invalido,
+         una contrasenia que no cumple la politica— se marca en el campo y el
+         foco va ahi. El aviso de arriba queda para lo que no es de un campo,
+         como el email repetido. */
+      var marcados = window.Formularios.marcarErrores(
+        pantalla.formulario, error.campos
+      );
+
+      mostrarError(
+        pantalla.errorAlta,
+        pantalla.textoErrorAlta,
+        marcados
+          ? (marcados === 1
+              ? 'Revisá el campo marcado.'
+              : 'Revisá los ' + marcados + ' campos marcados.')
+          : error.message
+      );
     }).then(function () {
       bloquearEnvio(false);
     });

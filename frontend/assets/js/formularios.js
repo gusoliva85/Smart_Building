@@ -1,7 +1,7 @@
 /* ============================================================================
    formularios.js — Comportamiento comun a TODO formulario del proyecto.
 
-   Dos cosas, las dos nacidas de un problema real:
+   Tres cosas, las tres nacidas de un problema real:
 
      1. Enter avanza de campo en vez de enviar, salvo en el ultimo. Se creo
         un edificio a medio cargar porque Enter en un campo intermedio envio
@@ -9,6 +9,11 @@
         igual que en una planilla, y la pantalla tiene que acompanar eso.
 
      2. El toggle de mostrar/ocultar de los campos de contrasenia.
+
+     3. La marca de error de un campo. El aviso del backend aparecia arriba
+        del formulario y, en un formulario largo en telefono, no se veia: la
+        persona apretaba "Crear edificio" y no pasaba nada visible. Ahora el
+        error se marca EN el campo y la pantalla lleva el foco hasta el.
 
    SE ENGANCHA SOLO. Las dos cosas trabajan por delegacion en `document`, asi
    que funcionan igual en un formulario que ya estaba en el HTML y en uno que
@@ -209,10 +214,223 @@
     });
   }
 
+  /* ================================================================= */
+  /* 3. LA MARCA DE ERROR DE UN CAMPO                                   */
+  /* ================================================================= */
+
+  /* El problema que resuelve, dicho por el usuario: el aviso del backend
+     aparecia arriba del formulario y, en un formulario largo en telefono,
+     **nunca se veia**. Apretaba "Crear edificio" y no pasaba nada visible.
+
+     Ahora el error se marca en el campo: borde critico, anillo, una cruz
+     adentro y la frase debajo. Y la pantalla lleva el foco al primero, que es
+     lo que resuelve el caso del telefono — no hay que buscar nada.
+
+     La frase la manda el backend. Desde `F1-T29` cada error de validacion
+     viene con un objeto `campos` —`{"cp": "El código postal necesita al menos
+     3 caracteres."}`— asi que esta funcion no redacta nada: solo lo ubica
+     donde corresponde.
+
+     SE ENGANCHA SOLO: la estructura (el envoltorio que posiciona la cruz, la
+     cruz, el parrafo) la crea el JavaScript, igual que el ojo de las
+     contrasenias. Un formulario no necesita mas que tener sus campos dentro de
+     un `.campo` con su `name`. Si hubiera que escribirla a mano en cada HTML,
+     la regla dependeria de que nadie se olvide — y olvidarse no falla, deja un
+     campo sin marcar, que es el bug que esto viene a arreglar. */
+
+  var ICONO_ALERTA =
+    '<circle cx="12" cy="12" r="9"/>' +
+    '<path d="M12 8v4M12 16h.01"/>';
+
+  var ICONO_CRUZ = '<path d="M6 6l12 12M18 6L6 18"/>';
+
+  function svgChico(contenido, ancho) {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+           'stroke-width="' + ancho + '" stroke-linecap="round" ' +
+           'stroke-linejoin="round" aria-hidden="true">' + contenido + '</svg>';
+  }
+
+  /* El control de un campo, buscado por `name` y, si no, por `data-campo`.
+
+     Los dos hacen falta: los formularios escritos en el HTML usan `name`, y el
+     modal generico de la estructura arma sus campos desde una descripcion y
+     los marca con `data-campo`. */
+  function controlDe(formulario, nombre) {
+    if (!formulario || !nombre) return null;
+    return (
+      formulario.querySelector('[name="' + nombre + '"]') ||
+      formulario.querySelector('[data-campo="' + nombre + '"]')
+    );
+  }
+
+  /* El `.campo` que contiene a ese control. Es donde va la clase de error. */
+  function bloqueDe(control) {
+    return control && control.closest ? control.closest('.campo') : null;
+  }
+
+  /* Envuelve el control para poder posicionar la cruz, si no lo esta ya.
+
+     Hace falta un contenedor con `position:relative` y no se puede usar el
+     `.campo`, que tiene el label adentro: la cruz quedaria centrada entre el
+     label y el campo. */
+  function asegurarEnvoltorio(control) {
+    var padre = control.parentNode;
+    if (padre && padre.classList && padre.classList.contains('campo-control')) {
+      return padre;
+    }
+    if (padre && padre.classList && padre.classList.contains('campo-password-wrap')) {
+      /* El campo de contrasenia ya tiene su propio envoltorio posicionado y el
+         boton del ojo ocupa la derecha: ahi no se agrega la cruz. */
+      return padre;
+    }
+    var envoltorio = document.createElement('div');
+    envoltorio.className = 'campo-control';
+    padre.insertBefore(envoltorio, control);
+    envoltorio.appendChild(control);
+    return envoltorio;
+  }
+
+  function marcarUnCampo(formulario, nombre, frase) {
+    var control = controlDe(formulario, nombre);
+    if (!control) return null;
+
+    var bloque = bloqueDe(control);
+    if (!bloque) return null;
+
+    var envoltorio = asegurarEnvoltorio(control);
+    bloque.classList.add('con-error');
+
+    /* La cruz, solo si el envoltorio no tiene ya algo a la derecha (el ojo de
+       una contrasenia). */
+    if (
+      !envoltorio.querySelector('.campo-marca') &&
+      !envoltorio.querySelector('.campo-password-toggle')
+    ) {
+      var marca = document.createElement('span');
+      marca.className = 'campo-marca';
+      marca.innerHTML = svgChico(ICONO_CRUZ, 2.4);
+      envoltorio.appendChild(marca);
+    }
+
+    /* El parrafo con la frase. Se reusa si ya existe, asi dos errores seguidos
+       en el mismo campo no acumulan dos parrafos. */
+    var aviso = bloque.querySelector('.campo-error');
+    if (!aviso) {
+      aviso = document.createElement('p');
+      aviso.className = 'campo-error';
+      aviso.innerHTML = svgChico(ICONO_ALERTA, 2.2) + '<span></span>';
+      bloque.appendChild(aviso);
+    }
+    aviso.querySelector('span').textContent = frase;
+
+    /* Para quien usa un lector de pantalla, la relacion entre el campo y su
+       error tiene que estar declarada: sin esto el aviso se lee como un texto
+       suelto en algun lugar de la pagina. */
+    if (!aviso.id) {
+      aviso.id =
+        'error-de-' + nombre.replace(/[^a-zA-Z0-9_-]/g, '-') + '-' +
+        Math.random().toString(36).slice(2, 7);
+    }
+    control.setAttribute('aria-invalid', 'true');
+    control.setAttribute('aria-describedby', aviso.id);
+
+    return control;
+  }
+
+  function limpiarUnCampo(bloque) {
+    bloque.classList.remove('con-error');
+
+    var marca = bloque.querySelector('.campo-marca');
+    if (marca) marca.parentNode.removeChild(marca);
+
+    var aviso = bloque.querySelector('.campo-error');
+    if (aviso) aviso.parentNode.removeChild(aviso);
+
+    var controles = bloque.querySelectorAll('input, select, textarea');
+    Array.prototype.forEach.call(controles, function (control) {
+      control.removeAttribute('aria-invalid');
+      control.removeAttribute('aria-describedby');
+    });
+  }
+
+  /**
+   * Borra todas las marcas de error de un formulario.
+   *
+   * Se llama al empezar a guardar: si no, un campo que se corrigio seguiria
+   * marcado al lado de otro que sigue mal.
+   */
+  function limpiarErrores(formulario) {
+    if (!formulario) return;
+    var bloques = formulario.querySelectorAll('.campo.con-error');
+    Array.prototype.forEach.call(bloques, limpiarUnCampo);
+  }
+
+  /**
+   * Marca los campos que el backend rechazo.
+   *
+   * @param {HTMLFormElement} formulario
+   * @param {object} campos `{nombre_del_campo: "la frase"}` — es tal cual lo
+   *   que devuelve el backend en el campo `campos` de un error.
+   * @returns {number} cuantos campos se pudieron marcar. Quien llama lo usa
+   *   para decidir si ademas muestra el aviso general: un error que no
+   *   corresponde a ningun campo visible —"ya existe un edificio con ese
+   *   nombre", un fallo de red— no se puede marcar en ninguna parte y tiene
+   *   que seguir mostrandose arriba.
+   */
+  function marcarErrores(formulario, campos) {
+    limpiarErrores(formulario);
+    if (!formulario || !campos) return 0;
+
+    var primero = null;
+    var marcados = 0;
+
+    Object.keys(campos).forEach(function (nombre) {
+      var control = marcarUnCampo(formulario, nombre, campos[nombre]);
+      if (!control) return;
+      marcados += 1;
+      if (!primero) primero = control;
+    });
+
+    /* EL FOCO AL PRIMERO, y es lo que resuelve el caso del telefono: el
+       formulario puede ser mas largo que la pantalla, asi que no alcanza con
+       marcar el campo — hay que llevar a la persona hasta el.
+
+       `scrollIntoView` con `block:'center'` y no `'nearest'`: dentro de un
+       modal con scroll propio, `nearest` deja el campo pegado al borde y el
+       aviso de abajo queda cortado. */
+    if (primero) {
+      var bloque = bloqueDe(primero);
+      if (bloque && bloque.scrollIntoView) {
+        bloque.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      try {
+        primero.focus({ preventScroll: true });
+      } catch (error) {
+        primero.focus();
+      }
+    }
+
+    return marcados;
+  }
+
+  /* La marca se borra en cuanto la persona toca ese campo.
+
+     Sin esto, el campo queda en rojo mientras se lo esta corrigiendo, que es
+     justo el momento en que el rojo molesta y no informa. Va por delegacion,
+     asi funciona tambien en los campos que se insertan despues. */
+  function alEscribir(evento) {
+    var control = evento.target;
+    if (!control || !control.closest) return;
+    var bloque = control.closest('.campo.con-error');
+    if (bloque) limpiarUnCampo(bloque);
+  }
+
   /* ------------------------------------------------------------- arranque -- */
 
   document.addEventListener('keydown', alPresionarTecla);
   document.addEventListener('click', alHacerClic);
+  document.addEventListener('input', alEscribir);
+  document.addEventListener('change', alEscribir);
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () { sincronizarToggles(); });
@@ -223,6 +441,11 @@
   window.Formularios = {
     ICONO_OJO: ICONO_OJO,
     ICONO_OJO_TACHADO: ICONO_OJO_TACHADO,
+    /* La marca de error por campo. Toda pantalla que guarde un formulario la
+       usa: `marcarErrores(formulario, error.campos)` y, si devuelve 0, muestra
+       el aviso general porque ese error no es de ningun campo. */
+    marcarErrores: marcarErrores,
+    limpiarErrores: limpiarErrores,
     /* Para el caso en que una pantalla inserte un campo de contrasenia y
        quiera dejar el icono coherente sin esperar al primer clic. El toggle
        ya funciona sin llamar esto. */

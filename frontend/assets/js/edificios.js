@@ -468,6 +468,8 @@
       unidades_por_piso: porPiso
     };
 
+    window.Formularios.limpiarErrores(pantalla.formulario);
+
     window.Api.post('/edificios', datos).then(function (creado) {
       cerrarModal();
       /* El mensaje lo arma el backend y dice exactamente que se genero
@@ -479,7 +481,28 @@
     }).catch(function (error) {
       /* El error se muestra DENTRO del modal, que sigue abierto con todo lo
          tipeado en su lugar. Cerrarlo obligaria a escribir los seis campos de
-         nuevo por un nombre repetido. */
+         nuevo por un nombre repetido.
+
+         Y se muestra EN EL CAMPO cuando el backend dice cual es: borde rojo,
+         la frase debajo y el foco puesto ahi. El aviso de arriba queda solo
+         para los errores que no son de un campo —un nombre repetido, un fallo
+         de red—, porque en un formulario largo en telefono ese aviso no se ve
+         y la persona no se entera de nada. */
+      var marcados = window.Formularios.marcarErrores(
+        pantalla.formulario, error.campos
+      );
+
+      if (marcados) {
+        mostrarError(
+          pantalla.errorAlta,
+          pantalla.textoErrorAlta,
+          marcados === 1
+            ? 'Revisá el campo marcado.'
+            : 'Revisá los ' + marcados + ' campos marcados.'
+        );
+        return;
+      }
+
       mostrarError(pantalla.errorAlta, pantalla.textoErrorAlta, error.message);
     }).then(function () {
       bloquearEnvio(false);

@@ -1422,10 +1422,145 @@ a{ color:inherit; }
    Es la misma excepcion que ya hace .pagina-cabecera .boton-primario, pero
    nombrada, para poder usarla donde no hay un contenedor que la implique. */
 .boton-chico{
+  /* inline-flex y no el display de bloque del primario: estos botones llevan
+     icono y texto, y sin esto el icono se apoya en la linea de base del texto
+     en vez de centrarse con el. */
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
   width:auto;
   flex:none;
-  padding:8px 14px;
+  padding:9px 14px;
   font-size:12.5px;
+}
+.boton-chico svg{ width:15px; height:15px; flex:none; }
+
+/* La variante secundaria del boton chico comparte el relieve del primario:
+   degrade vertical, linea de luz interior y sombra. Antes era un rectangulo
+   con un borde, y al lado de un primario con degrade se veia como un hueco.
+   Es la misma correccion que recibieron los botones de accion de abajo. */
+.boton-primario.boton-secundario.boton-chico{
+  background:linear-gradient(180deg, var(--mix-tint),
+             color-mix(in srgb, var(--mix-tint) 72%, transparent));
+  box-shadow:var(--glass-in), var(--sh-sm);
+}
+.boton-primario.boton-secundario.boton-chico:hover:not(:disabled){
+  box-shadow:var(--glass-in), var(--sh-md);
+}
+
+/* ============================================================================
+   BOTONES DE ACCION DE UNA FILA (.accion)
+   ==========================================================================
+
+   El tercer boton del sistema, y nacio de un reclamo concreto: los iconos de
+   agregar, editar y borrar eran un cuadrado con un borde, y al lado de
+   "Agregar piso" —con degrade, sombra y relieve— se veian como otra
+   aplicacion. **Ahora comparten el mismo vocabulario que el boton primario:**
+   degrade vertical, linea de luz interior (--glass-in), sombra real y una
+   elevacion de 2px al pasar por encima.
+
+   NO reemplazan a `.icon-btn`, que es el boton de icono neutro de la topbar
+   (tema, hamburguesa, copiar). La diferencia es que `.accion` **significa**
+   algo: el color dice que hace, y por eso tiene tres variantes y no una.
+
+   El color de cada una no es decoracion, y las dos excepciones estan
+   justificadas:
+     - `sumar` va rellena con el acento, igual que el boton primario en chico:
+       es la accion que agrega y merece ser la mas fuerte de la fila.
+     - `editar` usa el acento y NO el verde. El verde es uno de los cuatro
+       colores del semaforo y significa "todo correcto" sobre el estado del
+       edificio; un boton de editar en verde haria que el verde signifique dos
+       cosas distintas en la misma pantalla.
+     - `borrar` usa `--crit`, y es la unica excepcion real a la regla de que el
+       semaforo no decora: "destructivo" es una convencion universal y no es un
+       estado del edificio. Se refuerza en el hover, no grita de entrada.
+
+   En telefono los tres llevan **texto adem�s del icono**. Tres iconos sueltos
+   de 42px al lado de un campo, en 390px de ancho, no entran bien y no se
+   entienden: la etiqueta es lo que los vuelve legibles, y el ancho completo
+   repartido en columnas parejas es lo que los acomoda. El texto va en un
+   `.accion-texto` que se esconde desde 640px.
+   ========================================================================== */
+.accion{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  min-height:44px;                  /* minimo de area tactil en telefono */
+  padding:0 13px;
+  flex:1 1 0;                       /* en telefono se reparten el ancho */
+  border-radius:var(--r-sm);
+  cursor:pointer;
+  border:1px solid var(--line-strong);
+  background:linear-gradient(180deg, var(--mix-tint),
+             color-mix(in srgb, var(--mix-tint) 72%, transparent));
+  color:var(--ink-2);
+  font-family:Outfit,ui-sans-serif,system-ui,sans-serif;
+  font-size:13px;
+  font-weight:700;
+  box-shadow:var(--glass-in), var(--sh-sm);
+  transition:transform .18s ease-out, box-shadow .18s ease-out,
+             border-color .18s ease-out, background .18s ease-out,
+             color .18s ease-out;
+}
+.accion svg{ width:16px; height:16px; flex:none; }
+.accion:hover:not(:disabled){
+  transform:translateY(-2px);
+  box-shadow:var(--glass-in), var(--sh-md);
+}
+.accion:disabled{ opacity:.55; cursor:default; transform:none; }
+
+.accion.sumar{
+  border:0;
+  color:var(--sobre-acento);
+  background:linear-gradient(155deg, var(--accent), var(--accent-2));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.28),
+             0 6px 16px -8px rgba(var(--shadow-rgb),.65);
+}
+.accion.sumar:hover:not(:disabled){
+  filter:saturate(1.08) brightness(1.05);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.28),
+             0 10px 22px -10px rgba(var(--shadow-rgb),.7);
+}
+
+.accion.editar{
+  color:var(--accent-2);
+  border-color:color-mix(in srgb, var(--accent) 34%, transparent);
+  background:linear-gradient(180deg, var(--mix-tint),
+             color-mix(in srgb, var(--accent) 11%, var(--mix-tint)));
+}
+.accion.editar:hover:not(:disabled){
+  border-color:var(--accent);
+  background:linear-gradient(180deg, var(--mix-tint),
+             color-mix(in srgb, var(--accent) 19%, var(--mix-tint)));
+}
+
+.accion.borrar{
+  color:var(--crit-ink);
+  border-color:color-mix(in srgb, var(--crit) 34%, transparent);
+  background:linear-gradient(180deg, var(--mix-tint),
+             color-mix(in srgb, var(--crit) 10%, var(--mix-tint)));
+}
+.accion.borrar:hover:not(:disabled){
+  border-color:var(--crit);
+  background:linear-gradient(180deg, var(--mix-tint),
+             color-mix(in srgb, var(--crit) 18%, var(--mix-tint)));
+}
+
+/* Desde tablet el boton vuelve a ser cuadrado y de icono solo: ahi el espacio
+   alcanza, la fila se lee de un vistazo y la etiqueta sobra. */
+@media (min-width:640px){
+  .accion{
+    width:36px;
+    height:36px;
+    min-height:0;
+    padding:0;
+    flex:none;
+    gap:0;
+    border-radius:12px;
+  }
+  .accion-texto{ display:none; }
 }
 
 /* --- Campo con mapa embebido (geocodificacion del alta de edificio) ------- */
@@ -1662,20 +1797,46 @@ a{ color:inherit; }
   gap:8px;
 }
 
+/* El piso es una tarjeta con cabecera propia, y la cabecera lleva una banda
+   teñida con el acento y el numero del piso en un circulo con relieve. Antes
+   era un bloque blanco con texto negro: no habia forma de ver donde empezaba
+   un piso y terminaba el anterior sin leer. */
 .grupo-piso{
-  padding:12px 14px;
+  padding:0;
   border-radius:var(--r-card);
+  overflow:hidden;               /* la banda de la cabecera sigue el radio */
 }
 .grupo-piso-cabecera{
   display:flex;
   align-items:center;
-  justify-content:space-between;
-  gap:10px;
+  gap:12px;
   flex-wrap:wrap;
+  padding:12px 14px;
+  background:linear-gradient(180deg,
+             color-mix(in srgb, var(--accent) 11%, transparent), transparent);
+  border-bottom:1px solid var(--line-2);
+}
+.grupo-piso-numero{
+  width:38px;
+  height:38px;
+  flex:none;
+  display:grid;
+  place-items:center;
+  border-radius:12px;
+  background:linear-gradient(155deg, var(--accent-soft),
+             color-mix(in srgb, var(--accent) 22%, var(--mix-tint)));
+  border:1px solid color-mix(in srgb, var(--accent) 26%, transparent);
+  color:var(--accent-2);
+  box-shadow:var(--glass-in);
+  font-family:Outfit,ui-sans-serif,system-ui,sans-serif;
+  font-size:15px;
+  font-weight:800;
 }
 .grupo-piso-nombre{
+  flex:1 1 auto;
+  min-width:0;
   font-family:Outfit,ui-sans-serif,system-ui,sans-serif;
-  font-size:14px;
+  font-size:15px;
   font-weight:700;
   color:var(--ink);
 }
@@ -1686,18 +1847,46 @@ a{ color:inherit; }
   font-weight:500;
   color:var(--ink-3);
 }
+/* Las tres acciones del piso: en telefono, una fila propia debajo de la
+   cabecera, repartidas en columnas parejas. En escritorio vuelven a la misma
+   linea del nombre. */
+.grupo-piso-acciones{
+  display:flex;
+  gap:7px;
+  width:100%;
+  padding:10px 14px 12px;
+  border-bottom:1px solid var(--line-2);
+}
+@media (min-width:640px){
+  .grupo-piso-acciones{
+    width:auto;
+    flex:none;
+    padding:0;
+    border-bottom:0;
+  }
+}
 
+/* La unidad dentro del piso. En telefono es una tarjeta apilada —el dato, el
+   campo del coeficiente a lo ancho y las acciones en dos columnas—; desde 640
+   px es una fila. Es el mismo HTML con un @media, nunca dos maquetados. */
 .fila-hija{
   display:flex;
-  align-items:center;
-  justify-content:space-between;
+  flex-direction:column;
+  align-items:stretch;
   gap:10px;
-  flex-wrap:wrap;
-  margin-top:8px;
-  padding:9px 12px;
-  border-radius:var(--r-sm);
-  border:1px solid var(--line-2);
-  background:color-mix(in oklab,var(--mix-tint) 35%,transparent);
+  padding:12px 14px;
+  border-top:1px solid var(--line-2);
+  transition:background .18s ease-out;
+}
+.fila-hija:hover{
+  background:color-mix(in srgb, var(--mix-tint) 55%, transparent);
+}
+@media (min-width:640px){
+  .fila-hija{
+    flex-direction:row;
+    align-items:center;
+    gap:12px;
+  }
 }
 /* flex:1 para que el dato se quede con el ancho sobrante y el campo del
    coeficiente y los botones queden pegados a la derecha. Sin esto, con tres
@@ -1720,14 +1909,82 @@ a{ color:inherit; }
 .fila-hija-botones{
   display:flex;
   align-items:center;
-  gap:6px;
-  flex:none;
+  gap:8px;
+}
+@media (min-width:640px){
+  .fila-hija-botones{ flex:none; }
 }
 
 /* Una unidad sin ocupante no es un error, pero conviene distinguirla de un
    golpe de vista: el texto secundario se atenua y nada mas. Nunca un color
    del semaforo, que significa estado del edificio. */
 .fila-hija.libre .fila-hija-dato span{ color:var(--ink-4); }
+
+/* El dato principal de la unidad, un punto mas grande que en un listado
+   comun: es el identificador que se busca con la vista al cargar. */
+.fila-hija-dato b{ font-size:14.5px; }
+.fila-hija-dato{ flex:1 1 auto; }
+
+/* --- Barra de progreso de un total (.barra-total) ------------------------ */
+/* El estado de la suma de coeficientes, que es el unico numero que decide si
+   un edificio puede liquidar. Va con el numero al lado y nunca sola: una barra
+   llena al 96% y una al 100% se distinguen mal de un vistazo, y la diferencia
+   entre 99,999% y 100,000% no se ve en ningun ancho.
+
+   El color sale del semaforo porque esto SI es un estado: verde cuando cierra
+   en 100,000% exacto, amarillo mientras falta. */
+.barra-total{
+  height:8px;
+  border-radius:99px;
+  background:color-mix(in srgb, var(--ink) 9%, transparent);
+  overflow:hidden;
+  box-shadow:inset 0 1px 2px rgba(var(--shadow-rgb),.12);
+}
+.barra-total span{
+  display:block;
+  height:100%;
+  border-radius:99px;
+  background:linear-gradient(90deg, var(--warn),
+             color-mix(in srgb, var(--warn) 68%, var(--accent)));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.3);
+  transition:width .3s ease-out;
+}
+.barra-total.cierra span{
+  background:linear-gradient(90deg, var(--ok),
+             color-mix(in srgb, var(--ok) 68%, var(--accent)));
+}
+
+/* La caja que la contiene, con la etiqueta y el total en Outfit. */
+.panel-total{
+  display:flex;
+  align-items:center;
+  gap:16px;
+  flex-wrap:wrap;
+  padding:13px 16px;
+  margin-bottom:12px;
+  border-radius:var(--r-card);
+  border:1px solid var(--line);
+  background:var(--glass-content-bg);
+  box-shadow:var(--glass-in), var(--sh-sm);
+}
+.panel-total-barra{ flex:1 1 220px; min-width:0; }
+.panel-total-cabeza{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:8px;
+}
+.panel-total-cabeza b{ font-size:12px; font-weight:700; color:var(--ink-2); }
+.panel-total-cabeza span{
+  font-family:Outfit,ui-sans-serif,system-ui,sans-serif;
+  font-size:15px;
+  font-weight:800;
+  font-variant-numeric:tabular-nums;
+  color:var(--warn-ink);
+}
+.panel-total.cierra .panel-total-cabeza span{ color:var(--ok-ink); }
+.panel-total-chips{ display:flex; gap:8px; flex:none; }
 
 /* --- Carga de coeficientes (F1-T27) -------------------------------------- */
 /* Los dos atajos van juntos y arriba de la lista: son la forma rapida de
@@ -1740,37 +1997,113 @@ a{ color:inherit; }
   margin-bottom:12px;
 }
 
-/* El campo del coeficiente es angosto a proposito: un input de ancho completo
-   para escribir "3,571" invita a pensar que ahi va otra cosa, y al lado del
-   identificador de la unidad rompe la lectura de la fila. */
+/* ============================================================================
+   EL CAMPO DEL COEFICIENTE
+   ==========================================================================
+
+   Un campo con su unidad pegada: el numero a la derecha y el "%" en una celda
+   teñida con el acento, los dos como una sola pieza. Antes era un input
+   generico con un "%" suelto al lado, que no usaba ningun token del sistema —
+   otro borde, otro color de texto— y se veia como pegado de otra aplicacion.
+
+   **El valor se escribe y se muestra con coma**, que es como se escribe un
+   decimal en castellano. Eso obliga a `type="text"` con `inputmode="decimal"`:
+   un `type="number"` **rechaza la coma** —el navegador la descarta y el campo
+   queda vacio— y ese era el origen del punto. `inputmode` igual abre el
+   teclado numerico en telefono, asi que no se pierde nada.
+
+   La etiqueta visible solo aparece en telefono (`.campo-coeficiente-label`):
+   en una fila de escritorio el contexto alcanza, y en una tarjeta apilada no.
+   ========================================================================== */
 .campo-coeficiente{
   display:flex;
-  align-items:center;
-  gap:6px;
-  flex:none;
+  flex-direction:column;
+  gap:5px;
+  flex:1 1 auto;                 /* en telefono toma el ancho de la tarjeta */
+  min-width:0;
+}
+.campo-coeficiente-label{
+  font-size:11px;
+  font-weight:700;
+  color:var(--ink-2);
+}
+.campo-coeficiente-caja{
+  display:flex;
+  align-items:stretch;
+  min-width:0;
 }
 .campo-coeficiente input{
-  width:96px;
-  padding:7px 9px;
+  flex:1;
+  min-width:0;
+  width:auto;
+  padding:11px 10px;
   text-align:right;
-  font-variant-numeric:tabular-nums;  /* los numeros se comparan en columna */
-}
-.campo-coeficiente span{
-  font-size:12px;
+  /* 16px en telefono y no menos: abajo de eso iOS hace zoom automatico al
+     tocar el campo y descoloca la pantalla entera. */
+  font-size:16px;
   font-weight:700;
+  font-variant-numeric:tabular-nums;  /* los numeros se comparan en columna */
+  color:var(--ink);
+  background:linear-gradient(180deg, var(--mix-tint),
+             color-mix(in srgb, var(--mix-tint) 80%, transparent));
+  border:1px solid var(--line-strong);
+  border-right:0;
+  border-radius:var(--r-sm) 0 0 var(--r-sm);
+  box-shadow:var(--glass-in);
+}
+.campo-coeficiente input:focus{
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px var(--accent-ring);
+}
+.campo-coeficiente-sufijo{
+  display:grid;
+  place-items:center;
+  flex:none;
+  padding:0 13px;
+  border:1px solid var(--line-strong);
+  border-left:0;
+  border-radius:0 var(--r-sm) var(--r-sm) 0;
+  background:color-mix(in srgb, var(--accent) 9%, var(--mix-tint));
   color:var(--ink-3);
+  font-size:13px;
+  font-weight:700;
 }
 /* Mientras viaja el pedido el campo no se puede volver a tocar: dos cambios
    seguidos dejarian el valor final a merced de cual conteste ultimo. */
 .campo-coeficiente input:disabled{ opacity:.6; }
 
+/* La unidad sin coeficiente tiñe el campo con el amarillo del semaforo, igual
+   que su fila. */
+.fila-hija.sin-coeficiente .campo-coeficiente input{
+  border-color:color-mix(in srgb, var(--warn) 55%, transparent);
+  background:color-mix(in srgb, var(--warn) 8%, var(--mix-tint));
+}
+.fila-hija.sin-coeficiente .campo-coeficiente-sufijo{
+  border-color:color-mix(in srgb, var(--warn) 55%, transparent);
+}
+
+@media (min-width:640px){
+  /* En escritorio vuelve a ser angosto y sin etiqueta: un input de ancho
+     completo para escribir "3,571" invita a pensar que ahi va otra cosa. */
+  .campo-coeficiente{ flex:none; }
+  .campo-coeficiente-label{ display:none; }
+  .campo-coeficiente input{
+    flex:none;
+    width:86px;
+    padding:8px 7px 8px 10px;
+    font-size:13.5px;
+  }
+  .campo-coeficiente-sufijo{ padding:8px 11px; font-size:12px; }
+}
+
 /* Una unidad sin coeficiente no es un error del sistema, pero SI es lo que
-   impide liquidar: se marca con el borde completo y la sombra del mismo color,
-   nunca con un borde izquierdo de 3px. Y no comunica sola — la fila dice "sin
-   cargar" con palabras. */
+   impide liquidar: se tiñe la fila entera con el amarillo del semaforo. Y no
+   comunica sola — la fila lleva ademas la pill con "sin cargar" escrito. */
 .fila-hija.sin-coeficiente{
-  border-color:color-mix(in srgb,var(--warn) 45%,transparent);
-  box-shadow:0 0 0 1px color-mix(in srgb,var(--warn) 22%,transparent);
+  background:color-mix(in srgb, var(--warn) 5%, transparent);
+}
+.fila-hija.sin-coeficiente:hover{
+  background:color-mix(in srgb, var(--warn) 9%, transparent);
 }
 
 /* --- Grupo de casillas (roles habilitados) ------------------------------- */
@@ -1804,3 +2137,113 @@ a{ color:inherit; }
   cursor:pointer;
 }
 .casilla input:checked + span{ color:var(--ink); }
+
+/* --- Campo con error: el estado que faltaba (2026-11-12) ----------------- */
+/* El problema que resuelve, dicho por el usuario: el aviso del backend
+   aparecia arriba del formulario y, en un formulario largo en telefono, nunca
+   se veia. Apretaba "Crear edificio" y no pasaba nada visible.
+
+   Ahora el error se marca EN EL CAMPO: borde completo del color critico,
+   anillo suave del mismo color, una cruz dentro del campo y la frase debajo.
+   El color no comunica solo —nunca en este proyecto— y la frase es la que
+   manda el backend, que desde `F1-T29` ya viene por campo y en castellano.
+
+   La estructura la arma formularios.js, no cada HTML: alcanza con que el campo
+   este en un `.campo` y tenga `name`. Si se escribiera a mano, la regla
+   dependeria de que nadie se olvide, y olvidarse no falla — deja un campo sin
+   marcar, que es justamente el bug que esto viene a arreglar. */
+
+/* El envoltorio que posiciona la cruz. Lo crea el JavaScript alrededor del
+   control si no existe, igual que hace con el ojo de las contrasenias. */
+.campo-control{ position:relative; display:flex; min-width:0; }
+.campo-control > input,
+.campo-control > select,
+.campo-control > textarea{ flex:1; min-width:0; }
+
+.campo.con-error > label,
+.campo.con-error .campo-label{ color:var(--crit-ink); }
+
+.campo.con-error input,
+.campo.con-error select,
+.campo.con-error textarea{
+  border-color:var(--crit);
+  box-shadow:0 0 0 3px color-mix(in srgb,var(--crit) 16%,transparent);
+  background:color-mix(in srgb,var(--crit) 4%,var(--mix-tint));
+}
+/* Deja el lugar de la cruz: sin esto el texto le pasa por debajo. */
+.campo.con-error input{ padding-right:38px; }
+
+/* El foco gana sobre el error: mientras se esta corrigiendo el campo, la
+   senial que importa es donde esta el cursor. */
+.campo.con-error input:focus,
+.campo.con-error select:focus,
+.campo.con-error textarea:focus{
+  border-color:var(--accent);
+  box-shadow:0 0 0 3px var(--accent-ring);
+}
+
+.campo-marca{
+  position:absolute;
+  right:11px;
+  top:50%;
+  transform:translateY(-50%);
+  width:18px;
+  height:18px;
+  display:grid;
+  place-items:center;
+  color:var(--crit);
+  pointer-events:none;         /* el clic tiene que llegar al campo */
+}
+.campo-marca svg{ width:14px; height:14px; }
+
+.campo-error{
+  display:flex;
+  align-items:flex-start;
+  gap:6px;
+  margin:0;
+  font-size:11.5px;
+  font-weight:600;
+  line-height:1.45;
+  color:var(--crit-ink);
+}
+.campo-error svg{ width:13px; height:13px; flex:none; margin-top:2px; }
+
+/* El resumen chico, al lado de los botones del formulario: dice CUANTOS
+   campos hay para revisar, no cual. El cual lo dice cada campo. */
+.resumen-errores{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:9px 12px;
+  border-radius:var(--r-sm);
+  background:color-mix(in srgb,var(--crit) 10%,var(--mix-tint));
+  border:1px solid color-mix(in srgb,var(--crit) 28%,transparent);
+  color:var(--crit-ink);
+  font-size:12px;
+  font-weight:700;
+}
+.resumen-errores svg{ width:15px; height:15px; flex:none; }
+
+/* --- Chip: un dato chico en una capsula ---------------------------------- */
+/* Hermano de `.pill`, y la diferencia es cual es cual: la pill lleva un color
+   del semaforo y comunica ESTADO; el chip es neutro y lleva un dato —"28
+   unidades", "7 pisos", el nombre de un ocupante—. Si el chip pudiera tomar
+   color del semaforo, un dato se leeria como un estado del edificio.
+
+   Primer uso: los dos conteos al lado de la barra de coeficientes. */
+.chip{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  max-width:100%;
+  padding:3px 9px;
+  border-radius:99px;
+  border:1px solid var(--line);
+  background:var(--mix-tint);
+  box-shadow:var(--glass-in);
+  font-size:10.5px;
+  font-weight:700;
+  color:var(--ink-3);
+  white-space:nowrap;
+}
+.chip svg{ width:11px; height:11px; flex:none; }

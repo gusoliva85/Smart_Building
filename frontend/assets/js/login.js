@@ -378,10 +378,22 @@
       pantalla.campoEmail.value = email;
       pantalla.campoPassword.focus();
     }).catch(function (error) {
+      /* El error se marca EN el campo cuando el backend dice cual es: el
+         caso tipico del registro es una contrasenia que no cumple la politica
+         o un email mal escrito, y las dos cosas se corrigen en el campo. El
+         aviso de arriba queda para lo que no es de un campo. */
+      var marcados = window.Formularios.marcarErrores(
+        pantalla.formularioRegistro, error.campos
+      );
+
       mostrarMensaje(
         pantalla.errorRegistro,
         pantalla.textoErrorRegistro,
-        error.message
+        marcados
+          ? (marcados === 1
+              ? 'Revisá el campo marcado.'
+              : 'Revisá los ' + marcados + ' campos marcados.')
+          : error.message
       );
     }).then(function () {
       bloquear(pantalla.botonRegistrar, false, 'Creando…', 'Crear la cuenta');

@@ -52,6 +52,8 @@ Un modelo de lenguaje, dejado a su criterio por defecto, converge casi siempre e
 
 Regla de precedencia (Documento Técnico 1.2.1): ante varios factores activos a la vez en una misma unidad, gana el **más grave** — verde < amarillo < naranja < rojo. Estos 4 valores se mantienen **idénticos entre tema claro y oscuro** — el significado del estado no cambia según el tema elegido.
 
+**La única excepción al "nunca decorativo", y es una sola (2026-11-13):** el botón de **borrar** de una fila (`.accion.borrar`) usa `--crit` tintado. "Destructivo" es una convención universal y no es un estado del edificio, así que no compite con el semáforo. **Lo que sí se rechazó** fue usar el verde `--ok` para el botón de editar, aunque se pidió: en la misma pantalla el verde pasaría a significar dos cosas —"todo correcto" en el estado de una unidad y "acción de editar"— y esa ambigüedad es exactamente lo que el semáforo existe para evitar. Editar usa el acento. Cualquier otra excepción futura se discute antes y se anota acá: si hay tres, ya no hay regla.
+
 ## Tipografía
 
 - **Display / titulares / números de KPI:** `Outfit` (pesos 500-800), `letter-spacing: -0.015em`.

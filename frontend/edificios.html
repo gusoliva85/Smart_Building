@@ -249,6 +249,20 @@
             </h3>
             <!-- El estado del edificio, escrito por el backend: cuánto
                  suman, si cierra en 100% y qué unidades faltan. -->
+            <!-- El estado de la suma: la barra y el total, que es el único
+                 número que decide si el edificio puede liquidar. Lo llena
+                 edificio-detalle.js con lo que calcula el backend. -->
+            <div class="panel-total" data-panel-total hidden>
+              <div class="panel-total-barra">
+                <div class="panel-total-cabeza">
+                  <b data-total-etiqueta>Coeficientes cargados</b>
+                  <span data-total-numero></span>
+                </div>
+                <div class="barra-total" data-total-barra><span></span></div>
+              </div>
+              <div class="panel-total-chips" data-total-chips></div>
+            </div>
+
             <p class="bloque-nota" data-nota-coeficientes></p>
 
             <!-- Las tres formas de cargar, en una lista numerada y no en un
@@ -273,8 +287,19 @@
             </ol>
 
             <div class="acciones-atajo">
-              <button type="button" class="boton-primario boton-secundario boton-chico"
-                      data-accion="nuevo-piso">Agregar piso</button>
+              <!-- "Agregar piso" es la acción principal del bloque, así que va
+                   con el degradé del botón primario y no en secundario: es la
+                   más fuerte de la fila y las otras tres son alternativas de
+                   reparto. -->
+              <button type="button" class="boton-primario boton-chico"
+                      data-accion="nuevo-piso">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none"
+                     stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+                     stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 5v14M5 12h14"/>
+                </svg>
+                Agregar piso
+              </button>
               <button type="button" class="boton-primario boton-secundario boton-chico"
                       data-accion="atajo-partes-iguales">
                 Repartir en partes iguales

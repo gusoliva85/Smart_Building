@@ -1271,6 +1271,69 @@ Es la hermana de `.campo-requisitos` —misma familia, mismo gris— pero en blo
 
 **Tres niveles de énfasis sin inventar tamaños nuevos:** el título del ítem en `--ink-2` con `<b>`, el cuerpo en `--ink-3`, y la aclaración entre paréntesis **en el mismo `--ink-3`** — no en `--ink-4`. Ese token es para placeholders e iconografía apagada (2,13:1 sobre el vidrio) y una aclaración del tipo "no toca ninguna de las que ya cargaste" es justamente la frase que hay que poder leer. El menor énfasis lo dan los paréntesis, que es tipografía y no color.
 
+## Botón de acción de una fila (`.accion`) — el color dice qué hace
+
+Agregar, editar y borrar dentro de una fila de listado. Nació el 2026-11-13 de un reclamo concreto: los íconos de acción eran un cuadrado con un borde y, al lado de un botón primario con degradé y sombra, se veían como otra aplicación.
+
+```html
+<button type="button" class="accion sumar" aria-label="Agregar una unidad al piso 3">
+  <svg …></svg><span class="accion-texto">Unidad</span>
+</button>
+<button type="button" class="accion editar" aria-label="Editar la unidad 3A">
+  <svg …></svg><span class="accion-texto">Editar</span>
+</button>
+<button type="button" class="accion borrar" aria-label="Borrar la unidad 3A">
+  <svg …></svg><span class="accion-texto">Borrar</span>
+</button>
+```
+
+**Comparte el vocabulario del botón primario:** degradé vertical, `--glass-in`, sombra real y `translateY(-2px)` en el hover. Antes se levantaba 1 px sin cambiar la sombra, que es casi nada.
+
+**No reemplaza a `.icon-btn`**, el botón de ícono neutro de la topbar (tema, hamburguesa, copiar). La diferencia es que `.accion` **significa** algo, y por eso tiene tres variantes:
+
+| Variante | Cómo se ve | Por qué |
+|---|---|---|
+| `sumar` | Rellena con el degradé del acento, ícono blanco | Es la acción que agrega: merece ser la más fuerte de la fila |
+| `editar` | Vidrio con borde e ícono del acento | **Azul y no verde.** El verde es uno de los cuatro del semáforo y significa "todo correcto" sobre el estado del edificio; en verde, el verde significaría dos cosas en la misma pantalla |
+| `borrar` | Vidrio con borde e ícono en `--crit`, que se refuerza en el hover | **La única excepción real a que el semáforo no decore.** "Destructivo" es una convención universal y no es un estado del edificio |
+
+**En teléfono llevan texto además del ícono** y se reparten el ancho en columnas parejas (`flex:1`); desde 640 px el CSS esconde `.accion-texto` y el botón vuelve a ser un cuadrado de 36 px. Tres íconos sueltos de 42 px al lado de un campo, en 390 px de ancho, no entran bien y no se entienden. El `aria-label` lleva **siempre** la frase larga ("Borrar la unidad 3A"): es lo que escucha un lector de pantalla, y "Borrar" a secas no dice qué.
+
+## Chip (`.chip`) — un dato, no un estado
+
+Hermano de `.pill`, y conviene tener clara la diferencia: **la pill lleva un color del semáforo y comunica estado; el chip es neutro y lleva un dato** ("28 unidades", "7 pisos", el nombre de un ocupante). Si el chip pudiera tomar color del semáforo, un dato se leería como un estado del edificio.
+
+## Barra de un total (`.panel-total` + `.barra-total`)
+
+El progreso de algo que tiene que llegar a un número exacto. Primer uso: la suma de los coeficientes de un edificio, que es el único dato que decide si se puede emitir una expensa.
+
+**Nunca va sola:** siempre con el número al lado, en Outfit y tabulares. Una barra al 96% y una al 100% se distinguen mal de un vistazo, y la diferencia entre 99,999% y 100,000% no se ve en ningún ancho. El color **sí** sale del semáforo, porque esto es un estado real: verde cuando cierra exacto, amarillo mientras falta. El ancho se calcula con la suma, pero **el "cierra" lo decide el backend** y no ese porcentaje: 99,9995 redondeado también daría 100.
+
+## Campo con error (`.campo.con-error`) — la primera señal, no la única
+
+**Un error de formulario se marca en el campo.** Es la corrección del 2026-11-12, y el motivo es concreto: el aviso iba arriba del formulario y en un formulario largo en teléfono no se veía — se apretaba el botón y no pasaba nada visible.
+
+```html
+<!-- Lo único que escribe la pantalla es esto: -->
+<div class="campo">
+  <label for="campo-cp">Código postal</label>
+  <input id="campo-cp" name="cp" type="text">
+</div>
+```
+
+El resto lo agrega `formularios.js` con `Formularios.marcarErrores(formulario, error.campos)`: la clase `con-error` en el `.campo`, el envoltorio `.campo-control` que posiciona la cruz, la `.campo-marca` y el `<p class="campo-error">` con la frase y su ícono. Se genera y no se escribe a mano por la misma razón que el ojo de las contraseñas: una regla que depende de que nadie se olvide de ocho líneas es una regla que algún día no se cumple, y olvidarse acá no falla — deja un campo sin marcar.
+
+**Cómo se ve:** borde completo en `--crit`, anillo `0 0 0 3px` del mismo color al 16%, fondo teñido al 4%, el label en `--crit-ink` y la cruz en `--crit` dentro del campo. Nunca un borde izquierdo, nunca el color solo: **la frase va siempre**, debajo del campo, en `--crit-ink` (4,5:1 sobre el vidrio).
+
+**Cuatro reglas de comportamiento, cada una por un motivo:**
+
+1. **El foco gana sobre el error.** Con el campo enfocado el borde vuelve al acento: mientras se corrige, la señal que importa es dónde está el cursor.
+2. **La pantalla lleva el foco al primer campo mal**, con `scrollIntoView({block:'center'})`. Es lo que resuelve el caso del teléfono: marcar no alcanza si el campo está fuera de la pantalla. `nearest` no sirve — dentro de un modal con scroll propio deja el campo pegado al borde y corta el aviso de abajo.
+3. **La marca se borra en cuanto se toca ese campo** (delegación de `input` y `change` en `document`): el rojo informa antes de corregir y molesta durante.
+4. **El aviso de arriba cambia de papel.** Con campos marcados dice sólo cuántos son ("Revisá los 3 campos marcados"); el mensaje completo queda para los errores que **no** son de ningún campo —un nombre repetido, un fallo de red—, que no se pueden marcar en ninguna parte.
+
+**Las frases no se escriben en el frontend.** Vienen del catálogo del backend (`F1-T29`), que las manda por campo y en castellano: "Completá el código postal.", "La cantidad de pisos no puede ser mayor que 20." Lo que sí escribe la pantalla son sus validaciones previas, las que evitan un viaje de red.
+
 ## Cómo se muestra un error del backend (`.mensaje-error`) — regla fija
 
 **Hay un solo formato y no se discute por pantalla.** Todo error que devuelve la API se muestra en un `.mensaje-error` (ícono + texto, tono `--crit`), ubicado **donde ocurrió la acción**:

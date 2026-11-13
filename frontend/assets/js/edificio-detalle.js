@@ -452,12 +452,28 @@
     return '<div class="fila-hija-botones">' + acciones.join('') + '</div>';
   }
 
-  function botonIcono(accion, id, etiqueta, dibujo, extra) {
-    return '<button type="button" class="icon-btn icon-btn-sm" ' +
-           'data-accion="' + accion + '" data-id="' + id + '"' +
-           (extra || '') +
-           ' aria-label="' + textoSeguro(etiqueta) + '">' +
-           icono(dibujo, 1.8) + '</button>';
+  /* Un boton de accion de una fila: agregar, editar o borrar.
+
+     `variante` es la que da el color, y el color dice QUE hace: `sumar` va
+     rellena con el acento (es la accion que agrega), `editar` usa el acento en
+     vidrio y `borrar` el rojo del semaforo — la unica excepcion a que el
+     semaforo no decore, porque "destructivo" es una convencion universal y no
+     es un estado del edificio.
+
+     `textoCorto` es la etiqueta que se ve **solo en telefono**. Tres iconos
+     sueltos al lado de un campo, en 390 px de ancho, no entran bien y no se
+     entienden; con etiqueta se reparten el ancho en columnas parejas. Desde
+     640 px el CSS la esconde y el boton vuelve a ser cuadrado.
+
+     `aria-label` va siempre y es la frase larga ("Borrar la unidad 3A"): es lo
+     que escucha un lector de pantalla, y "Borrar" a secas no dice que. */
+  function botonAccion(accion, id, etiqueta, dibujo, variante, textoCorto) {
+    return '<button type="button" class="accion ' + variante + '" ' +
+           'data-accion="' + accion + '" data-id="' + id + '" ' +
+           'aria-label="' + textoSeguro(etiqueta) + '">' +
+           icono(dibujo, 1.9) +
+           '<span class="accion-texto">' + textoSeguro(textoCorto) + '</span>' +
+           '</button>';
   }
 
   function htmlDeUnidad(unidad) {
@@ -485,32 +501,51 @@
        puede liquidar— y las dos acciones que se aplican a todas las unidades
        juntas. Eso no es la lista repetida: es lo que no se puede leer unidad
        por unidad. */
+    /* El campo va con **coma**, que es como se escribe un decimal en
+       castellano, y eso obliga a `type="text"`: un `type="number"` rechaza la
+       coma —el navegador la descarta y el campo queda vacio— y ese era el
+       origen del punto. `inputmode="decimal"` igual abre el teclado numerico
+       en telefono, asi que no se pierde nada.
+
+       La etiqueta visible solo se ve en telefono: en una fila de escritorio el
+       contexto alcanza, y en una tarjeta apilada no. */
     var campoDelCoeficiente =
       '<div class="campo-coeficiente">' +
-        /* `step` en 0,001 y no en 0,01: es la precision real de la columna, y
-           las flechitas del navegador tienen que moverse en la unidad en la
-           que el dato existe. */
-        '<input type="number" inputmode="decimal" step="0.001" min="0" max="100" ' +
-          'data-coeficiente-de="' + unidad.id + '" ' +
-          'aria-label="Coeficiente de la unidad ' +
-            textoSeguro(unidad.identificador) + '" ' +
-          'value="' + (unidad.coeficiente === null
-                        ? '' : textoSeguro(unidad.coeficiente)) + '">' +
-        '<span>%</span>' +
+        '<span class="campo-coeficiente-label">Coeficiente</span>' +
+        '<div class="campo-coeficiente-caja">' +
+          '<input type="text" inputmode="decimal" ' +
+            'data-coeficiente-de="' + unidad.id + '" ' +
+            'aria-label="Coeficiente de la unidad ' +
+              textoSeguro(unidad.identificador) + '" ' +
+            'placeholder="0,000" ' +
+            'value="' + (unidad.coeficiente === null
+                          ? '' : textoSeguro(conComa(unidad.coeficiente))) + '">' +
+          '<span class="campo-coeficiente-sufijo">%</span>' +
+        '</div>' +
       '</div>';
+
+    /* La pill de "sin cargar" va DENTRO de la fila, al lado del
+       identificador: el amarillo del fondo no comunica solo, nunca. */
+    var aviso = unidad.coeficiente === null
+      ? ' <span class="pill warn">' +
+          icono('<path d="M12 8v4M12 16h.01"/><circle cx="12" cy="12" r="9"/>', 2.4) +
+          'sin cargar</span>'
+      : '';
 
     return '<div class="fila-hija' + (unidad.ocupado ? '' : ' libre') +
              (unidad.coeficiente === null ? ' sin-coeficiente' : '') + '">' +
              '<div class="fila-hija-dato">' +
-               '<b>' + textoSeguro(unidad.identificador) + '</b>' +
+               '<b>' + textoSeguro(unidad.identificador) + aviso + '</b>' +
                '<span>' + textoSeguro(secundarios.join(' · ')) + '</span>' +
              '</div>' +
              campoDelCoeficiente +
              botonesDeFila([
-               botonIcono('editar-unidad', unidad.id,
-                          'Editar la unidad ' + unidad.identificador, ICONO_LAPIZ),
-               botonIcono('borrar-unidad', unidad.id,
-                          'Borrar la unidad ' + unidad.identificador, ICONO_TACHO)
+               botonAccion('editar-unidad', unidad.id,
+                           'Editar la unidad ' + unidad.identificador,
+                           ICONO_LAPIZ, 'editar', 'Editar'),
+               botonAccion('borrar-unidad', unidad.id,
+                           'Borrar la unidad ' + unidad.identificador,
+                           ICONO_TACHO, 'borrar', 'Borrar')
              ]) +
            '</div>';
   }
@@ -518,20 +553,30 @@
   function htmlDePiso(piso) {
     var unidades = piso.departamentos.map(htmlDeUnidad).join('');
 
+    /* El numero del piso en un circulo con relieve, y la cabecera con una
+       banda teñida: antes era un bloque blanco con texto negro y no habia
+       forma de ver donde empezaba un piso sin leer. */
+    var acciones =
+      '<div class="grupo-piso-acciones">' +
+        botonAccion('nueva-unidad', piso.id,
+                    'Agregar una unidad al piso ' + piso.numero,
+                    ICONO_MAS, 'sumar', 'Unidad') +
+        botonAccion('editar-piso', piso.id,
+                    'Editar el piso ' + piso.numero,
+                    ICONO_LAPIZ, 'editar', 'Piso') +
+        botonAccion('borrar-piso', piso.id,
+                    'Borrar el piso ' + piso.numero,
+                    ICONO_TACHO, 'borrar', 'Borrar') +
+      '</div>';
+
     return '<div class="grupo-piso content-glass">' +
              '<div class="grupo-piso-cabecera">' +
+               '<div class="grupo-piso-numero">' + textoSeguro(piso.numero) + '</div>' +
                '<div class="grupo-piso-nombre">Piso ' + textoSeguro(piso.numero) +
                  '<span>' + plural(piso.departamentos.length, 'unidad', 'unidades') +
                  ' · posición ' + textoSeguro(piso.orden) + '</span>' +
                '</div>' +
-               botonesDeFila([
-                 botonIcono('nueva-unidad', piso.id,
-                            'Agregar una unidad al piso ' + piso.numero, ICONO_MAS),
-                 botonIcono('editar-piso', piso.id,
-                            'Editar el piso ' + piso.numero, ICONO_LAPIZ),
-                 botonIcono('borrar-piso', piso.id,
-                            'Borrar el piso ' + piso.numero, ICONO_TACHO)
-               ]) +
+               acciones +
              '</div>' +
              (unidades ||
               '<div class="lista-vacia">Este piso no tiene unidades.</div>') +
@@ -554,10 +599,12 @@
                '<span>' + textoSeguro(secundarios.join(' · ')) + '</span>' +
              '</div>' +
              botonesDeFila([
-               botonIcono('editar-cochera', cochera.id,
-                          'Editar la cochera ' + cochera.numero, ICONO_LAPIZ),
-               botonIcono('borrar-cochera', cochera.id,
-                          'Borrar la cochera ' + cochera.numero, ICONO_TACHO)
+               botonAccion('editar-cochera', cochera.id,
+                           'Editar la cochera ' + cochera.numero,
+                           ICONO_LAPIZ, 'editar', 'Editar'),
+               botonAccion('borrar-cochera', cochera.id,
+                           'Borrar la cochera ' + cochera.numero,
+                           ICONO_TACHO, 'borrar', 'Borrar')
              ]) +
            '</div>';
   }
@@ -576,10 +623,12 @@
                '<span>' + textoSeguro(secundarios.join(' · ')) + '</span>' +
              '</div>' +
              botonesDeFila([
-               botonIcono('editar-espacio', espacio.id,
-                          'Editar ' + espacio.nombre, ICONO_LAPIZ),
-               botonIcono('borrar-espacio', espacio.id,
-                          'Borrar ' + espacio.nombre, ICONO_TACHO)
+               botonAccion('editar-espacio', espacio.id,
+                           'Editar ' + espacio.nombre,
+                           ICONO_LAPIZ, 'editar', 'Editar'),
+               botonAccion('borrar-espacio', espacio.id,
+                           'Borrar ' + espacio.nombre,
+                           ICONO_TACHO, 'borrar', 'Borrar')
              ]) +
            '</div>';
   }
@@ -621,13 +670,43 @@
 
   function pintarEstadoDeLaSuma() {
     var estado = coeficientes;
+    var cierra = Boolean(estado.suma_cien);
 
     pantalla.pillSuma.hidden = false;
-    pantalla.pillSuma.className = 'pill ' + (estado.suma_cien ? 'ok' : 'crit');
+    pantalla.pillSuma.className = 'pill ' + (cierra ? 'ok' : 'crit');
     /* El color nunca comunica solo: el texto dice el porcentaje. Es la regla
        del sistema de diseño y acá importa el doble, porque la diferencia entre
        99,999% y 100,000% no se ve en un color. */
     pantalla.pillSuma.textContent = 'Suman ' + conComa(estado.suma) + '%';
+
+    /* La barra, que es la lectura de un vistazo. El ancho se calcula con la
+       suma tal como la mando el backend; el 100% exacto lo decide `suma_cien`
+       y no este porcentaje, porque 99,9995 redondeado tambien daria 100. */
+    var porcentaje = Math.max(0, Math.min(100, parseFloat(estado.suma) || 0));
+
+    pantalla.panelTotal.hidden = estado.cantidad_unidades === 0;
+    pantalla.panelTotal.classList.toggle('cierra', cierra);
+    pantalla.totalBarra.classList.toggle('cierra', cierra);
+    /* querySelector y no firstChild: un espacio en el HTML entre el div y el
+       span haria que firstChild sea un nodo de texto, y eso rompe el pintado
+       entero con un error que no menciona el espacio. */
+    pantalla.totalBarra.querySelector('span').style.width = porcentaje + '%';
+    pantalla.totalNumero.textContent = conComa(estado.suma) + '%';
+    pantalla.totalEtiqueta.textContent = cierra
+      ? 'Coeficientes cargados · el edificio puede liquidar'
+      : (estado.unidades_sin_coeficiente
+          ? 'Coeficientes cargados · ' +
+            plural(estado.unidades_sin_coeficiente, 'unidad', 'unidades') +
+            ' sin cargar'
+          : 'Coeficientes cargados · no suman 100%');
+
+    pantalla.totalChips.innerHTML =
+      '<span class="chip">' +
+        textoSeguro(plural(estado.cantidad_unidades, 'unidad', 'unidades')) +
+      '</span>' +
+      '<span class="chip">' +
+        textoSeguro(plural(detalle ? detalle.cantidad_pisos : 0, 'piso', 'pisos')) +
+      '</span>';
 
     /* El mensaje lo escribe el backend y nombra las primeras unidades que
        faltan ("Faltan 3 unidades sin coeficiente: 1A, 1B, 2C"). Escribirlo acá
@@ -720,7 +799,7 @@
           /* Se escribe lo que respondio el backend y no lo que se tipeo: si
              alguien puso "3.5", la columna guarda 3,500 y el campo tiene que
              mostrar eso. */
-          campo.value = unidad.coeficiente;
+          campo.value = conComa(unidad.coeficiente);
           var fila = campo.closest('.fila-hija');
           if (fila) fila.classList.remove('sin-coeficiente');
 
@@ -872,9 +951,14 @@
      lo borraria sin que nadie lo pida. */
   function guardarBloque(datos, boton, textoExito) {
     var textoOriginal = boton.textContent;
+    /* El formulario del bloque, para poder marcar sus campos. Cada bloque es
+       un `<form>` propio porque se guarda por separado. */
+    var formulario = boton.form || (boton.closest && boton.closest('form'));
+
     boton.disabled = true;
     boton.textContent = 'Guardando…';
     limpiarError(pantalla.errorDetalle, pantalla.textoErrorDetalle);
+    window.Formularios.limpiarErrores(formulario);
 
     return window.Api.patch('/edificios/' + edificioId, datos).then(
       function () {
@@ -882,6 +966,10 @@
         return recargar();
       },
       function (error) {
+        /* El campo marcado alcanza: el bloque esta a la vista de quien acaba
+           de apretar su boton, asi que repetir el texto arriba de las
+           pestañas seria decir dos veces lo mismo y mas lejos. */
+        if (window.Formularios.marcarErrores(formulario, error.campos)) return;
         errorDelDetalle(error.message);
       }
     ).then(function () {
@@ -1163,8 +1251,21 @@
     }).catch(function (error) {
       /* El error se muestra DENTRO del modal, que sigue abierto con todo lo
          tipeado en su lugar: cerrarlo obligaria a escribir de nuevo por un
-         identificador repetido. */
-      mostrarError(pantalla.errorFila, pantalla.textoErrorFila, error.message);
+         identificador repetido. Y se marca en el campo cuando el backend dice
+         cual es — ver el comentario de `edificios.js`. */
+      var marcados = window.Formularios.marcarErrores(
+        pantalla.formFila, error.campos
+      );
+
+      mostrarError(
+        pantalla.errorFila,
+        pantalla.textoErrorFila,
+        marcados
+          ? (marcados === 1
+              ? 'Revisá el campo marcado.'
+              : 'Revisá los ' + marcados + ' campos marcados.')
+          : error.message
+      );
     }).then(function () {
       pantalla.botonGuardarFila.disabled = false;
       pantalla.botonGuardarFila.textContent = textoBoton;
@@ -1642,6 +1743,11 @@
       mapaVacio: document.querySelector('[data-mapa-detalle-vacio]'),
 
       pillSuma: document.querySelector('[data-pill-suma]'),
+      panelTotal: document.querySelector('[data-panel-total]'),
+      totalBarra: document.querySelector('[data-total-barra]'),
+      totalNumero: document.querySelector('[data-total-numero]'),
+      totalEtiqueta: document.querySelector('[data-total-etiqueta]'),
+      totalChips: document.querySelector('[data-total-chips]'),
       notaCoeficientes: document.querySelector('[data-nota-coeficientes]'),
       botonPartesIguales:
         document.querySelector('[data-accion="atajo-partes-iguales"]'),
