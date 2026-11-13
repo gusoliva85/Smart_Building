@@ -115,7 +115,7 @@
                encontrar la factura de luz de marzo es imposible. El periodo
                arranca en el mes actual. -->
           <div class="bloque">
-            <div class="bloque-lista">
+            <div class="bloque-cabecera">
               <h3 class="bloque-titulo">Gastos del período</h3>
               <button type="button" class="boton-primario" id="boton-nuevo-gasto">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -184,8 +184,15 @@
        el formulario es el mismo, porque los campos son los mismos y dos modales
        serian dos formularios que algun dia validan distinto.
        ======================================================================= -->
-  <div class="modal-backdrop" id="modal-gasto" hidden>
-    <div class="modal modal-formulario" role="dialog" aria-modal="true"
+  <!-- Sin `hidden`: este componente se muestra y se esconde con la clase
+       `.abierto`, porque nace en `opacity:0; pointer-events:none` para poder
+       aparecer con una transicion. Un `hidden` suelto lo deja invisible pero
+       sin animacion, y —peor— hace creer que alcanza con quitarlo.
+
+       Y `.shell` no es decorativo: es lo que le da la superficie de vidrio.
+       Sin el, el modal es una caja transparente. -->
+  <div class="modal-backdrop" id="modal-gasto">
+    <div class="modal modal-formulario shell" role="dialog" aria-modal="true"
          aria-labelledby="titulo-modal-gasto">
       <button type="button" class="modal-cerrar" data-cerrar-gasto
               aria-label="Cerrar">

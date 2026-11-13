@@ -67,7 +67,8 @@
     rol: null,
     edificioId: null,
     rubros: [],          /* el catalogo que sirve el backend */
-    editando: null       /* el id del gasto que se esta editando, o null */
+    editando: null,      /* el id del gasto que se esta editando, o null */
+    ultimoFoco: null     /* a donde vuelve el foco al cerrar el modal */
   };
 
   /* --------------------------------------------------------------- utiles -- */
@@ -356,6 +357,10 @@
   /* ----------------------------------------------------------- el modal -- */
 
   function abrirModal(gasto) {
+    /* A donde vuelve el foco al cerrar. Sin esto, al cerrar con Escape el foco
+       se va al <body> y el siguiente Tab arranca desde el principio de la
+       pagina. */
+    estado.ultimoFoco = document.activeElement;
     estado.editando = gasto ? gasto.id : null;
 
     var formulario = $('#formulario-gasto');
@@ -384,13 +389,23 @@
     }
 
     actualizarAyudaDeRubro();
-    mostrar($('#modal-gasto'), true);
+
+    /* **Se abre con la clase, no con `hidden`.** El componente nace en
+       `opacity:0; pointer-events:none` para poder aparecer con una transicion,
+       asi que quitarle `hidden` no lo muestra: queda invisible y sin recibir
+       clics. Era el bug por el que el boton "no hacia nada". */
+    $('#modal-gasto').classList.add('abierto');
     $('#gasto-rubro').focus();
   }
 
   function cerrarModal() {
-    mostrar($('#modal-gasto'), false);
+    $('#modal-gasto').classList.remove('abierto');
     estado.editando = null;
+    if (estado.ultimoFoco && estado.ultimoFoco.focus) estado.ultimoFoco.focus();
+  }
+
+  function modalAbierto() {
+    return $('#modal-gasto').classList.contains('abierto');
   }
 
   function cuerpoDelFormulario() {
@@ -508,7 +523,7 @@
     });
 
     document.addEventListener('keydown', function (evento) {
-      if (evento.key === 'Escape' && !$('#modal-gasto').hidden && !window.Confirmar.abierto()) {
+      if (evento.key === 'Escape' && modalAbierto() && !window.Confirmar.abierto()) {
         cerrarModal();
       }
     });

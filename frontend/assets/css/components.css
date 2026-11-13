@@ -1107,6 +1107,36 @@ a{ color:inherit; }
   .pagina-cabecera .boton-primario{ width:100%; }
 }
 
+/* --- Cabecera de un bloque ------------------------------------------------ */
+/* Titulo de un bloque con su accion al costado (F2-T17). La misma forma que
+   .pagina-cabecera pero un nivel mas abajo: ahi el titulo es de la pantalla,
+   aca es de un bloque dentro de la pantalla.
+
+   OJO, que es el error que me lleve puesto: **.bloque-lista no sirve para
+   esto.** Es una lista numerada, con contador y en columna, asi que un boton
+   adentro se estira a todo el ancho. Dos clases con nombres parecidos y
+   trabajos distintos.
+
+   Se va a repetir en las cuatro pestañas que faltan del modulo financiero, asi
+   que vive en el catalogo y no en estilos sueltos. */
+.bloque-cabecera{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+  margin-bottom:12px;
+}
+.bloque-cabecera .bloque-titulo{ margin:0; }
+
+/* Misma regla que la del boton de .pagina-cabecera, y por el mismo motivo:
+   .boton-primario nace con width:100% porque su caso principal es el boton de
+   un formulario. Acompaniando un titulo tiene que medir lo que mide su texto. */
+.bloque-cabecera .boton-primario{ width:auto; padding:10px 16px; }
+@media (max-width:519px){
+  .bloque-cabecera .boton-primario{ width:100%; }
+}
+
 /* --- Fila de listado ------------------------------------------------------ */
 /* El patron de "lista de cosas + alta en modal": usuarios hoy, y despues
    edificios, proveedores, reclamos, activos. Se usa siempre junto con
