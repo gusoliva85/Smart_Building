@@ -239,8 +239,29 @@
          expulse al usuario desde cualquier otra pantalla. */
       window.Api.Sesion.limpiar();
       mostrarError(error.message);
-      pantalla.campoPassword.value = '';
-      pantalla.campoPassword.focus();
+
+      /* ===================================================================
+         SE DECIDE POR EL CODIGO, NUNCA POR EL TEXTO (`F1-T30`)
+         ===================================================================
+
+         Una cuenta inhabilitada y una contrasenia incorrecta son dos cosas
+         distintas y la pantalla tiene que tratarlas distinto:
+
+           - Contrasenia incorrecta: se borra el campo y el foco vuelve ahi.
+             Es lo unico que hay para reintentar.
+           - Cuenta inhabilitada: la contrasenia **estaba bien**. Borrarla
+             haria pensar que el problema es esa, y la persona la reescribiria
+             sin que cambie nada. Se deja lo que escribio y el foco no se
+             mueve: no hay nada que reintentar hasta que un administrador le
+             habilite la cuenta, y eso es lo que dice el mensaje.
+
+         La decision se toma con `error.codigo`, que es estable, y no
+         comparando el mensaje en castellano, que se puede reescribir en
+         cualquier momento sin avisarle a esta pantalla. */
+      if (error.codigo !== 'CUENTA_INHABILITADA') {
+        pantalla.campoPassword.value = '';
+        pantalla.campoPassword.focus();
+      }
     }).then(function () {
       bloquearEnvio(false);
     });

@@ -513,7 +513,12 @@ def test_el_desactivado_no_puede_iniciar_sesion(cliente, admin):
         data={"username": creado["email"], "password": ALTA_VALIDA["password"]},
     )
 
-    assert login.status_code == 401
+    # 403 y no 401 desde `F1-T30`: con la contrasenia correcta, el sistema le
+    # dice que la cuenta esta inhabilitada en vez de mentirle con "email o
+    # contraseña incorrectos". La cuenta sigue sin poder entrar, que es lo que
+    # este test verifica.
+    assert login.status_code == 403
+    assert login.json()["codigo"] == "CUENTA_INHABILITADA"
 
 
 def test_el_token_de_un_usuario_recien_desactivado_deja_de_valer(cliente, db, admin):

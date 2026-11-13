@@ -74,30 +74,33 @@ unidades es exacto siempre; repartir `Decimal(100)` no lo es.
 
 # ------------------------------------------------- limites de estructura ----
 
-MAX_PISOS = 40
-MAX_UNIDADES_POR_PISO = 15
+MAX_PISOS = 20
+MAX_UNIDADES_POR_PISO = 10
 """Techos deliberados de la generacion automatica.
 
 Son un freno a que un numero tipeado mal genere miles de filas: `F1-T20` crea
 toda la estructura en una sola transaccion, asi que un cero de mas no es un
 dato raro, es una transaccion enorme.
 
-Los dos valores se bajaron el 2026-11-09 (eran 60 y 40) para que esten cerca
-de la realidad del rubro: un consorcio de mas de 40 pisos no existe en la
-cartera que este sistema administra, y 40 unidades en un mismo piso es
-directamente imposible. Un tope ajustado ataja el error de tipeo mucho mejor
-que uno holgado — con 40 unidades por piso permitidas, escribir 14 en vez de 4
-pasaba sin que nada avise.
+**Se bajaron dos veces, las dos a pedido del usuario y por el mismo motivo:**
+eran 60 y 40, pasaron a 40 y 15 el 2026-11-09, y a **20 y 10** el 2026-11-12.
+Un tope ajustado a la realidad de la cartera ataja el error de tipeo mucho
+mejor que uno holgado: con 40 unidades por piso permitidas, escribir 14 en vez
+de 4 generaba 140 unidades sin que nada avise.
 
-Consecuencia de bajar el segundo: con 15 unidades por piso como maximo, la
-numeracion nunca pasa de la letra O, asi que la continuacion `AA`, `AB` de
-`_letra()` **ya no es alcanzable desde la API**. Se deja igual —es correcta y
-esta probada aparte— porque el dia que haya que subir el tope tiene que seguir
-funcionando; lo que no se deja es un test que la ejercite generando un piso de
-28 unidades, porque ese piso ahora se rechaza.
+Los dos valores son el maximo de la generacion **automatica**, no un limite del
+dominio. Un edificio mas grande se carga igual: se genera hasta el tope y se
+agregan los pisos o las unidades que falten de a uno, que es lo que hace el
+CRUD anidado de `F1-T23`. El dia que haya que levantar el tope —o que exista
+una carga masiva, que el usuario ya anticipo— se sube la constante a
+conciencia y el esquema, el servicio y el mensaje del 422 quedan alineados
+solos, porque los tres la leen de aca.
 
-Si algun dia hace falta un edificio mas grande, se sube la constante a
-conciencia.
+Consecuencia de bajar el segundo, que conviene tener a la vista: con 10
+unidades por piso la numeracion no pasa de la letra J, asi que la continuacion
+`AA`, `AB` de `_letra()` **no es alcanzable desde la API**. Se deja igual —es
+correcta y esta probada aparte— porque el dia que el tope suba tiene que
+seguir funcionando.
 """
 
 

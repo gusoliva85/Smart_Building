@@ -39,12 +39,12 @@ no hay un "a medio crear" posible.
 
 import logging
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, status
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session, selectinload
 
-from app.core import alcance
+from app.core import alcance, errores
 from app.core.dependencies import SesionDB, SoloAdminGeneral, SoloAdministradores
 from app.models import edificio as modelo_edificio
 from app.models.edificio import Departamento, Edificio, Piso
@@ -145,12 +145,8 @@ def crear(
         # programacion y no algo que la persona pueda corregir reescribiendo el
         # formulario, asi que el mensaje no tiene nada util que ofrecerle.
         logger.exception("Fallo el alta del edificio %r", datos.nombre)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=(
-                "No se pudo crear el edificio. No quedó nada a medio crear: "
-                "podés volver a intentarlo."
-            ),
+        raise errores.ErrorDeNegocio(
+            errores.ERROR_AL_GUARDAR, que="el edificio"
         ) from None
 
     db.refresh(edificio)
@@ -250,7 +246,7 @@ def _conteos_del_edificio() -> tuple:
     return pisos, departamentos
 
 
-def no_encontrado() -> HTTPException:
+def no_encontrado() -> errores.ErrorDeNegocio:
     """El mismo 404 para "no existe" y para "no es tuyo".
 
     Un 403 distinguible le iria contando a un Administrador de Consorcio que
@@ -261,10 +257,7 @@ def no_encontrado() -> HTTPException:
     textos distintos para la misma situacion es la clase de diferencia que
     despues alguien usa para deducir cual de los dos casos le toco.
     """
-    return HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="No se encontró el edificio.",
-    )
+    return errores.ErrorDeNegocio(errores.EDIFICIO_NO_ENCONTRADO)
 
 
 def buscar_edificio_que_administra(
@@ -562,25 +555,21 @@ def _verificar_responsable(db: Session, usuario_id: int, campo: str) -> None:
     usuario = db.scalar(select(Usuario).where(Usuario.id == usuario_id))
 
     if usuario is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"La persona que elegiste como {puesto} no existe.",
+        raise errores.ErrorDeNegocio(
+            errores.RESPONSABLE_NO_EXISTE, puesto=puesto
         )
     if not usuario.activo:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"{usuario.nombre} está desactivado, así que no puede quedar "
-                f"como {puesto}."
-            ),
+        raise errores.ErrorDeNegocio(
+            errores.RESPONSABLE_DESACTIVADO,
+            nombre=usuario.nombre,
+            puesto=puesto,
         )
     if usuario.rol != rol_esperado:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"{usuario.nombre} es {autorizacion.etiqueta(usuario.rol)}, "
-                f"no {puesto}. Cambiale el rol primero o elegí a otra persona."
-            ),
+        raise errores.ErrorDeNegocio(
+            errores.RESPONSABLE_CON_OTRO_ROL,
+            nombre=usuario.nombre,
+            rol_actual=autorizacion.etiqueta(usuario.rol),
+            puesto=puesto,
         )
 
 
@@ -608,10 +597,7 @@ def configurar(
     cambios = datos.model_dump(exclude_unset=True)
 
     if not cambios:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No enviaste ningún cambio.",
-        )
+        raise errores.ErrorDeNegocio(errores.SIN_CAMBIOS)
 
     puestos = [campo for campo in _ROL_DEL_PUESTO if campo in cambios]
 
@@ -620,13 +606,7 @@ def configurar(
     # explica el motivo, y no un 404 que lo mandaria a buscar un problema de id
     # que no existe.
     if puestos and quien_configura.rol != autorizacion.ADMIN_GENERAL:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=(
-                "Quién administra el edificio lo decide el Administrador "
-                "General. Podés configurar el resto."
-            ),
-        )
+        raise errores.ErrorDeNegocio(errores.RESPONSABLES_SOLO_ADMIN_GENERAL)
 
     edificio = buscar_edificio_que_administra(db, edificio_id, quien_configura)
 
@@ -655,25 +635,15 @@ def configurar(
         and edificio.admin_consorcio_id == edificio.encargado_id
     ):
         db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "La misma persona no puede ser Administrador de Consorcio y "
-                "Encargado del mismo edificio."
-            ),
-        )
+        raise errores.ErrorDeNegocio(errores.RESPONSABLES_IGUALES)
 
     try:
         db.commit()
     except (IntegrityError, SQLAlchemyError):
         db.rollback()
         logger.exception("Fallo la configuracion del edificio %s", edificio_id)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=(
-                "No se pudo guardar la configuración. No se cambió nada: "
-                "podés volver a intentarlo."
-            ),
+        raise errores.ErrorDeNegocio(
+            errores.ERROR_AL_GUARDAR, que="la configuración"
         ) from None
 
     db.refresh(edificio)

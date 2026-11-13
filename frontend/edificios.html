@@ -247,21 +247,30 @@
               Pisos y unidades
               <span class="pill" data-pill-suma hidden></span>
             </h3>
+            <!-- El estado del edificio, escrito por el backend: cuánto
+                 suman, si cierra en 100% y qué unidades faltan. -->
             <p class="bloque-nota" data-nota-coeficientes></p>
-            <p class="bloque-nota">
-              Los pisos y las unidades se generaron en el alta. Acá se corrige y
-              se completa: la superficie de cada unidad, su propietario, su
-              inquilino y el coeficiente con el que paga su parte de la expensa.
-            </p>
-            <p class="bloque-nota">
-              Los coeficientes se pueden cargar de tres maneras: a mano, unidad
-              por unidad, que es la que refleja el reglamento del consorcio;
-              con un reparto automático —en partes iguales o por metro
-              cuadrado, que necesita las superficies cargadas—; o cargando
-              algunas a mano y completando el resto, que reparte lo que falta
-              para llegar a 100% entre las que quedaron en blanco y
-              <b>no toca ninguna de las que ya cargaste</b>.
-            </p>
+
+            <!-- Las tres formas de cargar, en una lista numerada y no en un
+                 párrafo corrido. Es una enumeración: escrita como prosa hay
+                 que leerla entera para encontrar la opción que se busca. -->
+            <p class="bloque-nota">Los coeficientes se pueden cargar de tres maneras:</p>
+            <ol class="bloque-lista">
+              <li>
+                <b>A mano, unidad por unidad.</b>
+                Es la que refleja el reglamento del consorcio.
+              </li>
+              <li>
+                <b>Con un reparto automático.</b>
+                En partes iguales, o por metro cuadrado — este último necesita
+                las superficies ya cargadas.
+              </li>
+              <li>
+                <b>Cargando algunas a mano y completando el resto.</b>
+                Reparte lo que falta para llegar a 100% entre las unidades que
+                quedaron en blanco <i>(no toca ninguna de las que ya cargaste)</i>.
+              </li>
+            </ol>
 
             <div class="acciones-atajo">
               <button type="button" class="boton-primario boton-secundario boton-chico"

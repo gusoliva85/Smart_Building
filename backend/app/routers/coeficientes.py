@@ -57,11 +57,12 @@ para entonces la pantalla ya venia avisando.
 import logging
 from decimal import Decimal
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.core import errores
 from app.core.dependencies import SesionDB, SoloAdministradores
 from app.models.edificio import Departamento, Edificio, Piso
 from app.routers.edificios import buscar_edificio_que_administra
@@ -176,12 +177,8 @@ def _guardar(db: Session, descripcion: str) -> None:
     except (IntegrityError, SQLAlchemyError):
         db.rollback()
         logger.exception("Fallo al guardar: %s", descripcion)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=(
-                "No se pudieron guardar los coeficientes. No quedó nada a "
-                "medio cambiar: podés volver a intentarlo."
-            ),
+        raise errores.ErrorDeNegocio(
+            errores.ERROR_AL_GUARDAR, que="los coeficientes"
         ) from None
 
 
@@ -261,40 +258,28 @@ def _completar_el_resto(
     cargados = [u.coeficiente for u in unidades if u.coeficiente is not None]
 
     if not en_blanco:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "Todas las unidades ya tienen coeficiente, así que no queda "
-                "resto que completar. Si querés recalcularlos todos, usá el "
-                "reparto en partes iguales o por metro cuadrado."
-            ),
-        )
+        raise errores.ErrorDeNegocio(errores.SIN_RESTO_QUE_COMPLETAR)
 
     resto = finanzas.resto_por_repartir(cargados)
 
     if resto < 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"Las unidades que ya tienen coeficiente suman "
-                f"{-resto + finanzas.TOTAL_COEFICIENTES}%, o sea más de 100%. "
-                "Corregí alguna antes de completar el resto."
-            ),
+        raise errores.ErrorDeNegocio(
+            errores.COEFICIENTES_PASAN_CIEN,
+            suma=-resto + finanzas.TOTAL_COEFICIENTES,
         )
 
     if resto == 0:
         cuantas = len(en_blanco)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                f"Las unidades que ya tienen coeficiente suman 100%, así que a "
-                f"{'la unidad' if cuantas == 1 else f'las {cuantas} unidades'} "
-                f"que {'falta' if cuantas == 1 else 'faltan'} "
-                f"{'le' if cuantas == 1 else 'les'} tocaría 0%. Si "
-                f"{'es una unidad exenta' if cuantas == 1 else 'son unidades exentas'} "
-                "—el departamento del encargado suele serlo— cargale 0 a mano; "
-                "si no, hay algún coeficiente de más en las otras."
+        una_sola = cuantas == 1
+        raise errores.ErrorDeNegocio(
+            errores.RESTO_EN_CERO,
+            cuantas=(
+                "la unidad que falta"
+                if una_sola
+                else f"las {cuantas} unidades que faltan"
             ),
+            les="le" if una_sola else "les",
+            son="es una unidad exenta" if una_sola else "son unidades exentas",
         )
 
     # Las cuentas las hace el servicio, igual que los dos atajos: reparte los
@@ -343,13 +328,7 @@ def aplicar_atajo(
     filas = _unidades_ordenadas(db, edificio)
 
     if not filas:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "Este edificio todavía no tiene unidades, así que no hay nada "
-                "que repartir."
-            ),
-        )
+        raise errores.ErrorDeNegocio(errores.EDIFICIO_SIN_UNIDADES)
 
     unidades = [departamento for departamento, _ in filas]
 
@@ -369,15 +348,11 @@ def aplicar_atajo(
     # y es el unico lugar de la Fase 1 donde corresponde.
     ya_cargados = [u for u in unidades if u.coeficiente is not None]
     if ya_cargados and not datos.sobrescribir:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                f"{len(ya_cargados)} "
-                f"{'unidad' if len(ya_cargados) == 1 else 'unidades'} ya "
-                f"{'tiene' if len(ya_cargados) == 1 else 'tienen'} coeficiente "
-                "cargado. Los coeficientes del reglamento no se pueden "
-                "recalcular: ¿querés reemplazarlos igual?"
-            ),
+        una_sola = len(ya_cargados) == 1
+        raise errores.ErrorDeNegocio(
+            errores.COEFICIENTES_YA_CARGADOS,
+            cuantas=f"{len(ya_cargados)} {'unidad' if una_sola else 'unidades'}",
+            tienen="tiene" if una_sola else "tienen",
         )
 
     if datos.criterio == CRITERIO_METROS_CUADRADOS:
@@ -387,15 +362,12 @@ def aplicar_atajo(
             resto = len(sin_m2) - IDENTIFICADORES_EN_EL_MENSAJE
             if resto > 0:
                 primeros += f" y {resto} más"
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
-                    f"No se puede repartir por metro cuadrado: {len(sin_m2)} "
-                    f"{'unidad' if len(sin_m2) == 1 else 'unidades'} no "
-                    f"{'tiene' if len(sin_m2) == 1 else 'tienen'} superficie "
-                    f"cargada ({primeros}). Cargá las superficies o usá el "
-                    "reparto en partes iguales."
-                ),
+            una_sola = len(sin_m2) == 1
+            raise errores.ErrorDeNegocio(
+                errores.FALTAN_SUPERFICIES,
+                cuantas=f"{len(sin_m2)} {'unidad' if una_sola else 'unidades'}",
+                tienen="tiene" if una_sola else "tienen",
+                cuales=primeros,
             )
         calculados = finanzas.calcular_por_metros_cuadrados([u.m2 for u in unidades])
     else:

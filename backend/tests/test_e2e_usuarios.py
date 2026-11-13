@@ -323,7 +323,10 @@ def test_un_usuario_desactivado_deja_de_entrar_y_vuelve_al_reactivarse(cliente, 
     assert baja.status_code == 200
     assert baja.json()["activo"] is False
 
-    assert _entrar(cliente, "encargado-ciclo@test.com", PASSWORD_E2E)[0] == 401
+    # Desde `F1-T30`, quien sabe su contrasenia recibe 403 con el motivo real
+    # —"tu cuenta esta inhabilitada"— en vez de un 401 que le haria reintentar
+    # una contrasenia que estaba bien.
+    assert _entrar(cliente, "encargado-ciclo@test.com", PASSWORD_E2E)[0] == 403
 
     # Y sigue apareciendo en el listado: desactivado no es borrado.
     listado = cliente.get("/api/usuarios", headers=admin).json()

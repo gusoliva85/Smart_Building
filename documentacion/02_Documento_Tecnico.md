@@ -399,6 +399,31 @@ Definida una sola vez en `services/autorizacion.py` como estructura de datos, no
 
 Las ocho primeras filas son los roles del negocio, y son las que la aplicación ofrece para elegir. `pendiente` está en la matriz porque la columna `rol` lo acepta, no porque sea un rol que alguien asigne: lo escribe el registro propio y se explica en la sección 4.4.
 
+### 4.2.1 El catálogo de errores (`core/errores.py`, `F1-T29`)
+
+**Todo mensaje de error que ve un usuario vive en `core/errores.py` y en ningún otro lado.** Ningún endpoint escribe un `detail=` literal, ninguna pantalla escribe su propia versión de un texto del backend, y cada error nuevo se agrega al catálogo **antes** de usarlo.
+
+No es prolijidad. Antes del catálogo había **27 mensajes escritos a mano en seis archivos**, y el mismo error —falló el guardado— estaba redactado de **cuatro formas distintas** ("No se pudo crear el edificio…", "No se pudo guardar la configuración…", "No se pudieron guardar los coeficientes…", "No se pudo guardar el cambio…"). Con dos endpoints eso no molesta; con cuarenta son tres problemas concretos: el mismo error se le explica distinto a la misma persona según la pantalla, el frontend no tiene nada estable contra lo que decidir —su única opción es comparar el castellano, que cambia con una tilde—, y cambiar un mensaje obliga a buscarlo por todo el proyecto. Es el mismo razonamiento que puso los permisos en una matriz: **si es una regla del sistema, es una estructura de datos, no texto suelto.**
+
+**Cada entrada tiene código estable, código HTTP y texto.** El código (`PISO_CON_UNIDADES`, `CUENTA_INHABILITADA`) es el contrato con el frontend y no se cambia nunca; el texto se puede reescribir sin romper nada. Los errores se levantan **por código**: `raise ErrorDeNegocio(PISO_CON_UNIDADES, numero=9, cuantas="1 unidad")`. Un código que no está en el catálogo revienta al construirlo, y un código repetido revienta al importar el módulo — las dos cosas, temprano y fuerte.
+
+**La respuesta tiene la misma forma siempre**, venga de un endpoint, de una dependencia, de la validación de Pydantic o del ruteo de FastAPI:
+
+```json
+{ "codigo": "PISO_CON_UNIDADES", "mensaje": "El piso 9 todavía tiene 1 unidad. Borralas primero.",
+  "campos": {}, "detail": "El piso 9 todavía tiene 1 unidad. Borralas primero." }
+```
+
+`campos` viaja siempre, vacío cuando no corresponde: una forma que cambia según el caso obliga a preguntar antes de leer. `detail` lleva el mismo texto que `mensaje` y no es un descuido — es el campo que usa FastAPI por convención y el que lee cualquier cliente genérico, incluido el "Try it out" de `/docs`.
+
+> **El 422 de Pydantic, en castellano.** Era la mitad de la tarea: la validación del cuerpo devolvía su texto **en inglés** y eso llegaba crudo a la pantalla (*"cantidad_pisos: Input should be less than or equal to 40"*). El manejador lo traduce **por tipo de problema** (`missing`, `less_than_equal`, `decimal_max_places`, `extra_forbidden`…), no mensaje por mensaje: son 23 plantillas y cubren todos los formularios del sistema, presentes y futuros. La alternativa —un texto a mano por campo en cada esquema— sería el mismo problema que el catálogo vino a eliminar.
+>
+> Dos detalles que importan. **El nombre del campo también se traduce**: `cantidad_pisos` → "la cantidad de pisos", porque "El valor no puede ser mayor que 40" no dice nada si no se sabe de qué valor habla; y si un campo no está en el diccionario sale su nombre crudo **a propósito**, porque así se nota y se agrega. **Y los mensajes de los validadores propios se respetan tal cual**: llegan como `value_error` con la excepción en el contexto, y "El coeficiente admite hasta 3 decimales" sabe cosas que el tipo de error no. El único `value_error` que no es propio es el del validador de email, que viene en inglés y se reconoce por su contexto.
+
+> **La regla `FX-T11` pasó de "revisable" a verificada.** Ningún mensaje puede nombrar tablas, columnas, consultas, ids internos ni nombres de archivo, porque el texto de un error se le muestra a cualquiera. Auditar eso era recorrer cuarenta endpoints; ahora es leer un diccionario, **y hay un test que lo recorre en cada corrida** buscando esas palabras. Al migrar apareció un caso real: el 404 de usuario decía "No existe un usuario con id 37", y el id es interno y no le sirve a nadie del otro lado de la pantalla.
+
+> **Una consecuencia de levantar una excepción propia, anotada porque costó un rato:** `ErrorDeNegocio` solo se convierte en respuesta HTTP si la aplicación registró el manejador. La aplicación real lo hace en `main.py`; la **app de juguete** que usan los tests de dependencias en aislamiento también tuvo que hacerlo, y hasta que se agregó esa línea los rechazos de permiso no eran un 403 sino una excepción sin atender. Cualquier aplicación que monte estas dependencias tiene que registrar los manejadores.
+
 ### 4.3 Autorización: dependencias, no condicionales sueltos
 
 El control de acceso vive en `core/dependencies.py` como dependencias de FastAPI que los endpoints declaran. Ninguna regla de permiso se escribe dentro del cuerpo de un endpoint.
@@ -418,6 +443,18 @@ El control de acceso vive en `core/dependencies.py` como dependencias de FastAPI
 1. **El token no lleva el alcance: la autorización lo resuelve consultando la base en cada dependencia.** Es correcto y es lo que hay que hacer. Un alcance guardado dentro del token quedaría congelado en el momento de emitirlo: si a un usuario se le quita un edificio, seguiría entrando hasta que el token expire. Lo que no hay que hacer es escribir código que *asuma* que el token trae el alcance. Cada dependencia pregunta por el vínculo real, según la tabla de la sección 3.1.
 2. **Una dependencia se reutiliza si la regla coincide, aunque el nombre suene a otro dominio.** `requerir_acceso_para_crear_reclamo` terminó siendo también la regla correcta para "ver los espacios comunes de un edificio": el conjunto de gente es idéntico. Se reutiliza y se documenta el porqué, en vez de escribir una quinta dependencia igual.
 3. **Cuidado con el tipo que devuelve la dependencia.** Algunas devuelven el usuario autenticado y otras la entidad ya cargada. Declarar mal el tipo en la firma del endpoint no falla al importar: falla en tiempo de ejecución, cuando alguien usa un atributo que ese objeto no tiene. Ver sección 9.
+
+### 4.3.1 El login diferenciado (`F1-T30`)
+
+`F1-T07` dejó un solo 401 para los tres motivos de rechazo, y eso es correcto como defensa y malo como experiencia: al usuario inhabilitado por un administrador le decía "email o contraseña incorrectos" —que es mentira, la contraseña era correcta—, así que reintentaba la suya, probaba otras y terminaba pidiendo ayuda por el problema equivocado.
+
+**Lo que no se negocia y no cambió:** mientras la contraseña no se haya verificado, el sistema no puede decir nada que dependa de si la cuenta existe. "Ese email no está registrado" y "la contraseña es incorrecta" siguen siendo **la misma respuesta, byte por byte**, y el tiempo de respuesta sigue igualado con un hash descartable.
+
+**Lo que sí se puede diferenciar:** una vez que la contraseña se verificó y es correcta, quien está del otro lado ya demostró que la cuenta es suya, y contarle su situación no le informa nada a un atacante que no tenga ya la contraseña. Ahí va `CUENTA_INHABILITADA` con un 403 y el texto "Tu cuenta está inhabilitada. Contactá al administrador del consorcio."
+
+> **El orden de las dos verificaciones ES la tarea.** Primero se busca el usuario, **siempre** se verifica la contraseña (exista o no), y **solo si eso dio bien** se evalúa el estado de la cuenta. Invertir los dos últimos pasos —mirar `activo` antes de la contraseña— vuelve a abrir la enumeración completa de cuentas: responder "inhabilitada" sin contraseña correcta confirma que ese email existe, y entonces el login sirve para quedarse con las direcciones que existen y atacar solo esas. Hay un test que falla si se invierten, y otro que verifica que una cuenta inhabilitada **con la contraseña mal** siga contestando exactamente lo mismo que un email inexistente.
+
+**Del lado de la pantalla, la diferencia se decide por el código y no por el texto.** Con `CREDENCIALES_INVALIDAS` se borra el campo de contraseña y el foco vuelve ahí, que es lo único que hay para reintentar. Con `CUENTA_INHABILITADA` **no se borra**: la contraseña estaba bien, borrarla haría pensar que el problema es esa, y no hay nada que reintentar hasta que un administrador habilite la cuenta.
 
 ### 4.4 El registro propio y el rol `pendiente`
 

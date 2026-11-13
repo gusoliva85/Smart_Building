@@ -52,12 +52,13 @@ numero de piso repetido no es algo que se pueda confirmar, asi que va 400.
 
 import logging
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, status
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core import alcance
+from app.core import errores
 from app.core.dependencies import SesionDB, SoloAdministradores, UsuarioActual
 from app.models.edificio import (
     COCHERA_FIJA,
@@ -109,13 +110,16 @@ _ROL_DEL_RESIDENTE = {
 # ---------------------------------------------------------------------------
 
 
-def _mal_pedido(mensaje: str) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=mensaje)
+def _no_esta(que: str) -> errores.ErrorDeNegocio:
+    """El 404 de una fila hija que no esta en este edificio.
 
-
-def _no_esta(que: str) -> HTTPException:
-    return HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND, detail=f"No se encontró {que}."
+    El texto vive en el catalogo (`core/errores.py`) como el resto de los
+    mensajes del sistema; lo unico que aporta cada llamada es de QUE fila
+    habla. Un 404 que no dice si no encontro el piso o la unidad obliga a
+    adivinar cual de los dos ids del pedido estaba mal.
+    """
+    return errores.ErrorDeNegocio(
+        errores.NO_ENCONTRADO_EN_EL_EDIFICIO, que=que
     )
 
 
@@ -185,12 +189,8 @@ def _guardar(db: Session, descripcion: str) -> None:
     except (IntegrityError, SQLAlchemyError):
         db.rollback()
         logger.exception("Fallo al guardar: %s", descripcion)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=(
-                "No se pudo guardar el cambio. No quedó nada a medio hacer: "
-                "podés volver a intentarlo."
-            ),
+        raise errores.ErrorDeNegocio(
+            errores.ERROR_AL_GUARDAR, que="el cambio"
         ) from None
 
 
@@ -221,24 +221,28 @@ def _verificar_residente(
     usuario = db.scalar(select(Usuario).where(Usuario.id == usuario_id))
 
     if usuario is None:
-        raise _mal_pedido(f"La persona que elegiste como {etiqueta} no existe.")
+        raise errores.ErrorDeNegocio(
+            errores.RESIDENTE_NO_EXISTE, puesto=etiqueta
+        )
 
     if not usuario.activo:
-        raise _mal_pedido(
-            f"{usuario.nombre} está desactivado, así que no puede quedar como "
-            f"{etiqueta} de la unidad."
+        raise errores.ErrorDeNegocio(
+            errores.RESIDENTE_DESACTIVADO,
+            nombre=usuario.nombre,
+            puesto=etiqueta,
         )
 
     if usuario.rol != rol_esperado:
-        raise _mal_pedido(
-            f"{usuario.nombre} es {autorizacion.etiqueta(usuario.rol)}, no "
-            f"{etiqueta}. Cambiale el rol primero o elegí a otra persona."
+        raise errores.ErrorDeNegocio(
+            errores.RESIDENTE_CON_OTRO_ROL,
+            nombre=usuario.nombre,
+            rol_actual=autorizacion.etiqueta(usuario.rol),
+            puesto=etiqueta,
         )
 
     if rol_esperado not in (edificio.roles_habilitados or []):
-        raise _mal_pedido(
-            f"Este edificio no tiene habilitado el rol {etiqueta}. Habilitalo "
-            "en la configuración del edificio y volvé a intentarlo."
+        raise errores.ErrorDeNegocio(
+            errores.ROL_NO_HABILITADO_EN_EL_EDIFICIO, puesto=etiqueta
         )
 
     if rol_esperado == autorizacion.INQUILINO:
@@ -249,10 +253,10 @@ def _verificar_residente(
             )
         ).first()
         if ocupada is not None:
-            raise _mal_pedido(
-                f"{usuario.nombre} ya figura como inquilino de la unidad "
-                f"{ocupada.identificador}. Un inquilino tiene una sola unidad: "
-                "desvinculalo de esa primero."
+            raise errores.ErrorDeNegocio(
+                errores.INQUILINO_EN_OTRA_UNIDAD,
+                nombre=usuario.nombre,
+                unidad=ocupada.identificador,
             )
 
 
@@ -295,14 +299,13 @@ def crear_piso(
     if db.scalars(
         select(Piso).where(Piso.edificio_id == edificio.id, Piso.numero == datos.numero)
     ).first():
-        raise _mal_pedido(f"Este edificio ya tiene un piso {datos.numero}.")
+        raise errores.ErrorDeNegocio(errores.PISO_REPETIDO, numero=datos.numero)
 
     if db.scalars(
         select(Piso).where(Piso.edificio_id == edificio.id, Piso.orden == orden)
     ).first():
-        raise _mal_pedido(
-            f"Ya hay un piso en la posición {orden}. Elegí otra posición o "
-            "dejá el campo vacío para agregarlo arriba del último."
+        raise errores.ErrorDeNegocio(
+            errores.POSICION_DE_PISO_OCUPADA, orden=orden
         )
 
     piso = Piso(edificio_id=edificio.id, numero=datos.numero, orden=orden)
@@ -338,7 +341,9 @@ def editar_piso(
                 Piso.id != piso.id,
             )
         ).first():
-            raise _mal_pedido(f"Este edificio ya tiene un piso {cambios['numero']}.")
+            raise errores.ErrorDeNegocio(
+                errores.PISO_REPETIDO, numero=cambios["numero"]
+            )
 
     if "orden" in cambios and cambios["orden"] != piso.orden:
         if db.scalars(
@@ -348,7 +353,9 @@ def editar_piso(
                 Piso.id != piso.id,
             )
         ).first():
-            raise _mal_pedido(f"Ya hay un piso en la posición {cambios['orden']}.")
+            raise errores.ErrorDeNegocio(
+                errores.POSICION_DE_PISO_OCUPADA, orden=cambios["orden"]
+            )
 
     for campo, valor in cambios.items():
         setattr(piso, campo, valor)
@@ -384,9 +391,10 @@ def borrar_piso(
         select(func.count(Departamento.id)).where(Departamento.piso_id == piso.id)
     )
     if cuantas:
-        raise _mal_pedido(
-            f"El piso {piso.numero} todavía tiene {cuantas} "
-            f"{'unidad' if cuantas == 1 else 'unidades'}. Borralas primero."
+        raise errores.ErrorDeNegocio(
+            errores.PISO_CON_UNIDADES,
+            numero=piso.numero,
+            cuantas=f"{cuantas} {'unidad' if cuantas == 1 else 'unidades'}",
         )
 
     db.delete(piso)
@@ -426,8 +434,8 @@ def crear_departamento(
             Departamento.identificador == datos.identificador,
         )
     ).first():
-        raise _mal_pedido(
-            f"El piso {piso.numero} ya tiene una unidad {datos.identificador}."
+        raise errores.ErrorDeNegocio(
+            errores.UNIDAD_REPETIDA, identificador=datos.identificador
         )
 
     departamento = Departamento(
@@ -473,8 +481,8 @@ def editar_departamento(
                 Departamento.id != departamento.id,
             )
         ).first():
-            raise _mal_pedido(
-                f"Ese piso ya tiene una unidad {cambios['identificador']}."
+            raise errores.ErrorDeNegocio(
+                errores.UNIDAD_REPETIDA, identificador=cambios["identificador"]
             )
 
     for campo in _ROL_DEL_RESIDENTE:
@@ -496,10 +504,7 @@ def editar_departamento(
         and departamento.propietario_id == departamento.inquilino_id
     ):
         db.rollback()
-        raise _mal_pedido(
-            "La misma persona no puede ser propietaria e inquilina de la misma "
-            "unidad."
-        )
+        raise errores.ErrorDeNegocio(errores.PROPIETARIO_ES_INQUILINO)
 
     _guardar(db, f"edicion de la unidad {departamento_id}")
     db.refresh(departamento)
@@ -530,9 +535,9 @@ def borrar_departamento(
     departamento = buscar_departamento(db, edificio, departamento_id)
 
     if departamento.ocupado:
-        raise _mal_pedido(
-            f"La unidad {departamento.identificador} tiene a alguien asignado. "
-            "Desvinculá al propietario o al inquilino antes de borrarla."
+        raise errores.ErrorDeNegocio(
+            errores.UNIDAD_CON_RESIDENTE,
+            identificador=departamento.identificador,
         )
 
     cocheras = db.scalar(
@@ -541,10 +546,13 @@ def borrar_departamento(
         )
     )
     if cocheras:
-        raise _mal_pedido(
-            f"La unidad {departamento.identificador} tiene {cocheras} "
-            f"{'cochera' if cocheras == 1 else 'cocheras'} asignada"
-            f"{'' if cocheras == 1 else 's'}. Desasignalas primero."
+        raise errores.ErrorDeNegocio(
+            errores.UNIDAD_CON_COCHERAS,
+            identificador=departamento.identificador,
+            cuantas=(
+                f"{cocheras} {'cochera' if cocheras == 1 else 'cocheras'} "
+                f"asignada{'' if cocheras == 1 else 's'}"
+            ),
         )
 
     db.delete(departamento)
@@ -564,10 +572,7 @@ def _verificar_cochera(
         return
 
     if tipo != COCHERA_FIJA:
-        raise _mal_pedido(
-            "Una cochera rotativa no se asigna a una unidad: rotativa significa "
-            "justamente que no es de nadie en particular."
-        )
+        raise errores.ErrorDeNegocio(errores.COCHERA_ROTATIVA_ASIGNADA)
 
     # La unidad tiene que ser de ESTE edificio. Sin esta verificacion se podria
     # asignar una cochera a una unidad de otro consorcio pasando su id.
@@ -593,7 +598,9 @@ def crear_cochera(
             Cochera.edificio_id == edificio.id, Cochera.numero == datos.numero
         )
     ).first():
-        raise _mal_pedido(f"Este edificio ya tiene una cochera {datos.numero}.")
+        raise errores.ErrorDeNegocio(
+            errores.COCHERA_REPETIDA, numero=datos.numero
+        )
 
     _verificar_cochera(db, edificio, datos.tipo, datos.departamento_id)
 
@@ -636,8 +643,8 @@ def editar_cochera(
                 Cochera.id != cochera.id,
             )
         ).first():
-            raise _mal_pedido(
-                f"Este edificio ya tiene una cochera {cambios['numero']}."
+            raise errores.ErrorDeNegocio(
+                errores.COCHERA_REPETIDA, numero=cambios["numero"]
             )
 
     # Se valida el resultado FINAL y no lo que vino en el pedido: cambiar una
@@ -744,7 +751,9 @@ def crear_espacio(
             EspacioComun.nombre == datos.nombre,
         )
     ).first():
-        raise _mal_pedido(f"Este edificio ya tiene un espacio «{datos.nombre}».")
+        raise errores.ErrorDeNegocio(
+            errores.ESPACIO_REPETIDO, nombre=datos.nombre
+        )
 
     espacio = EspacioComun(
         edificio_id=edificio.id,
@@ -784,8 +793,8 @@ def editar_espacio(
                 EspacioComun.id != espacio.id,
             )
         ).first():
-            raise _mal_pedido(
-                f"Este edificio ya tiene un espacio «{cambios['nombre']}»."
+            raise errores.ErrorDeNegocio(
+                errores.ESPACIO_REPETIDO, nombre=cambios["nombre"]
             )
 
     for campo, valor in cambios.items():

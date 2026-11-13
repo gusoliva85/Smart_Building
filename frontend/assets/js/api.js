@@ -38,7 +38,14 @@
 
   /* Un solo tipo de error para todo el frontend, con el codigo HTTP adentro.
      Eso es lo que permite que una pantalla distinga un 409 ("necesito que
-     confirmes") de un 400 cualquiera sin parsear el texto del mensaje. */
+     confirmes") de un 400 cualquiera sin parsear el texto del mensaje.
+
+     Desde `F1-T29` tambien lleva `codigo`: el codigo estable del catalogo del
+     backend (`CUENTA_INHABILITADA`, `PISO_CON_UNIDADES`…). Es lo que permite
+     que una pantalla reaccione distinto a dos errores del mismo codigo HTTP
+     **sin comparar el texto en castellano**, que cambia en cuanto alguien
+     corrige una tilde. La regla: una pantalla decide por `codigo` y muestra
+     `message`; nunca decide por `message`. */
   function ErrorApi(mensaje, estado, datos) {
     var error = new Error(mensaje);
     error.name = 'ErrorApi';
@@ -46,14 +53,29 @@
     error.datos = datos || null;  // cuerpo crudo, cuando el backend manda mas
     error.esDeRed = estado === 0;
     error.necesitaConfirmacion = estado === 409;
+
+    /* El codigo del catalogo y el detalle por campo. Vacios cuando el error no
+       viene del backend —un fallo de red no tiene codigo de negocio— asi que
+       quien los lee no necesita preguntar si existen. */
+    error.codigo = (datos && datos.codigo) || '';
+    error.campos = (datos && datos.campos) || {};
+
     return error;
   }
 
-  /* FastAPI devuelve el mensaje en "detail". Cuando la validacion de Pydantic
-     rechaza el cuerpo (422), "detail" es una LISTA de problemas por campo, no
-     un texto: hay que armar algo legible en vez de mostrar "[object Object]". */
+  /* El camino de abajo quedo como respaldo. El backend del proyecto ya no
+     manda errores asi, pero un 422 lo puede generar FastAPI antes de llegar al
+     manejador —un cuerpo que no es JSON valido, por ejemplo— y entonces
+     "detail" vuelve a ser una LISTA de problemas por campo. Sin esto se
+     mostraria "[object Object]". */
   function mensajeDelCuerpo(cuerpo, estado) {
     if (!cuerpo) return 'Error ' + estado;
+
+    /* Desde `F1-T29` el backend manda `mensaje` en todos sus errores, ya
+       redactado y en castellano — incluido el 422 de validacion, que antes
+       llegaba como una lista de problemas en ingles que este envoltorio tenia
+       que armar a mano. Se mira primero. */
+    if (typeof cuerpo.mensaje === 'string' && cuerpo.mensaje) return cuerpo.mensaje;
 
     var detalle = cuerpo.detail;
 
@@ -67,8 +89,6 @@
         return campo ? campo + ': ' + problema.msg : problema.msg;
       }).join(' · ');
     }
-
-    if (typeof cuerpo.mensaje === 'string') return cuerpo.mensaje;
 
     return 'Error ' + estado;
   }

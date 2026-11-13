@@ -46,12 +46,12 @@ tiene nada que ver con lo que paso.
 from collections.abc import Callable
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core import config, security
+from app.core import config, errores, security
 from app.database import obtener_db
 from app.models.usuario import Usuario
 from app.services import autorizacion
@@ -79,13 +79,14 @@ esquema_oauth2 = OAuth2PasswordBearer(
 # Un solo mensaje para todos los motivos de rechazo. Distinguir "token vencido"
 # de "firma invalida" de "usuario inactivo" hacia afuera le iria contando a
 # quien prueba credenciales cual de sus intentos estuvo mas cerca.
-_NO_AUTORIZADO = HTTPException(
-    status_code=status.HTTP_401_UNAUTHORIZED,
-    detail="No se pudo validar la sesión. Volvé a iniciar sesión.",
+# El texto sale del catalogo de `core/errores.py` (`F1-T29`), que es el unico
+# lugar del proyecto donde se escribe un mensaje de error.
+_NO_AUTORIZADO = errores.ErrorDeNegocio(
+    errores.SESION_INVALIDA,
     # Sin este header la respuesta no cumple el estandar de HTTP para un 401, y
     # el boton "Authorize" de /docs no se da cuenta de que tiene que volver a
     # pedir credenciales.
-    headers={"WWW-Authenticate": "Bearer"},
+    cabeceras={"WWW-Authenticate": "Bearer"},
 )
 
 
@@ -154,14 +155,13 @@ ejecucion y no al importar.
 # ---------------------------------------------------------------------------
 
 
-def _prohibido(mensaje: str) -> HTTPException:
-    """Un 403 con un mensaje de negocio.
-
-    Sin `WWW-Authenticate`, a proposito: ese header significa "volve a
-    autenticarte", y acá la autenticacion ya salio bien. Lo que falta son
-    permisos, y volver a loguearse no los da.
-    """
-    return HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=mensaje)
+# Los dos rechazos de permiso se levantan por codigo desde el catalogo, igual
+# que el resto de los mensajes del sistema: asi la pantalla puede distinguir
+# "no es tu rol" de "tu rol no escribe" sin leer el castellano.
+#
+# Ninguno de los dos lleva `WWW-Authenticate`, a proposito: ese header
+# significa "volve a autenticarte", y acá la autenticacion ya salio bien. Lo
+# que falta son permisos, y volver a loguearse no los da.
 
 
 def exigir_roles(*roles: str) -> Callable[[Usuario], Usuario]:
@@ -195,7 +195,7 @@ def exigir_roles(*roles: str) -> Callable[[Usuario], Usuario]:
 
     def verificar(usuario: UsuarioActual) -> Usuario:
         if usuario.rol not in permitidos:
-            raise _prohibido(f"Esta acción es solo para: {etiquetas}.")
+            raise errores.ErrorDeNegocio(errores.SIN_PERMISO, quienes=etiquetas)
         return usuario
 
     return verificar
@@ -222,9 +222,9 @@ def exigir_que_pueda_escribir(usuario: UsuarioActual) -> Usuario:
     para las guardas que no necesitan devolver nada.
     """
     if autorizacion.es_solo_lectura(usuario.rol):
-        raise _prohibido(
-            f"{autorizacion.etiqueta(usuario.rol)} es un rol de consulta: "
-            "puede ver la información pero no modificarla."
+        raise errores.ErrorDeNegocio(
+            errores.ROL_DE_SOLO_LECTURA,
+            rol=autorizacion.etiqueta(usuario.rol),
         )
     return usuario
 

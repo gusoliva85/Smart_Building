@@ -1254,6 +1254,39 @@ Para un dato que el usuario necesita copiar y pegar en otro lado — el caso de 
 
 `assets/js/copiar.js` (`window.Copiar.alPortapapeles(boton, texto)`) hace el `navigator.clipboard.writeText` y da feedback inmediato: el ícono cambia a un check por 1.5s y el `aria-label` pasa a "Copiado" — heurística "visibilidad del estado del sistema", el usuario nunca se queda sin saber si el click copió algo de verdad. Si el navegador no da permiso de portapapeles, el botón simplemente no da feedback — no rompe el resto del flujo.
 
+## Lista numerada dentro de un bloque (`.bloque-lista`)
+
+Para enumerar opciones o pasos dentro de un bloque de formulario. Nació el 2026-11-12 con las tres formas de cargar un coeficiente, que estaban escritas como un párrafo corrido: **una enumeración en prosa obliga a leerla entera para encontrar la opción que se busca.**
+
+```html
+<p class="bloque-nota">Los coeficientes se pueden cargar de tres maneras:</p>
+<ol class="bloque-lista">
+  <li><b>A mano, unidad por unidad.</b> Es la que refleja el reglamento del consorcio.</li>
+  <li><b>Con un reparto automático.</b> En partes iguales, o por metro cuadrado — este último necesita las superficies ya cargadas.</li>
+  <li><b>Cargando algunas a mano y completando el resto.</b> Reparte lo que falta entre las unidades que quedaron en blanco <i>(no toca ninguna de las que ya cargaste)</i>.</li>
+</ol>
+```
+
+Es la hermana de `.campo-requisitos` —misma familia, mismo gris— pero en bloque y numerada: ahí los requisitos son equivalentes entre sí y van en línea, acá cada ítem es una alternativa distinta y el número sirve para referenciarla ("la tercera opción"). **El número se dibuja con `counter()`** sobre un círculo de `--accent-soft` con texto `--accent-2` (5,89:1 en claro, 8,72:1 en oscuro), no con el marcador nativo de `<ol>`, que no se puede alinear ni tipografiar.
+
+**Tres niveles de énfasis sin inventar tamaños nuevos:** el título del ítem en `--ink-2` con `<b>`, el cuerpo en `--ink-3`, y la aclaración entre paréntesis **en el mismo `--ink-3`** — no en `--ink-4`. Ese token es para placeholders e iconografía apagada (2,13:1 sobre el vidrio) y una aclaración del tipo "no toca ninguna de las que ya cargaste" es justamente la frase que hay que poder leer. El menor énfasis lo dan los paréntesis, que es tipografía y no color.
+
+## Cómo se muestra un error del backend (`.mensaje-error`) — regla fija
+
+**Hay un solo formato y no se discute por pantalla.** Todo error que devuelve la API se muestra en un `.mensaje-error` (ícono + texto, tono `--crit`), ubicado **donde ocurrió la acción**:
+
+| Dónde falló | Dónde va el aviso |
+|---|---|
+| Al guardar un formulario en un modal | **Dentro del modal**, arriba del formulario. El modal **no se cierra**: lo tipeado queda en su lugar. |
+| Al traer un listado | Arriba de la lista, y la lista se **vacía** — dejar las filas viejas debajo de un error de recarga muestra datos que ya no se sabe si siguen siendo ciertos. |
+| Al guardar un bloque de una pantalla con pestañas | Arriba de las pestañas, con `scrollIntoView` si quedó fuera de la vista: un error que no se ve es un error que no existe para quien aprieta el botón por segunda vez. |
+
+**Tres cosas que nunca se hacen:** inventar otro formato de aviso para una pantalla nueva, mandar el error solo a la consola, y usar `alert()` (los diálogos nativos están prohibidos en todo el proyecto).
+
+**El texto es el que mandó el servidor, sin reescribir.** Desde `F1-T29` el backend tiene un catálogo único (`core/errores.py`): los mensajes ya vienen redactados, en castellano y con el nombre legible de cada campo. Una pantalla que redacte su propia versión de un error del backend crea una segunda fuente del mismo texto, que es exactamente lo que ese catálogo vino a eliminar. Lo que sí escribe la pantalla son sus propias validaciones previas ("Completá el nombre y el email"), que existen para no gastar un viaje de red.
+
+**Y la pantalla decide por `error.codigo`, nunca comparando el texto.** `api.js` entrega el código estable del catálogo (`CUENTA_INHABILITADA`, `PISO_CON_UNIDADES`), y es lo que permite reaccionar distinto a dos errores del mismo código HTTP. Comparar el castellano rompe la pantalla el día que alguien corrige una tilde. El primer uso real: el login no borra el campo de contraseña cuando el código es `CUENTA_INHABILITADA`, porque esa contraseña estaba bien.
+
 ## Mensaje de éxito (`.mensaje-exito`)
 
 Misma estructura que `.mensaje-error` (ícono + texto en una fila, `border-radius:var(--r-sm)`), tono `--ok` en vez de `--crit` — para confirmar que una acción se hizo bien, no solo para avisar que algo salió mal. Primer uso: "reclamo enviado" (Fase 3).

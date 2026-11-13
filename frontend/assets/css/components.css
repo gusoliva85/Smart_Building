@@ -1543,6 +1543,59 @@ a{ color:inherit; }
   color:var(--ink-3);
 }
 
+/* --- Lista numerada dentro de un bloque ---------------------------------- */
+/* Para enumerar opciones o pasos: las tres formas de cargar un coeficiente es
+   el primer uso. Va como lista y no como parrafo corrido porque es una
+   enumeracion — escrita como prosa hay que leerla entera para encontrar la
+   opcion que se busca.
+
+   Es la hermana de .campo-requisitos (misma familia, mismo gris) pero en
+   bloque y numerada: ahi los requisitos son iguales entre si y van en linea;
+   aca cada item es una alternativa distinta y el numero sirve para
+   referenciarla. El numero se dibuja con un contador y no con el marcador del
+   navegador, que no se puede alinear ni tipografiar. */
+.bloque-lista{
+  list-style:none;
+  counter-reset:paso;
+  margin:0 0 12px;
+  padding:0;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.bloque-lista li{
+  counter-increment:paso;
+  position:relative;
+  padding-left:26px;
+  font-size:12px;
+  line-height:1.5;
+  color:var(--ink-3);
+}
+.bloque-lista li::before{
+  content:counter(paso);
+  position:absolute;
+  left:0;
+  top:1px;
+  width:18px;
+  height:18px;
+  display:grid;
+  place-items:center;
+  border-radius:50%;
+  background:var(--accent-soft);
+  color:var(--accent-2);
+  font-family:Outfit,ui-sans-serif,system-ui,sans-serif;
+  font-size:10.5px;
+  font-weight:700;
+}
+/* El titulo de cada item en la tinta del cuerpo. La aclaracion entre
+   parentesis queda en el MISMO gris que el resto del item y no en --ink-4:
+   ese token es para placeholders e iconografia apagada —mide 2,13:1 sobre el
+   vidrio— y "no toca ninguna de las que ya cargaste" es justamente la frase
+   que hay que poder leer. El menor enfasis lo dan los parentesis, que es
+   tipografia y no color. */
+.bloque-lista b{ color:var(--ink-2); font-weight:700; }
+.bloque-lista i{ font-style:normal; }
+
 /* --- Dato de solo lectura ------------------------------------------------- */
 /* Para lo que se muestra y no se edita en esta pantalla (la direccion, el CP,
    la fecha de alta). Etiqueta chica arriba, valor abajo: la misma jerarquia

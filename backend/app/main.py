@@ -14,6 +14,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core import config
+from app.core.errores import registrar_manejadores
 from app.core.migraciones import sincronizar_esquema
 from app.routers import auth, coeficientes, edificios, estructura, usuarios
 
@@ -84,6 +85,12 @@ app.add_middleware(
 
 
 # Los routers se montan aca, uno por dominio y uno por fase. Todos bajo /api.
+# Los manejadores de error van ANTES de los routers, y no porque el orden
+# importe tecnicamente: es para que al leer este archivo quede claro que todo
+# lo que se monta abajo devuelve los errores con la misma forma. El catalogo y
+# los tres manejadores viven en `core/errores.py` (`F1-T29`).
+registrar_manejadores(app)
+
 app.include_router(auth.router, prefix=config.PREFIJO_API)
 app.include_router(usuarios.router, prefix=config.PREFIJO_API)
 app.include_router(edificios.router, prefix=config.PREFIJO_API)

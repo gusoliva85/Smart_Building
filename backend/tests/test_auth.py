@@ -116,23 +116,56 @@ def test_un_usuario_inactivo_no_puede_iniciar_sesion(cliente, db, usuario):
 
     respuesta = _login(cliente, usuario.email, PASSWORD_DE_PRUEBA)
 
-    assert respuesta.status_code == 401
+    assert respuesta.status_code == 403
+    assert "token" not in respuesta.text
 
 
-def test_el_usuario_inactivo_da_el_mismo_error_que_la_contrasenia_mala(
+def test_la_cuenta_inhabilitada_se_lo_dice_a_quien_sabe_su_contrasenia(
     cliente, db, usuario
 ):
-    """Distinguirlo le confirmaria a quien prueba que esa cuenta existe."""
-    inactivo = _login(cliente, usuario.email, PASSWORD_DE_PRUEBA)  # todavia activo
-    assert inactivo.status_code == 200
+    """`F1-T30`. Cambia el comportamiento anterior, y el motivo es concreto.
 
+    Antes este caso devolvia "email o contraseña incorrectos", que es mentira:
+    la contrasenia era correcta. La persona reintentaba la que ya habia puesto,
+    probaba otras, y terminaba pidiendo ayuda por el problema equivocado.
+
+    Decirselo no debilita nada: quien escribio la contrasenia correcta ya
+    demostro que la cuenta es suya, asi que esta informacion no le sirve a
+    nadie que no la tenga. La defensa que si importa es la del test de abajo.
+    """
     usuario.activo = False
     db.commit()
 
-    desactivado = _login(cliente, usuario.email, PASSWORD_DE_PRUEBA)
-    clave_mala = _login(cliente, usuario.email, "ClaveEquivocada1!")
+    respuesta = _login(cliente, usuario.email, PASSWORD_DE_PRUEBA)
 
-    assert desactivado.json() == clave_mala.json()
+    assert respuesta.status_code == 403
+    assert respuesta.json()["codigo"] == "CUENTA_INHABILITADA"
+    assert "inhabilitada" in respuesta.json()["mensaje"]
+
+
+def test_la_cuenta_inhabilitada_con_la_contrasenia_mal_no_revela_nada(
+    cliente, db, usuario
+):
+    """La mitad que sostiene la defensa, y es la que hay que no romper.
+
+    Con la contrasenia incorrecta, una cuenta inhabilitada tiene que contestar
+    **exactamente** lo mismo que cualquier credencial invalida. Si contestara
+    "inhabilitada" sin contrasenia correcta, el login volveria a servir para
+    averiguar que emails estan registrados: se prueba una lista de direcciones
+    con cualquier contrasenia y las que contestan distinto son las que existen.
+
+    Es el test que falla si alguien invierte el orden de las dos verificaciones
+    en el endpoint.
+    """
+    usuario.activo = False
+    db.commit()
+
+    desactivado_mal = _login(cliente, usuario.email, "ClaveEquivocada1!")
+    inexistente = _login(cliente, "no-registrada@prueba.com.ar", "ClaveEquivocada1!")
+
+    assert desactivado_mal.status_code == inexistente.status_code
+    assert desactivado_mal.json() == inexistente.json()
+    assert desactivado_mal.json()["codigo"] == "CREDENCIALES_INVALIDAS"
 
 
 # -------------------------------------------------------------- /auth/me -----

@@ -87,7 +87,8 @@ def test_el_tope_de_unidades_no_llega_a_necesitar_dos_letras():
     Si alguien sube `MAX_UNIDADES_POR_PISO` por encima de 26, este test falla y
     avisa que la numeracion de dos letras pasa a ser alcanzable de verdad — o
     sea que hay que revisar las pantallas que muestran identificadores, no solo
-    la constante.
+    la constante. Con el tope en 10 (2026-11-12) la numeracion llega hasta la
+    letra J.
     """
     estructura = finanzas.generar_estructura(
         cantidad_pisos=1, unidades_por_piso=finanzas.MAX_UNIDADES_POR_PISO

@@ -44,12 +44,12 @@ registros tienen que seguir diciendo quien los creo anios despues de que la
 persona dejo el consorcio.
 """
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core import security
+from app.core import errores, security
 from app.core.dependencies import SesionDB, SoloAdminGeneral
 from app.models.usuario import Usuario
 from app.schemas.usuario import (
@@ -87,10 +87,10 @@ def _buscar(db: Session, usuario_id: int) -> Usuario:
     """
     usuario = db.scalar(select(Usuario).where(Usuario.id == usuario_id))
     if usuario is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No existe un usuario con id {usuario_id}.",
-        )
+        # El mensaje del catalogo ya no nombra el id, y es a proposito: un id
+        # interno no le dice nada a quien esta del otro lado de la pantalla, y
+        # la regla `FX-T11` pide que ningun error muestre estructura interna.
+        raise errores.ErrorDeNegocio(errores.USUARIO_NO_ENCONTRADO)
     return usuario
 
 
@@ -109,14 +109,7 @@ def _verificar_que_no_se_desactiva_a_si_mismo(
     de la misma regla es una copia que en algun momento queda sin corregir.
     """
     if quien_edita.id == objetivo.id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "No podés desactivar tu propia cuenta. Si lo hicieras no "
-                "podrías volver a iniciar sesión, y hace falta otro "
-                "administrador para reactivarla."
-            ),
-        )
+        raise errores.ErrorDeNegocio(errores.NO_PODES_DESACTIVARTE)
 
 
 def _verificar_que_no_se_cambia_el_rol_a_si_mismo(
@@ -137,14 +130,7 @@ def _verificar_que_no_se_cambia_el_rol_a_si_mismo(
     administrador.
     """
     if quien_edita.id == objetivo.id and rol_nuevo != objetivo.rol:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=(
-                "No podés cambiarte el rol a vos mismo. Al dejar de ser "
-                "Administrador General perderías el permiso para volver a "
-                "cambiarlo."
-            ),
-        )
+        raise errores.ErrorDeNegocio(errores.NO_PODES_CAMBIARTE_EL_ROL)
 
 
 def _guardar(db: Session, usuario: Usuario) -> Usuario:
@@ -159,9 +145,7 @@ def _guardar(db: Session, usuario: Usuario) -> Usuario:
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(
-            status_code=_CODIGO_EMAIL_REPETIDO, detail=_MENSAJE_EMAIL_REPETIDO
-        ) from None
+        raise errores.ErrorDeNegocio(errores.EMAIL_REPETIDO) from None
     db.refresh(usuario)
     return usuario
 
@@ -179,9 +163,7 @@ def _verificar_que_el_email_esta_libre(
     if excepto_id is not None:
         consulta = consulta.where(Usuario.id != excepto_id)
     if db.scalar(consulta) is not None:
-        raise HTTPException(
-            status_code=_CODIGO_EMAIL_REPETIDO, detail=_MENSAJE_EMAIL_REPETIDO
-        )
+        raise errores.ErrorDeNegocio(errores.EMAIL_REPETIDO)
 
 
 # ------------------------------------------------------------------- alta ----

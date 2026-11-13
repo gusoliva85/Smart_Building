@@ -30,12 +30,27 @@ from app.core.dependencies import (
     exigir_que_pueda_escribir,
     exigir_roles,
 )
+from app.core.errores import registrar_manejadores
 from app.database import obtener_db
 from app.services import autorizacion
 
 # --------------------------------------------------- aplicacion de juguete ---
 
 juguete = FastAPI()
+
+# Los manejadores de error del catalogo, igual que en `main.py`.
+#
+# Hacen falta porque desde `F1-T29` las dependencias de autorizacion levantan
+# `ErrorDeNegocio` —no `HTTPException`— y eso **solo se convierte en una
+# respuesta HTTP si la aplicacion tiene el manejador registrado**. Sin esta
+# linea, los rechazos de permiso de esta app de juguete no son un 403: son una
+# excepcion sin atender, y los tests fallan con un error que no dice que falta
+# registrar nada.
+#
+# Es la contracara de centralizar los mensajes, y conviene tenerla escrita:
+# cualquier aplicacion que monte estas dependencias —hoy la real y esta de
+# prueba— tiene que registrar los manejadores.
+registrar_manejadores(juguete)
 
 
 @juguete.get("/cualquiera")

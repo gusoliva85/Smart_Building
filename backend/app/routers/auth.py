@@ -20,13 +20,13 @@ interfaz no tiene que declarar su propia copia de la matriz.
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core import security
+from app.core import errores, security
 from app.core.dependencies import UsuarioActual
 from app.database import obtener_db
 from app.models.usuario import Usuario
@@ -63,14 +63,13 @@ def login(
     email = normalizar_email(formulario.username)
     usuario = db.scalar(select(Usuario).where(Usuario.email == email))
 
-    # Un unico mensaje y un unico codigo para los tres casos: el usuario no
-    # existe, la contrasenia esta mal, o el usuario esta desactivado.
+    # Un unico mensaje y un unico codigo para los dos casos que dependen de si
+    # la cuenta existe: el email no esta registrado, o la contrasenia esta mal.
     #
     # Es deliberado. Si "ese email no existe" y "esa contrasenia es incorrecta"
     # dieran respuestas distintas, el login se convertiria en una herramienta
     # para averiguar que direcciones estan registradas en el sistema, probando
-    # emails de a uno. Y distinguir al usuario inactivo le confirmaria a quien
-    # pruebe que esa cuenta existe.
+    # emails de a uno.
     #
     # La verificacion de la contrasenia se corre IGUAL cuando el usuario no
     # existe, contra un hash descartable. Si se cortara antes, la respuesta del
@@ -84,12 +83,32 @@ def login(
     if not security.verificar_password(formulario.password, usuario.password_hash):
         raise _CREDENCIALES_INVALIDAS
 
-    # Un usuario inactivo no inicia sesion. Y como `obtener_usuario_actual`
-    # vuelve a verificar `activo` en cada request, tampoco sigue operando con
-    # un token que ya tenia: la baja es efectiva en el momento, no cuando el
-    # token vence.
+    # ======================================================================
+    # EL ESTADO DE LA CUENTA SE EVALUA RECIEN ACA, Y EL ORDEN ES LA TAREA
+    # ======================================================================
+    #
+    # `F1-T30`. Hasta esta linea, toda respuesta tiene que ser identica para una
+    # cuenta que existe y para una que no. **Pasada la verificacion de la
+    # contrasenia eso cambia:** quien la escribio correctamente ya demostro que
+    # la cuenta es suya, asi que contarle su situacion no le informa nada a un
+    # atacante que no tenga ya la contrasenia.
+    #
+    # Invertir estos dos pasos —mirar `activo` antes de verificar la
+    # contrasenia— volveria a abrir la enumeracion completa de cuentas:
+    # responder "inhabilitada" sin contrasenia correcta confirma que ese email
+    # existe. **El orden de estas dos verificaciones ES la defensa**, y hay un
+    # test que falla si se invierten.
+    #
+    # Antes de `F1-T30` este caso devolvia "email o contraseña incorrectos", que
+    # es mentira: la contrasenia era correcta. La persona reintentaba la que ya
+    # habia puesto, probaba otras, y terminaba pidiendo ayuda por el problema
+    # equivocado.
+    #
+    # Un usuario inhabilitado tampoco sigue operando con un token que ya tenia:
+    # `obtener_usuario_actual` vuelve a verificar `activo` en cada request, asi
+    # que la baja es efectiva en el momento y no cuando el token vence.
     if not usuario.activo:
-        raise _CREDENCIALES_INVALIDAS
+        raise errores.ErrorDeNegocio(errores.CUENTA_INHABILITADA)
 
     return Token(access_token=security.crear_token_de_acceso(usuario.id))
 
@@ -289,10 +308,9 @@ escritos en dos lugares son dos textos que en algun momento dejan de ser
 iguales, y la diferencia volveria a distinguir el email que existe del que no.
 """
 
-_CREDENCIALES_INVALIDAS = HTTPException(
-    status_code=status.HTTP_401_UNAUTHORIZED,
-    detail="Email o contraseña incorrectos.",
-    headers={"WWW-Authenticate": "Bearer"},
+_CREDENCIALES_INVALIDAS = errores.ErrorDeNegocio(
+    errores.CREDENCIALES_INVALIDAS,
+    cabeceras={"WWW-Authenticate": "Bearer"},
 )
 
 # Un hash real de una contrasenia que no le sirve a nadie, calculado una sola
