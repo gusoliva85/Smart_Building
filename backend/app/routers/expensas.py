@@ -83,6 +83,7 @@ from app.models.finanzas import (
 )
 from app.routers.edificios import buscar_edificio_que_administra
 from app.routers.gastos import _rango_del_periodo
+from app.routers.pagos import periodos_publicados_de
 from app.schemas.finanzas import (
     DetalleLeer,
     ExpensaDeUnidad,
@@ -91,7 +92,8 @@ from app.schemas.finanzas import (
     ExpensaResumen,
     UnidadLiquidadaLeer,
 )
-from app.services import expensas, finanzas, rubros
+from app.services import deudores, expensas, finanzas, rubros
+from app.services import pagos as pagos_servicio
 
 logger = logging.getLogger(__name__)
 
@@ -194,6 +196,64 @@ def _gastos_por_rubro(
     return [
         (nombre, por_rubro[nombre]) for nombre in rubros.RUBROS if nombre in por_rubro
     ]
+
+
+def _deuda_y_saldo_de_las_unidades(
+    db: Session,
+    edificio: Edificio,
+    unidades: list[Departamento],
+) -> tuple[dict[int, Decimal], dict[int, Decimal]]:
+    """Cuanto debe vencido y cuanto tiene a favor cada unidad, hoy.
+
+    Devuelve los dos diccionarios que `expensas.liquidar()` espera. Es la
+    costura que `F2-T05` dejo marcada con `PENDIENTE F2-T08` y que se cierra
+    recien ahora, porque **las dos cosas necesitan los pagos**: el recargo se
+    calcula sobre lo que quedo vencido e impago, y el saldo a favor sobre lo
+    que se pago de mas.
+
+    ======================================================================
+    LA BASE DEL RECARGO ES EL CAPITAL, NO EL SALDO
+    ======================================================================
+
+    Se usa `capital_vencido` y no `vencido`. La diferencia es la regla que
+    evita el absurdo: el saldo de un periodo impago **incluye el recargo que ya
+    se le cargo**, asi que calcular el recargo nuevo sobre el saldo seria
+    cobrar recargo sobre el recargo, y una deuda chica se multiplicaria sola.
+
+    ======================================================================
+    EL RECARGO SE COBRA UNA VEZ POR LIQUIDACION, SOBRE EL CAPITAL QUE SIGUE
+    IMPAGO
+    ======================================================================
+
+    Esto conviene tenerlo escrito porque es lo que decide cuanto se cobra: una
+    unidad que debe noviembre recibe recargo al generarse diciembre; si en
+    enero sigue sin pagar noviembre, **vuelve a recibir recargo sobre ese
+    mismo capital**. Es interes simple mensual sobre lo que sigue impago, que
+    es como funciona en la practica del rubro, y no interes compuesto — el
+    capital nunca crece.
+
+    Si lo que se quisiera fuera cobrar el recargo **una sola vez en la vida de
+    la deuda**, hay que cambiarlo aca y en ningun otro lado.
+    """
+    vencido: dict[int, Decimal] = {}
+    a_favor: dict[int, Decimal] = {}
+
+    for unidad in unidades:
+        periodos = periodos_publicados_de(
+            db, unidad.id, edificio.dias_vencimiento_expensas
+        )
+        if not periodos:
+            continue
+
+        deudor = deudores.armar_deudor(unidad.id, unidad.identificador, periodos)
+        if deudor.capital_vencido > 0:
+            vencido[unidad.id] = deudor.capital_vencido
+
+        cuenta = pagos_servicio.armar_cuenta(periodos)
+        if cuenta.saldo_a_favor > 0:
+            a_favor[unidad.id] = cuenta.saldo_a_favor
+
+    return vencido, a_favor
 
 
 def _buscar_expensa_del_periodo(
@@ -336,17 +396,18 @@ def generar(
 
     # -------------------------------------------------------- el calculo ----
     #
-    # PENDIENTE F2-T08: aca van a entrar la deuda vencida y el saldo a favor
-    # de cada unidad, que hoy no se pueden averiguar porque el modelo `Pago`
-    # todavia no existe. Con los diccionarios vacios el recargo y el saldo dan
-    # cero, que es el comportamiento correcto mientras el recargo configurado
-    # sea cero. La logica ya esta escrita y probada en `services/expensas.py`.
+    # La costura que `F2-T05` dejo abierta y que `F2-T11` cierra: el recargo y
+    # el saldo a favor necesitaban los pagos, que llegaron en `F2-T08`. La
+    # logica no cambio una linea; lo unico que cambio es que ahora recibe datos
+    # reales en vez de diccionarios vacios.
+    vencido, a_favor = _deuda_y_saldo_de_las_unidades(db, edificio, unidades)
+
     partes = expensas.liquidar(
         total,
         [(unidad.id, unidad.coeficiente) for unidad in unidades],
-        porcentaje_mora=Decimal(0),
-        vencido_por_unidad={},
-        saldo_a_favor_por_unidad={},
+        porcentaje_mora=edificio.recargo_mora_porcentual or Decimal(0),
+        vencido_por_unidad=vencido,
+        saldo_a_favor_por_unidad=a_favor,
     )
 
     # ------------------------------------------- escribir, todo o nada ------

@@ -30,15 +30,23 @@ from app.models.edificio import (
     Piso,
 )
 from app.models.finanzas import (
+    Caja,
     Expensa,
     ExpensaDepartamento,
     ExpensaDetalle,
+    Factura,
+    Fondo,
     Gasto,
+    MovimientoCaja,
+    MovimientoFondo,
+    Pago,
+    Presupuesto,
 )
 from app.models.usuario import AsignacionEdificio, Usuario
 
 __all__: list[str] = [
     "AsignacionEdificio",
+    "Caja",
     "Cochera",
     "Departamento",
     "Edificio",
@@ -46,7 +54,13 @@ __all__: list[str] = [
     "Expensa",
     "ExpensaDepartamento",
     "ExpensaDetalle",
+    "Factura",
+    "Fondo",
     "Gasto",
+    "MovimientoCaja",
+    "MovimientoFondo",
+    "Pago",
+    "Presupuesto",
     "Piso",
     "Usuario",
 ]

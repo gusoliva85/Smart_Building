@@ -22,7 +22,11 @@ from app.routers import (
     edificios,
     estructura,
     expensas,
+    fondos,
     gastos,
+    pagos,
+    presupuestos,
+    reportes,
     usuarios,
 )
 
@@ -106,6 +110,10 @@ app.include_router(estructura.router, prefix=config.PREFIJO_API)
 app.include_router(coeficientes.router, prefix=config.PREFIJO_API)
 app.include_router(gastos.router, prefix=config.PREFIJO_API)
 app.include_router(expensas.router, prefix=config.PREFIJO_API)
+app.include_router(pagos.router, prefix=config.PREFIJO_API)
+app.include_router(fondos.router, prefix=config.PREFIJO_API)
+app.include_router(presupuestos.router, prefix=config.PREFIJO_API)
+app.include_router(reportes.router, prefix=config.PREFIJO_API)
 
 
 @app.get(f"{config.PREFIJO_API}/salud", tags=["Sistema"])

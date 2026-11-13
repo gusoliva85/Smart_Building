@@ -31,9 +31,15 @@ para lo que entre por fuera de la API.
 from datetime import date, datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 
-from app.services import rubros
+from app.services import pagos, rubros
 
 # Dos decimales: la columna es `Numeric(12,2)`. Se escribe una sola vez aca y
 # el modelo la declara igual; si alguna vez cambiara, cambia en los dos lados
@@ -48,6 +54,16 @@ MONTO_MAXIMO = Decimal("9999999999.99")
 # de diez mil caracteres entra sin que nada lo frene y despues rompe cualquier
 # listado.
 LARGO_DESCRIPCION = 500
+
+# Largo maximo del enlace al comprobante. Las URL de los servicios de archivos
+# son largas de verdad (tokens firmados incluidos), asi que el tope es alto; lo
+# que corta es que no sea ilimitado.
+LARGO_URL = 2000
+
+# Largo minimo del motivo de un rechazo. No es un numero arbitrario: con menos
+# de esto no se escribio un motivo, se escribio cualquier cosa para pasar la
+# validacion ("no", "mal"). Cinco caracteres dejan pasar "error" y frenan "x".
+LARGO_MINIMO_MOTIVO = 5
 
 
 def _monto_valido(valor: Decimal) -> Decimal:
@@ -303,6 +319,293 @@ class ExpensaDeUnidad(BaseModel):
     total_a_pagar: Decimal
 
     detalle: list[DetalleLeer]
+
+
+class PagoCargar(BaseModel):
+    """El pago que carga el residente.
+
+    **No se piden ni el edificio ni el piso**: el backend resuelve las unidades
+    de quien esta logueado. `departamento_id` solo hace falta cuando esa
+    persona tiene mas de una unidad en el edificio de esa liquidacion, y en ese
+    caso el servidor lo pide con un mensaje que dice cuales son.
+
+    Tampoco se pide el estado: un pago **siempre** nace pendiente. Si el
+    cliente pudiera mandarlo, podria mandarlo confirmado.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    expensa_id: int
+    monto: Decimal = Field(gt=0, le=MONTO_MAXIMO)
+    fecha: date
+    medio_pago: str
+    comprobante_url: str | None = Field(default=None, max_length=LARGO_URL)
+    departamento_id: int | None = None
+
+    @field_validator("medio_pago")
+    @classmethod
+    def del_catalogo(cls, valor: str) -> str:
+        if not pagos.es_medio_valido(valor):
+            raise ValueError(
+                "El medio de pago tiene que ser uno de estos: "
+                + ", ".join(pagos.MEDIOS_DE_PAGO)
+                + "."
+            )
+        return valor
+
+    @field_validator("monto")
+    @classmethod
+    def con_dos_decimales(cls, valor: Decimal) -> Decimal:
+        return _monto_valido(valor)
+
+    @field_validator("comprobante_url")
+    @classmethod
+    def una_direccion_de_verdad(cls, valor: str | None) -> str | None:
+        """Si se manda una URL, que sea una URL.
+
+        No se valida que exista ni que la pagina responda — eso seria pedirle
+        al backend que salga a internet por cada pago. Se valida la forma, que
+        ataja el caso real: pegar el nombre del archivo en vez del enlace.
+        """
+        if valor is None:
+            return None
+        limpio = valor.strip()
+        if not limpio:
+            return None
+        if not limpio.startswith(("http://", "https://")):
+            raise ValueError(
+                "El comprobante tiene que ser un enlace que empiece con "
+                "http:// o https://."
+            )
+        return limpio
+
+
+class PagoLeer(BaseModel):
+    """Un pago como lo lee la pantalla."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    expensa_id: int
+    periodo: str
+    departamento_id: int
+    identificador: str
+    monto: Decimal
+    fecha: date
+    medio_pago: str
+    medio_pago_etiqueta: str
+    comprobante_url: str | None
+    estado: str
+
+    # Lo que el residente tiene que leer, en palabras, sin que la pantalla
+    # arme el texto por su cuenta a partir del estado. Si el pago se rechazo,
+    # el mensaje **incluye el motivo**: es el dato con el que puede corregir.
+    mensaje: str
+    motivo_rechazo: str | None
+
+    # Para que la cola de conciliacion sepa que botones mostrar sin tener su
+    # propia copia de la tabla de transiciones.
+    estados_siguientes: list[str]
+
+
+class MedioDePagoLeer(BaseModel):
+    nombre: str
+    etiqueta: str
+
+
+class PagoConciliar(BaseModel):
+    """La decision de la administracion sobre un pago.
+
+    Un solo campo: a que estado pasa. **No se mandan dos endpoints distintos**
+    (uno para confirmar y otro para rechazar) porque la validacion es la misma
+    — la tabla de transiciones de `services/pagos.py`— y dos endpoints
+    significarian escribirla dos veces.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    estado: str
+    motivo: str | None = Field(default=None, max_length=LARGO_DESCRIPCION)
+
+    @field_validator("estado")
+    @classmethod
+    def uno_de_los_dos_finales(cls, valor: str) -> str:
+        """Solo `confirmado` o `rechazado`.
+
+        `pendiente` se rechaza aca y no en la tabla de transiciones porque es un
+        pedido mal formado y no una transicion imposible: nadie "concilia a
+        pendiente".
+        """
+        if valor not in (pagos.CONFIRMADO, pagos.RECHAZADO):
+            raise ValueError(
+                f"El estado tiene que ser {pagos.CONFIRMADO} o {pagos.RECHAZADO}."
+            )
+        return valor
+
+    @model_validator(mode="after")
+    def el_rechazo_lleva_motivo(self) -> "PagoConciliar":
+        """**Rechazar exige motivo; confirmar no lo admite.**
+
+        Las dos mitades importan. Sin motivo, un pago rechazado le dice al
+        residente que hable con la administracion y nada mas, y eso es
+        exactamente el llamado telefonico que el sistema existe para evitar:
+        los motivos reales son pocos y concretos —el comprobante no se ve, el
+        monto no coincide, la transferencia no aparecio en el extracto— y con
+        cualquiera de ellos escrito el residente resuelve solo.
+
+        Y un motivo en un pago **confirmado** no significa nada: quedaria
+        guardado un texto que ninguna pantalla muestra, que es como empiezan los
+        datos que nadie sabe de donde salieron.
+        """
+        limpio = (self.motivo or "").strip()
+
+        if self.estado == pagos.RECHAZADO:
+            if len(limpio) < LARGO_MINIMO_MOTIVO:
+                raise ValueError(
+                    "Para rechazar un pago hay que escribir el motivo, asi el "
+                    "residente sabe que corregir."
+                )
+            object.__setattr__(self, "motivo", limpio)
+        else:
+            if limpio:
+                raise ValueError(
+                    "Un pago confirmado no lleva motivo: el motivo es del "
+                    "rechazo."
+                )
+            object.__setattr__(self, "motivo", None)
+
+        return self
+
+
+class PagoDeGestionLeer(BaseModel):
+    """Un pago como lo ve la administracion, en la cola de conciliacion.
+
+    Lleva mas datos que `PagoLeer`: de que unidad es, quien lo cargo y —si ya
+    se concilio— quien y cuando. **El residente no necesita saber quien
+    concilio su pago; la administracion si**, porque es su propia traza de
+    auditoria.
+    """
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    expensa_id: int
+    periodo: str
+    departamento_id: int
+    identificador: str
+    monto: Decimal
+    fecha: date
+    medio_pago: str
+    medio_pago_etiqueta: str
+    comprobante_url: str | None
+    estado: str
+    estados_siguientes: list[str]
+
+    cargado_por: str
+    cargado_en: datetime
+    conciliado_por: str | None
+    conciliado_en: datetime | None
+    motivo_rechazo: str | None
+
+    # Si quien esta mirando puede conciliar **este** pago. Lo calcula el
+    # servidor: la pantalla no tiene por que saber la regla de que quien carga
+    # no concilia, y si la supiera tendria una copia que algun dia no coincide.
+    puedo_conciliarlo: bool
+
+
+class ColaDeConciliacion(BaseModel):
+    """El listado de pagos con los totales que la administracion necesita.
+
+    Los totales viajan calculados porque son la razon de ser de la pantalla:
+    "hay 12 pagos esperando por $840.000" es la frase que hace que alguien se
+    siente a conciliar. Sumarlos en el navegador daria el total de **la
+    pagina**, no el del filtro.
+    """
+
+    cantidad: int
+    total: Decimal
+    pagos: list[PagoDeGestionLeer]
+
+
+class PeriodoDeCuentaLeer(BaseModel):
+    """Un periodo en el estado de cuenta de una unidad."""
+
+    expensa_id: int
+    periodo: str
+    total_a_pagar: Decimal
+    pagado_confirmado: Decimal
+    pendiente_de_confirmar: Decimal
+    saldo: Decimal
+    esta_pago: bool
+
+
+class CuentaDeUnidadLeer(BaseModel):
+    """Una unidad con su estado de cuenta: lo que consume "Mi cuenta".
+
+    **Los tres totales van por separado y no netos entre si.** Un unico
+    "saldo final" mezclaria plata verificada con plata declarada, que es
+    exactamente la distincion que todo este modulo existe para mantener.
+    """
+
+    departamento_id: int
+    identificador: str
+    edificio_id: int
+    edificio_nombre: str
+    vinculo: str
+
+    deuda: Decimal
+    saldo_a_favor: Decimal
+    pendiente_de_confirmar: Decimal
+    esta_al_dia: bool
+
+    # Los datos para pagar, que es lo que la persona vino a buscar.
+    cbu: str | None
+    alias_cbu: str | None
+
+    periodos: list[PeriodoDeCuentaLeer]
+
+
+class DeudorLeer(BaseModel):
+    """Una unidad con su deuda, como la muestra la pantalla de Deudores.
+
+    **El saldo y lo vencido van por separado**, porque responden preguntas
+    distintas: cuanto hay que cobrarle, y que tan mal esta. Y la severidad la
+    calcula el servidor: si la pantalla la dedujera de los meses, el Dashboard
+    Visual y esta pantalla podrian pintar la misma unidad de colores distintos.
+    """
+
+    departamento_id: int
+    identificador: str
+
+    # Entero, igual que la columna: `Piso.numero` es un numero y no un texto.
+    piso_numero: int
+
+    # A quien hay que llamar. Sin esto, la pantalla de cobranza obliga a
+    # abrir la ficha de la unidad para cada deudor.
+    propietario: str | None
+    inquilino: str | None
+
+    saldo: Decimal
+    vencido: Decimal
+    meses_de_atraso: int
+    periodo_mas_viejo: str | None
+    periodos_impagos: list[str]
+    severidad: str
+
+
+class ListadoDeDeudores(BaseModel):
+    """Los deudores del edificio con los totales de la cartera.
+
+    Los totales viajan calculados: "17 unidades deben $2.400.000, de las cuales
+    $1.900.000 estan vencidos" es la foto que la administracion necesita, y
+    sumarla en el navegador daria el total de lo que se mostro.
+    """
+
+    cantidad_deudores: int
+    cantidad_unidades: int
+    total: Decimal
+    total_vencido: Decimal
+    deudores: list[DeudorLeer]
 
 
 class ListadoDeGastos(BaseModel):

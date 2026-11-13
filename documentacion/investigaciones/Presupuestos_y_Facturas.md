@@ -58,7 +58,11 @@ Una factura real en Argentina lleva datos formales de AFIP: tipo (A/B/C, según 
 
 ## 4. Estado de la implementación
 
-Implementado en `backend/app/models/presupuesto.py`:
+> **Al 2026-11-13, construido en `ver_4` como `F2-T14`.** Los dos modelos viven en `backend/app/models/finanzas.py` — no en un archivo propio como en la iteración anterior: en esta versión hay **un archivo de modelos por dominio** y todo el dinero de la Fase 2 (gastos, expensas, pagos, fondos, caja, presupuestos y facturas) está junto. Los estados viven en `app/services/presupuestos.py`, con el mismo patrón que los de pago y expensa. Los tests son `backend/tests/test_presupuestos.py`.
+>
+> **Todas las decisiones de la tabla de abajo se respetaron**, y se agregaron tres cosas que no estaban en el diseño original: `decidido_por_id` y `decidido_en` (un presupuesto aprobado sin nombre es una decisión de nadie), un **CHECK que impide que un presupuesto rechazado tenga `gasto_id`**, y un **UNIQUE (`gasto_id`, `numero`)** en facturas para atajar la doble carga del mismo papel.
+
+Diseño original (iteración anterior, `backend/app/models/presupuesto.py`):
 
 | Modelo | Campos clave |
 |---|---|

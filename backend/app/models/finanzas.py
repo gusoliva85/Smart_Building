@@ -47,6 +47,7 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Date,
     DateTime,
@@ -58,11 +59,12 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
-from app.services import expensas, rubros
+from app.services import expensas, fondos, pagos, presupuestos, rubros
 
 # La lista de rubros validos NO se escribe de nuevo aca: se arma desde la misma
 # tupla que usan los reportes y la pantalla. Si se escribiera dos veces, en
@@ -464,4 +466,716 @@ class ExpensaDepartamento(Base):
         return (
             f"<ExpensaDepartamento expensa={self.expensa_id} "
             f"departamento={self.departamento_id} total={self.total_a_pagar}>"
+        )
+
+
+# ===========================================================================
+# EL PAGO (`F2-T08`)
+# ===========================================================================
+
+_ESTADOS_PAGO_CHECK = ", ".join(f"'{estado}'" for estado in pagos.ESTADOS)
+_MEDIOS_CHECK = ", ".join(f"'{medio}'" for medio in pagos.MEDIOS_DE_PAGO)
+
+
+class Pago(Base):
+    """Un pago declarado por el residente, a conciliar por la administracion.
+
+    ========================================================================
+    ES UNA DECLARACION HASTA QUE ALGUIEN LA CONFIRMA
+    ========================================================================
+
+    Una fila de esta tabla no dice "entro esta plata": dice "alguien dice que
+    pago esto". **Solo el estado `confirmado` reduce la deuda** (la regla vive
+    en `services/pagos.py`), y para llegar ahi hace falta que una persona de la
+    administracion lo coteje contra el extracto bancario. Sin ese paso,
+    cualquier captura de pantalla borraria una deuda.
+
+    ========================================================================
+    DOS COLUMNAS QUE EL ROADMAP NO PEDIA Y SIN LAS CUALES LA REGLA NO SE
+    PUEDE CUMPLIR
+    ========================================================================
+
+    `cargado_por_id` y `conciliado_por_id`. La regla de `F2-T07` dice que
+    **quien carga un pago no lo concilia**, ni siquiera siendo administrador —
+    y el caso que de verdad pasa es el administrador que vive en el edificio.
+    Esa regla se escribe por **persona**, no por rol, asi que sin guardar quien
+    cargo el pago no hay forma de aplicarla.
+
+    Y `conciliado_por_id` es la contraparte: quien se hizo responsable de decir
+    "esta plata entro". Un circuito de dinero sin ese nombre es un circuito que
+    no se puede auditar, y la Fase 6 lo va a necesitar.
+
+    ========================================================================
+    EL PAGO APUNTA A UNA EXPENSA, Y ESO ES UNA DECISION
+    ========================================================================
+
+    `expensa_id` es **obligatorio**: cada pago se imputa a una liquidacion
+    concreta. En la realidad alguien transfiere una vez y cubre tres meses, y
+    con este modelo eso son tres pagos — uno por expensa.
+
+    Se eligio asi porque es lo trazable: con un "pago a cuenta" que se imputa
+    despues, el saldo de una unidad depende de como se repartio ese monto, y
+    ese reparto es una decision que quedaria sin registrar. Tres filas con su
+    comprobante repetido se entienden solas ocho meses mas tarde. **Lo que
+    tiene que hacer la pantalla es que esto sea obvio** y no una sorpresa
+    (`F2-T22`).
+    """
+
+    __tablename__ = "pagos"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    departamento_id: Mapped[int] = mapped_column(
+        ForeignKey("departamentos.id"),
+        nullable=False,
+        index=True,
+    )
+
+    expensa_id: Mapped[int] = mapped_column(
+        ForeignKey("expensas.id"),
+        nullable=False,
+        index=True,
+    )
+
+    monto: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+
+    # La fecha en que se pago, que la pone el residente y **no es la fecha de
+    # carga**: se paga el 10 y se sube el comprobante el 12. Las dos cosas se
+    # guardan por separado (`creado_en` es la segunda), porque la primera es la
+    # que decide si el pago entro en termino.
+    fecha: Mapped[date] = mapped_column(Date, nullable=False)
+
+    medio_pago: Mapped[str] = mapped_column(String(24), nullable=False)
+
+    # Mientras no haya almacenamiento propio de archivos, el comprobante es una
+    # URL que el residente pega (ya decidido para las fotos de reclamos). Es
+    # opcional: un pago en efectivo en la administracion no tiene comprobante
+    # digital, y exigirlo haria que se cargue cualquier cosa en el campo.
+    comprobante_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    estado: Mapped[str] = mapped_column(
+        String(16),
+        nullable=False,
+        default=pagos.PENDIENTE,
+        server_default=pagos.PENDIENTE,
+        index=True,
+    )
+
+    cargado_por_id: Mapped[int] = mapped_column(
+        ForeignKey("usuarios.id"),
+        nullable=False,
+    )
+
+    conciliado_por_id: Mapped[int | None] = mapped_column(
+        ForeignKey("usuarios.id"),
+        nullable=True,
+    )
+    conciliado_en: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    # Por que se rechazo, **obligatorio al rechazar** y nulo en cualquier otro
+    # caso. Un pago que desaparece sin explicacion es un llamado telefonico
+    # garantizado, y los motivos reales son pocos y concretos: el comprobante
+    # no se ve, el monto no coincide, la transferencia no aparecio en el
+    # extracto. Que el motivo sea obligatorio es lo que convierte el rechazo en
+    # algo que el residente puede resolver solo.
+    #
+    # La columna es anulable porque la mayoria de los pagos no se rechazan; que
+    # sea obligatoria **cuando se rechaza** lo garantiza el esquema de entrada,
+    # no la base: un CHECK condicional sobre dos columnas seria mas fragil de
+    # leer que la regla escrita donde se aplica.
+    motivo_rechazo: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    creado_en: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        server_default=func.current_timestamp(),
+    )
+
+    departamento = relationship("Departamento")
+    expensa = relationship("Expensa")
+    cargado_por = relationship("Usuario", foreign_keys=[cargado_por_id])
+    conciliado_por = relationship("Usuario", foreign_keys=[conciliado_por_id])
+
+    __table_args__ = (
+        # Un pago de cero no es un pago, y uno negativo seria una devolucion —
+        # que es otra operacion, con otra autorizacion.
+        CheckConstraint("monto > 0", name="ck_pagos_monto_positivo"),
+        CheckConstraint(
+            f"estado IN ({_ESTADOS_PAGO_CHECK})",
+            name="ck_pagos_estado_valido",
+        ),
+        CheckConstraint(
+            f"medio_pago IN ({_MEDIOS_CHECK})",
+            name="ck_pagos_medio_valido",
+        ),
+        # **No hay UNIQUE de (expensa, departamento).** Es deliberado: los
+        # pagos parciales estan permitidos, asi que una unidad puede pagar la
+        # misma expensa en dos o tres veces. Y un pago rechazado deja su fila,
+        # asi que el residente carga otro para la misma expensa.
+        #
+        # La consulta que mas se hace: los pagos de ESTA unidad por ESTA
+        # expensa, para calcular el saldo.
+        Index("ix_pagos_departamento_expensa", "departamento_id", "expensa_id"),
+        # Y la cola de conciliacion: los pendientes, de la mas vieja a la mas
+        # nueva.
+        Index("ix_pagos_estado_fecha", "estado", "fecha"),
+    )
+
+    @property
+    def reduce_la_deuda(self) -> bool:
+        """Si este pago efectivamente baja el saldo de la unidad."""
+        return pagos.reduce_la_deuda(self.estado)
+
+    @property
+    def esta_conciliado(self) -> bool:
+        return pagos.esta_conciliado(self.estado)
+
+    def __repr__(self) -> str:
+        return (
+            f"<Pago id={self.id} departamento={self.departamento_id} "
+            f"expensa={self.expensa_id} monto={self.monto} "
+            f"estado={self.estado!r}>"
+        )
+
+
+# ===========================================================================
+# LOS FONDOS (`F2-T12`)
+# ===========================================================================
+
+_TIPOS_MOVIMIENTO_CHECK = ", ".join(
+    f"'{tipo}'" for tipo in fondos.TIPOS_DE_MOVIMIENTO
+)
+
+
+class Fondo(Base):
+    """Una bolsa de plata separada del flujo corriente de gastos.
+
+    El **fondo de reserva** es el caso obligado — la ley de propiedad
+    horizontal lo exige— pero no es el unico: un consorcio junta plata para una
+    obra, para renovar el ascensor, para una contingencia. Cada uno es un fondo
+    con su propio historial.
+
+    ========================================================================
+    POR QUE ESTA SEPARADO DEL GASTO CORRIENTE
+    ========================================================================
+
+    Un gasto del mes se reparte entre las unidades y se cobra en la expensa de
+    ese mes. La plata de un fondo **ya se cobro**: esta guardada, y gastarla no
+    genera una expensa nueva. Mezclar las dos cosas en la misma tabla haria que
+    la suma de los gastos de un periodo incluyera plata que no hay que repartir,
+    y la expensa saldria mal.
+
+    ========================================================================
+    EL SALDO SE CALCULA, NO SE GUARDA
+    ========================================================================
+
+    No hay columna `saldo`, y es la decision central del modelo. Un saldo
+    guardado hay que actualizarlo en cada movimiento, y el dia que alguien
+    inserte un movimiento sin pasar por el endpoint —un script, una
+    correccion a mano— el numero queda mal **sin que nada falle**. Un saldo
+    calculado no puede desincronizarse: es la suma de los movimientos, y si los
+    movimientos estan bien el saldo esta bien.
+    """
+
+    __tablename__ = "fondos"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    edificio_id: Mapped[int] = mapped_column(
+        ForeignKey("edificios.id"),
+        nullable=False,
+        index=True,
+    )
+
+    nombre: Mapped[str] = mapped_column(String(80), nullable=False)
+    descripcion: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Un fondo que ya no se usa no se borra: tiene historial, y el historial de
+    # la plata de un consorcio no se tira. Se desactiva, y deja de ofrecerse
+    # para movimientos nuevos.
+    activo: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default=text("1"),
+    )
+
+    creado_en: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        server_default=func.current_timestamp(),
+    )
+
+    edificio = relationship("Edificio")
+    movimientos = relationship(
+        "MovimientoFondo",
+        back_populates="fondo",
+        cascade="all, delete-orphan",
+    )
+
+    __table_args__ = (
+        # Dos fondos con el mismo nombre en el mismo edificio son dos bolsas
+        # indistinguibles en cualquier reporte, y nadie se acordaria cual es
+        # cual tres meses despues.
+        UniqueConstraint("edificio_id", "nombre", name="uq_fondos_nombre"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<Fondo id={self.id} edificio={self.edificio_id} {self.nombre!r}>"
+
+
+class MovimientoFondo(Base):
+    """Un ingreso o un egreso de un fondo.
+
+    `tipo` es un catalogo cerrado de dos valores (`services/fondos.py`), y el
+    **monto siempre es positivo**: el signo lo da el tipo, no el numero.
+
+    Guardar egresos como montos negativos parece mas simple y es la fuente del
+    error clasico: un egreso cargado por error en positivo suma en vez de
+    restar, y la unica forma de notarlo es que el saldo no cierre. Con un tipo
+    explicito, cargar mal el signo es imposible — no hay signo que cargar.
+    """
+
+    __tablename__ = "movimientos_fondo"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    fondo_id: Mapped[int] = mapped_column(
+        ForeignKey("fondos.id"),
+        nullable=False,
+        index=True,
+    )
+
+    tipo: Mapped[str] = mapped_column(String(16), nullable=False)
+    monto: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    fecha: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    descripcion: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Quien lo registro. En un circuito de dinero, cada movimiento tiene un
+    # responsable — es la misma razon por la que un pago guarda quien lo
+    # concilio.
+    registrado_por_id: Mapped[int] = mapped_column(
+        ForeignKey("usuarios.id"),
+        nullable=False,
+    )
+
+    creado_en: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        server_default=func.current_timestamp(),
+    )
+
+    fondo = relationship("Fondo", back_populates="movimientos")
+    registrado_por = relationship("Usuario")
+
+    __table_args__ = (
+        # Un movimiento de cero no es un movimiento. Y negativo no puede ser:
+        # el signo lo da el tipo.
+        CheckConstraint("monto > 0", name="ck_mov_fondo_monto_positivo"),
+        CheckConstraint(
+            f"tipo IN ({_TIPOS_MOVIMIENTO_CHECK})",
+            name="ck_mov_fondo_tipo_valido",
+        ),
+        # La consulta del detalle de un fondo: sus movimientos por fecha.
+        Index("ix_mov_fondo_fecha", "fondo_id", "fecha"),
+    )
+
+    @property
+    def con_signo(self) -> Decimal:
+        """El monto con el signo que le corresponde, para sumar saldos.
+
+        Es la unica traduccion de tipo a signo que existe en el sistema, y
+        existe una sola vez a proposito: repetir `if tipo == "ingreso"` en cada
+        consulta es como se termina con un reporte que resta lo que otro suma.
+        """
+        return fondos.con_signo(self.tipo, self.monto)
+
+    def __repr__(self) -> str:
+        return (
+            f"<MovimientoFondo fondo={self.fondo_id} "
+            f"{self.tipo}={self.monto} {self.fecha}>"
+        )
+
+
+# ===========================================================================
+# LA CAJA CHICA (`F2-T13`)
+# ===========================================================================
+
+
+class Caja(Base):
+    """La caja chica del edificio, como **sistema de fondo fijo**.
+
+    ========================================================================
+    `monto_fijo` ES LA COLUMNA QUE LA DEFINE
+    ========================================================================
+
+    No es "cuanta plata tiene": es **el monto al que se repone**. Una caja
+    chica tiene un importe asignado, se gasta contra ella durante el mes, y
+    cuando baja el responsable rinde los comprobantes y se la devuelve a ese
+    importe. Sin esta columna, "reponer la caja" no tiene un objetivo numerico
+    contra el cual reponerse.
+
+    El primer diseno de este modelo **no tenia movimientos**: guardaba solo
+    "este edificio tiene esta persona responsable". No podia calcular saldo, ni
+    rendir cuentas, ni reponerse. El fundamento de la correccion, con las
+    fuentes consultadas, esta en `investigaciones/Caja_chica.md`.
+
+    ========================================================================
+    UNA CAJA POR EDIFICIO
+    ========================================================================
+
+    Y lo garantiza la base. Una caja chica es el efectivo que maneja **una**
+    persona para los gastos menores del dia; dos cajas en el mismo edificio no
+    son dos cajas chicas, son un fondo mal modelado. Si de verdad hiciera falta
+    separar plata para un destino propio, eso es un `Fondo`.
+    """
+
+    __tablename__ = "cajas"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    edificio_id: Mapped[int] = mapped_column(
+        ForeignKey("edificios.id"),
+        nullable=False,
+    )
+
+    monto_fijo: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+
+    # Quien tiene el efectivo y rinde los comprobantes. Es **obligatorio**: una
+    # caja chica sin responsable es plata de nadie, y la rendicion no tiene a
+    # quien pedirsele.
+    responsable_id: Mapped[int] = mapped_column(
+        ForeignKey("usuarios.id"),
+        nullable=False,
+    )
+
+    activo: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default=text("1"),
+    )
+
+    creado_en: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        server_default=func.current_timestamp(),
+    )
+
+    edificio = relationship("Edificio")
+    responsable = relationship("Usuario")
+    movimientos = relationship(
+        "MovimientoCaja",
+        back_populates="caja",
+        cascade="all, delete-orphan",
+    )
+
+    __table_args__ = (
+        UniqueConstraint("edificio_id", name="uq_cajas_edificio"),
+        # Una caja con monto fijo cero no es una caja: no hay nada que reponer
+        # ni contra que medir el disponible.
+        CheckConstraint("monto_fijo > 0", name="ck_cajas_monto_fijo_positivo"),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<Caja edificio={self.edificio_id} monto_fijo={self.monto_fijo}>"
+        )
+
+
+class MovimientoCaja(Base):
+    """Un movimiento de la caja chica: el libro de registro.
+
+    Mismo patron que `MovimientoFondo` y **los mismos dos tipos**, importados
+    del mismo catalogo: es el mismo concepto — entra plata o sale plata— y dos
+    tuplas paralelas con los mismos valores son el camino corto a que un
+    reporte sume lo que otro resta.
+
+    **Una reposicion es un movimiento de tipo `ingreso`**, no una operacion
+    especial ni un campo aparte. Es exactamente como funciona en la practica: la
+    reposicion es el movimiento que trae el disponible de vuelta al monto fijo.
+
+    El comprobante todavia no se adjunta — depende de la gestion documental de
+    la Fase 7— asi que `descripcion` es por ahora donde queda la constancia en
+    texto de contra que se gasto.
+    """
+
+    __tablename__ = "movimientos_caja"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    caja_id: Mapped[int] = mapped_column(
+        ForeignKey("cajas.id"),
+        nullable=False,
+        index=True,
+    )
+
+    tipo: Mapped[str] = mapped_column(String(16), nullable=False)
+    monto: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    fecha: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+    descripcion: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    registrado_por_id: Mapped[int] = mapped_column(
+        ForeignKey("usuarios.id"),
+        nullable=False,
+    )
+
+    creado_en: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        server_default=func.current_timestamp(),
+    )
+
+    caja = relationship("Caja", back_populates="movimientos")
+    registrado_por = relationship("Usuario")
+
+    __table_args__ = (
+        CheckConstraint("monto > 0", name="ck_mov_caja_monto_positivo"),
+        CheckConstraint(
+            f"tipo IN ({_TIPOS_MOVIMIENTO_CHECK})",
+            name="ck_mov_caja_tipo_valido",
+        ),
+        Index("ix_mov_caja_fecha", "caja_id", "fecha"),
+    )
+
+    @property
+    def con_signo(self) -> Decimal:
+        return fondos.con_signo(self.tipo, self.monto)
+
+    def __repr__(self) -> str:
+        return (
+            f"<MovimientoCaja caja={self.caja_id} "
+            f"{self.tipo}={self.monto} {self.fecha}>"
+        )
+
+
+# ===========================================================================
+# PRESUPUESTOS Y FACTURAS (`F2-T14`)
+# ===========================================================================
+#
+# Las dos puntas de la cadena de trazabilidad que el Documento General pide:
+#
+#     Presupuesto  →  Gasto  →  Factura  →  Pago
+#
+# El presupuesto es el "antes" (que nos cotizaron y que elegimos) y la factura
+# el "despues" (el comprobante de lo que efectivamente se contrato). En el
+# medio esta el `Gasto`, que ya existe desde `F2-T01`.
+#
+# **No hay orden de compra**, y es una decision tomada: la practica formal de
+# compras la tiene, pero un consorcio no — el gasto ya cumple ese rol.
+# Fundamento en `investigaciones/Presupuestos_y_Facturas.md`.
+
+_ESTADOS_PRESUPUESTO_CHECK = ", ".join(
+    f"'{estado}'" for estado in presupuestos.ESTADOS
+)
+
+
+class Presupuesto(Base):
+    """Una cotizacion recibida, con la decision que se tomo sobre ella.
+
+    ========================================================================
+    EL ESTADO ES LO QUE REGISTRA LA DECISION
+    ========================================================================
+
+    Sin estado, tres presupuestos cargados para el mismo arreglo son tres filas
+    indistinguibles y **cual se eligio no queda escrito en ningun lado** — que
+    es justamente la informacion que un consorcista puede pedir ver.
+
+    ========================================================================
+    NO SE EXIGE NINGUNA CANTIDAD
+    ========================================================================
+
+    Puede haber cero, uno o diez para el mismo arreglo, y el modelo no objeta
+    nada. Ninguna norma argentina exige un minimo de presupuestos antes de
+    aprobar un gasto: es buena practica, y lo fija el reglamento de cada
+    consorcio. Si alguna vez se pide "a partir de tal monto, exigir tres", eso
+    es configuracion del edificio y no una regla del modelo.
+
+    ========================================================================
+    `gasto_id` SI ES CLAVE FORANEA REAL, A DIFERENCIA DE `proveedor_id`
+    ========================================================================
+
+    La tabla `gastos` **ya existe**, asi que no hay motivo para diferir el
+    vinculo: cuando un presupuesto se aprueba y genera un gasto, se liga de una
+    vez. Es lo que cierra la comparacion entre **lo que se presupuesto** y **lo
+    que finalmente se pago**.
+
+    Es anulable porque un presupuesto puede quedar rechazado y nunca
+    convertirse en gasto — y porque ligarlo es un paso posterior a aprobarlo.
+
+    `proveedor_id`, en cambio, sigue siendo un entero suelto: la tabla
+    `proveedores` no existe hasta la Fase 7. Mismo criterio que en `Gasto`.
+    """
+
+    __tablename__ = "presupuestos"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    edificio_id: Mapped[int] = mapped_column(
+        ForeignKey("edificios.id"),
+        nullable=False,
+        index=True,
+    )
+
+    # Sin ForeignKey: la tabla destino llega en la Fase 7. Ver `Gasto`.
+    proveedor_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # Que se cotizo. **Obligatoria**, al contrario que en un gasto: un gasto se
+    # entiende por su rubro y su monto, pero un presupuesto sin descripcion es
+    # un numero sin objeto — y comparar tres numeros sin saber de que son no
+    # es comparar nada.
+    descripcion: Mapped[str] = mapped_column(Text, nullable=False)
+
+    monto: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    fecha: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+
+    estado: Mapped[str] = mapped_column(
+        String(16),
+        nullable=False,
+        default=presupuestos.PENDIENTE,
+        server_default=presupuestos.PENDIENTE,
+        index=True,
+    )
+
+    gasto_id: Mapped[int | None] = mapped_column(
+        ForeignKey("gastos.id"),
+        nullable=True,
+    )
+
+    # Quien tomo la decision y cuando. Un presupuesto aprobado sin nombre es
+    # una decision de nadie, y es la clase de dato que se pide meses despues.
+    decidido_por_id: Mapped[int | None] = mapped_column(
+        ForeignKey("usuarios.id"),
+        nullable=True,
+    )
+    decidido_en: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    creado_en: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        server_default=func.current_timestamp(),
+    )
+
+    edificio = relationship("Edificio")
+    gasto = relationship("Gasto")
+    decidido_por = relationship("Usuario")
+
+    __table_args__ = (
+        CheckConstraint("monto > 0", name="ck_presupuestos_monto_positivo"),
+        CheckConstraint(
+            f"estado IN ({_ESTADOS_PRESUPUESTO_CHECK})",
+            name="ck_presupuestos_estado_valido",
+        ),
+        # Un presupuesto rechazado no puede estar ligado a un gasto: diria "no
+        # elegimos esto" y "esto es lo que gastamos" a la vez. Lo ataja la base
+        # porque es una contradiccion de datos, no una regla de flujo.
+        CheckConstraint(
+            "gasto_id IS NULL OR estado <> 'rechazado'",
+            name="ck_presupuestos_rechazado_sin_gasto",
+        ),
+        Index("ix_presupuestos_edificio_estado", "edificio_id", "estado"),
+    )
+
+    @property
+    def esta_decidido(self) -> bool:
+        return presupuestos.esta_decidido(self.estado)
+
+    def __repr__(self) -> str:
+        return (
+            f"<Presupuesto id={self.id} edificio={self.edificio_id} "
+            f"monto={self.monto} estado={self.estado!r}>"
+        )
+
+
+class Factura(Base):
+    """El comprobante de un gasto real.
+
+    ========================================================================
+    SIEMPRE COLGADA DE UN GASTO, Y ESO NO ES OPCIONAL
+    ========================================================================
+
+    `gasto_id` es **obligatorio**. Una factura suelta no sirve para nada: lo
+    que se audita es el gasto, y la factura es lo que lo respalda. El Documento
+    General (6.8) lo dice sin margen: "vinculadas a su gasto correspondiente".
+
+    Por eso tampoco tiene `edificio_id`: el edificio sale del gasto. Repetirlo
+    seria poder guardar una factura de un edificio contra un gasto de otro.
+
+    ========================================================================
+    CARGAR UNA FACTURA ES OPCIONAL, Y NO TIENE QUE SER UNA FACTURA
+    ========================================================================
+
+    **Un gasto sin ninguna fila en esta tabla es un gasto perfectamente
+    valido.** Muchos gastos reales de un consorcio no tienen comprobante
+    formal: el arreglo que hizo un vecino, el flete que se pago en efectivo.
+    Nada en el sistema exige una factura para registrar un gasto, y esta tabla
+    existe para **guardar el respaldo cuando lo hay**, no para pedirlo.
+
+    Y lo que se guarda tampoco tiene que ser una factura en el sentido fiscal:
+    un recibo, un remito, un ticket. Por eso `numero` **tambien es opcional** —
+    un recibo escrito a mano no tiene numero, y exigirlo haria que alguien
+    escriba "sin numero" o "1" para poder guardar el dato que si tiene.
+
+    ========================================================================
+    `numero` ES TEXTO LIBRE, Y ES UNA DECISION
+    ========================================================================
+
+    Una factura argentina real lleva tipo (A/B/C), CUIT del emisor, punto de
+    venta, numero correlativo y CAE. **Nada de eso se modela por separado**,
+    porque este sistema no tiene —ni tiene planeada en ninguna fase del
+    Roadmap— integracion con AFIP: la factura se registra para la trazabilidad
+    interna del gasto, no para emitirse ni validarse.
+
+    Separar esos campos seria construir para una integracion que no existe. Se
+    guarda el comprobante completo como un texto ("B 0001-00000123"), que es lo
+    que alguien busca cuando quiere encontrar una factura.
+    """
+
+    __tablename__ = "facturas"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+
+    gasto_id: Mapped[int] = mapped_column(
+        ForeignKey("gastos.id"),
+        nullable=False,
+        index=True,
+    )
+
+    proveedor_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    # Anulable: un recibo escrito a mano no tiene numero. Ver la cabecera.
+    numero: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    monto: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
+    fecha: Mapped[date] = mapped_column(Date, nullable=False, index=True)
+
+    # Mientras no haya almacenamiento propio (Fase 7), un enlace. Mismo
+    # criterio que el comprobante de un pago.
+    archivo_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    creado_en: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        server_default=func.current_timestamp(),
+    )
+
+    gasto = relationship("Gasto")
+
+    __table_args__ = (
+        CheckConstraint("monto > 0", name="ck_facturas_monto_positivo"),
+        # La misma factura cargada dos veces contra el mismo gasto es el error
+        # de doble carga mas facil de cometer — dos personas archivando el
+        # mismo papel— y duplicaria el respaldo de un gasto que es uno solo.
+        #
+        # **Con `numero` nulo la restriccion no aplica**, y eso es lo correcto:
+        # la unicidad sobre una columna anulable admite muchos NULL, tanto en
+        # SQLite como en PostgreSQL. Dos recibos sin numero contra el mismo
+        # gasto son dos comprobantes distintos y tienen que poder cargarse; lo
+        # que se ataja es repetir **un numero**, que es lo que identifica un
+        # papel concreto.
+        UniqueConstraint("gasto_id", "numero", name="uq_facturas_gasto_numero"),
+    )
+
+    def __repr__(self) -> str:
+        return (
+            f"<Factura {self.numero!r} gasto={self.gasto_id} monto={self.monto}>"
         )

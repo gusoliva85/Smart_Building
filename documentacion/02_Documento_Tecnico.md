@@ -198,7 +198,7 @@ Es la convención central del proyecto. Un servicio contiene la regla de negocio
 
 **Endpoints construidos hasta acá:** `routers/auth.py` (login, registro público, política de contraseña), `routers/usuarios.py` (CRUD de usuarios), `routers/edificios.py` (`POST /api/edificios` el alta con estructura automática de `F1-T20`, `GET /api/edificios` y `GET /api/edificios/{id}` de `F1-T21`, y `PATCH /api/edificios/{id}` la configuración de `F1-T22`) `routers/estructura.py` (los trece endpoints anidados de `F1-T23`: pisos, departamentos, cocheras y espacios comunes bajo `/api/edificios/{id}/...`) y `routers/coeficientes.py` (los tres de `F1-T24`). Con eso el backend de la Fase 1 queda completo: lo que sigue son las pantallas.
 >
-> **Fase 2:** `routers/expensas.py` (`F2-T05`) — generar la liquidación de un período (queda en borrador) y publicarla, que son dos actos separados a propósito. Y `routers/gastos.py` (`F2-T02`) — el CRUD de gastos bajo `/api/edificios/{id}/gastos` con filtro por año, mes y rubro, más `GET /api/gastos/rubros`, el catálogo con su etiqueta legible. Es el segundo router que usa los **dos prefijos** del mismo dominio, el patrón descrito arriba: lo anidado bajo el edificio y lo que no depende de ninguno.
+> **Fase 2:** `routers/fondos.py` y `routers/presupuestos.py` (`F2-T15`) — los cuatro conjuntos de la tesorería, anidados bajo edificio; fondos y caja van juntos porque comparten el mecanismo de movimientos, y las facturas cuelgan del **gasto** y no del edificio. `routers/pagos.py` (`F2-T08`, `F2-T09`, `F2-T11`) — la carga por el residente, la cola de conciliación y la vista de deudores. `routers/expensas.py` (`F2-T05`) — generar la liquidación de un período (queda en borrador) y publicarla, que son dos actos separados a propósito. Y `routers/gastos.py` (`F2-T02`) — el CRUD de gastos bajo `/api/edificios/{id}/gastos` con filtro por año, mes y rubro, más `GET /api/gastos/rubros`, el catálogo con su etiqueta legible. Es el segundo router que usa los **dos prefijos** del mismo dominio, el patrón descrito arriba: lo anidado bajo el edificio y lo que no depende de ninguno.
 
 > **Dos endpoints que agregó `F1-T26`, que era una tarea de frontend, y por qué.** `GET /api/edificios/opciones` y `GET /api/edificios/{id}/asignables`. La pantalla de detalle tiene que ofrecer tres catálogos —los tipos de cochera, los roles que se pueden habilitar en un edificio y los topes de la generación automática— y dos desplegables de personas: quién administra y quién está a cargo, y quién es el propietario y el inquilino de cada unidad. **Ninguna de esas dos cosas se podía armar sin escribir reglas del backend en el JavaScript.** Los catálogos son constantes del servidor: repetirlos en la pantalla significa que el día que se agregue un tipo de cochera, la pantalla siga ofreciendo dos. Y los desplegables de personas solo se podían armar con `GET /api/usuarios`, que es exclusivo del Administrador General: el de Consorcio puede asignar un propietario a una unidad de su edificio y no tenía de dónde sacar la lista, así que la pantalla terminaba pidiéndole que escribiera un número que no podía averiguar.
 >
@@ -333,6 +333,12 @@ Es la convención central del proyecto. Un servicio contiene la regla de negocio
 
 > **Tres decisiones de estas tablas, del 2026-11-13.** **(1)** El `total` de la expensa son **los gastos del período y nada más**: el recargo por mora y el saldo a favor son cuentas entre el consorcio y una unidad puntual, así que viven en `expensa_departamento`. La consecuencia, que conviene tener escrita antes de que alguien la "corrija": **la suma de los `total_a_pagar` no tiene por qué dar el total de la expensa**; lo que sí cierra exacto es la suma de los `monto_expensa`. **(2)** El `coeficiente` se **copia** en cada fila del reparto, aunque la unidad ya lo tenga: un porcentual se corrige y un reglamento se modifica, y sin la copia una liquidación vieja queda sin forma de explicarse. **(3)** Los dos estados —`borrador` y `publicada`— son lo que sostiene la regla de regeneración: se regenera lo que el residente todavía no vio, y publicar cierra esa puerta para siempre. "Vencida" y "pagada" **no son estados**: se calculan, y guardarlos obligaría a un proceso diario que el día que no corra hace mentir al sistema.
 
+**`pagos`** — `id`, `departamento_id`, `expensa_id`, `monto` (`Numeric(12,2)`), `fecha`, `medio_pago`, `comprobante_url`, `estado`, **`cargado_por_id`**, `conciliado_por_id`, `conciliado_en`, `creado_en`. CHECK: monto > 0, estado y medio dentro de sus tuplas de `services/pagos.py`. **Sin UNIQUE de (`expensa_id`, `departamento_id`)**: los pagos parciales lo necesitan.
+
+> **Tres decisiones de esta tabla (`F2-T08`).** **(1)** `cargado_por_id` no estaba en el Roadmap y es imprescindible: la regla "quien carga un pago no lo concilia" se decide **por persona y no por rol**, porque el caso real es el administrador que vive en el edificio. **(2)** `expensa_id` es **obligatorio**: un pago se imputa a una liquidación concreta, así que una transferencia que cubre tres meses son tres pagos. Se eligió por trazabilidad — con un "pago a cuenta" imputado después, el saldo depende de un reparto que quedaría sin registrar. **(3)** `fecha` (cuando se pagó) y `creado_en` (cuando se cargó) son dos datos distintos: se paga el 10 y se sube el comprobante el 12, y la primera es la que decide si entró en término.
+>
+> **Y el saldo a favor no tiene tabla**: es el saldo negativo de un período pagado de más. Lo calcula `services/pagos.armar_cuenta()`, que es la única función que arma el estado de cuenta de una unidad — tres pantallas la consumen, y dos cálculos paralelos serían dos saldos distintos para el mismo propietario.
+
 **`gastos`** — `id`, `edificio_id`, `rubro`, `monto` (`Numeric(12,2)`), `fecha` (`Date`), `descripcion`, `proveedor_id`*, `activo_id`*, `creado_en`. CHECK: monto > 0 y rubro dentro del catálogo. Índice por (`edificio_id`, `fecha`).
 
 > **El rubro es un catálogo cerrado, y esto se decidió al construir `F2-T01`.** El Roadmap y este documento lo describían como una columna de texto sin decir qué valores admite, y con texto libre "Limpieza", "limpieza" y "Limpieza " son **tres rubros distintos**. No es un problema estético: la apertura por rubro de la expensa (`expensa_detalle`) y los reportes de evolución (`F2-T16`, y la Analítica de la Fase 6) **agrupan por ese valor**, así que tres variantes del mismo rubro son tres líneas en la liquidación que ve el consorcista y tres series en el reporte. El catálogo vive en `services/rubros.py` con diez entradas —sueldos, servicios, limpieza, mantenimiento, ascensores, seguros, administración, impuestos, bancarios y **otros**— cada una con su etiqueta legible, y el CHECK de la tabla se arma desde esa misma tupla. Es el mismo patrón que los roles y los tipos de cochera: si es una regla del sistema, es una estructura de datos.
@@ -340,14 +346,40 @@ Es la convención central del proyecto. Un servicio contiene la regla de negocio
 > **No es el mismo "rubro" que el de un proveedor**, y por eso no comparten tabla. El rubro de un gasto es una categoría contable (en qué se fue la plata); el de un proveedor es su oficio (plomería, electricidad). Se parecen en algunos valores y no en otros: "seguros" no es un oficio y "cerrajería" no es una línea de la liquidación. Cuando la Fase 7 construya su tabla `rubros`, lo que hay que decidir es si un proveedor **sugiere** un rubro de gasto al cargar una factura — eso es un mapeo, no una tabla compartida.
 >
 > **`otros` es una válvula de escape, no un cajón.** Existe para que nadie quede bloqueado sin poder cargar un gasto real; si en los reportes empieza a pesar, lo que falta es un rubro nuevo en el catálogo.
-**`expensas`** — `id`, `edificio_id`, `anio`, `mes`, `total`, `creado_en`. CHECK: mes entre 1 y 12, total > 0.
-**`expensa_detalle`** — `id`, `expensa_id`, `rubro`, `monto`. La apertura por rubro de esa liquidación.
-**`expensa_departamento`** — `id`, `expensa_id`, `departamento_id`, `monto`. Lo que le toca a cada unidad.
-**`pagos`** — `id`, `departamento_id`, `expensa_id`, `monto`, `fecha`, `medio_pago`, `comprobante_url`, `estado` (pendiente/confirmado/rechazado, por defecto pendiente), `creado_en`.
-**`fondos`** / **`movimientos_fondo`** — fondo con nombre; movimientos con tipo (CHECK ingreso/egreso), monto, fecha, descripción. El saldo se calcula, no se guarda.
-**`cajas`** / **`movimientos_caja`** — caja chica con `responsable_id` y `monto_fijo` (CHECK > 0); movimientos igual que los de fondo.
-**`presupuestos`** — `id`, `edificio_id`, `proveedor_id`*, `descripcion`, `monto`, `fecha`, `estado` (CHECK pendiente/aprobado/rechazado), `gasto_id` (vínculo al gasto real cuando se aprueba), `creado_en`.
-**`facturas`** — `id`, `gasto_id`, `proveedor_id`*, `numero`, `monto`, `fecha`, `archivo_url`, `creado_en`.
+**`fondos`** — `id`, `edificio_id`, `nombre`, `descripcion`, `activo`, `creado_en`. UNIQUE (`edificio_id`, `nombre`). **Sin columna de saldo.**
+
+**`movimientos_fondo`** — `id`, `fondo_id`, `tipo`, `monto` (`Numeric(12,2)`), `fecha`, `descripcion`, `registrado_por_id`, `creado_en`. CHECK: monto > 0 y tipo dentro de la tupla de `services/fondos.py`. Índice por (`fondo_id`, `fecha`).
+
+> **El signo lo da el tipo, nunca el número (`F2-T12`).** El monto se guarda **siempre positivo** y el tipo —`ingreso` o `egreso`— decide si suma o resta. Guardar egresos en negativo es la fuente del error clásico: un egreso cargado en positivo **suma en vez de restar**, y la única señal es que el saldo no cierre meses después, sin pista de qué fila fue. La traducción de tipo a signo vive en **un solo lugar**, `fondos.con_signo()`.
+>
+> **Y el saldo no es una columna**: es la suma de los movimientos. Misma decisión que el saldo de una unidad y la vista de deudores — un saldo guardado se desincroniza el día que alguien inserta un movimiento sin pasar por el endpoint, y no falla nada.
+>
+> **Por qué un fondo no es un gasto**, que es la razón de que sean tablas aparte: un gasto del mes se reparte entre las unidades y se cobra en la expensa de ese mes; la plata de un fondo **ya se cobró**, está guardada, y gastarla no genera expensa nueva. Mezclarlas haría que la suma de los gastos de un período incluyera plata que no hay que repartir.
+
+---
+
+**Lo que sigue todavía no está construido:** es el diseño con el que arranca cada tarea, no el esquema real. Las tablas de arriba sí describen lo que hay en la base.
+
+**`cajas`** — `id`, `edificio_id`, `monto_fijo` (`Numeric(12,2)`), `responsable_id`, `activo`, `creado_en`. UNIQUE (`edificio_id`): **una caja por edificio.** CHECK: monto_fijo > 0. **Sin columna de disponible ni de saldo.**
+
+**`movimientos_caja`** — `id`, `caja_id`, `tipo`, `monto` (`Numeric(12,2)`), `fecha`, `descripcion`, `registrado_por_id`, `creado_en`. Mismos CHECK y mismo catálogo de tipos que `movimientos_fondo`. Índice por (`caja_id`, `fecha`).
+
+> **`monto_fijo` no es "cuánta plata tiene": es el monto al que se repone (`F2-T13`).** Una caja chica funciona como **sistema de fondo fijo**: tiene un importe asignado, se gasta contra ella, y cuando baja el responsable rinde los comprobantes y se la devuelve a ese importe. Sin esa columna, "reponer la caja" no tiene objetivo numérico. Y **lo pendiente de reposición es lo que el responsable gastó y todavía no le devolvieron**, que es la cifra de la rendición.
+>
+> **Una reposición es un `MovimientoCaja` de tipo `ingreso`**, no una operación aparte. El disponible, lo pendiente y el aviso de rendir se **derivan** del monto fijo y los movimientos; nada de eso se guarda. El umbral de aviso (30% del monto fijo) es un valor elegido y no una regla contable: las fuentes no fijan uno.
+>
+> **El primer diseño de esta tabla no tenía movimientos** — guardaba solo quién era el responsable— y no podía calcular saldo, rendir cuentas ni reponerse. El fundamento de la corrección, con las fuentes, está en `investigaciones/Caja_chica.md`.
+**`presupuestos`** — `id`, `edificio_id`, `proveedor_id`*, `descripcion` (obligatoria), `monto` (`Numeric(12,2)`), `fecha`, `estado`, `gasto_id` (FK **real**, anulable), `decidido_por_id`, `decidido_en`, `creado_en`. CHECK: monto > 0, estado dentro de la tupla de `services/presupuestos.py`, y **un rechazado no puede tener `gasto_id`**.
+
+**`facturas`** — `id`, `gasto_id` (**NOT NULL**), `proveedor_id`*, `numero` (texto libre, **anulable**), `monto` (`Numeric(12,2)`), `fecha`, `archivo_url`, `creado_en`. UNIQUE (`gasto_id`, `numero`) — con número nulo no aplica, así que dos recibos sin número conviven. CHECK: monto > 0. **Sin `edificio_id`**: sale del gasto.
+>
+> **Cargar un comprobante es opcional, y lo que se carga no tiene que ser una factura fiscal** (confirmado el 2026-11-13). Un gasto sin ninguna fila acá es un gasto válido: muchos gastos reales no tienen comprobante formal. Por eso **hasta el `numero` es anulable** — un recibo escrito a mano no tiene número, y exigirlo haría que alguien escriba "sin número" para poder guardar el monto.
+
+> **La cadena es `Presupuesto → Gasto → Factura → Pago`, sin orden de compra (`F2-T14`).** La práctica formal de compras (*procure-to-pay*) tiene más pasos, pero un consorcio no los tiene: el **gasto** ya cumple el rol de "lo que se decidió contratar".
+>
+> **El estado del presupuesto existe para registrar cuál se eligió.** Sin él, tres cotizaciones del mismo arreglo son tres filas indistinguibles. **No se exige ninguna cantidad mínima**: ninguna norma la pide, lo fija el reglamento de cada consorcio.
+>
+> **El número de factura es texto libre, y es una decisión.** Tipo, CUIT, punto de venta y CAE **no se modelan**, porque no hay integración con AFIP ni está planeada en ninguna fase. Y **no se valida que el monto de la factura coincida con el del gasto**: una factura puede traer un ajuste y un gasto puede cubrirse con dos facturas. Esa diferencia es información, no un error.
 
 Los **deudores** no son una tabla: son una consulta calculada sobre `expensa_departamento` menos los `pagos` confirmados.
 

@@ -452,6 +452,113 @@ GASTO_DE_PERIODO_PUBLICADO = _definir(
     "corrección en la liquidación siguiente.",
 )
 
+# ------------------------------------------------------------------ pagos --
+
+SIN_UNIDADES = _definir(
+    "SIN_UNIDADES",
+    status.HTTP_403_FORBIDDEN,
+    "Tu usuario no tiene ninguna unidad asignada, así que no hay expensas "
+    "que pagar. Si creés que es un problema, hablalo con la administración.",
+)
+
+ELEGI_UNA_UNIDAD = _definir(
+    "ELEGI_UNA_UNIDAD",
+    status.HTTP_400_BAD_REQUEST,
+    "Tenés más de una unidad en ese edificio ({cuales}). Elegí de cuál es "
+    "este pago.",
+)
+
+EXPENSA_EN_BORRADOR = _definir(
+    "EXPENSA_EN_BORRADOR",
+    status.HTTP_400_BAD_REQUEST,
+    "Esa liquidación todavía no está publicada, así que no se puede pagar.",
+)
+
+PAGO_NO_ENCONTRADO = _definir(
+    "PAGO_NO_ENCONTRADO",
+    status.HTTP_404_NOT_FOUND,
+    "No se encontró ese pago.",
+)
+
+PAGO_YA_CONCILIADO = _definir(
+    "PAGO_YA_CONCILIADO",
+    status.HTTP_400_BAD_REQUEST,
+    "Ese pago ya está {estado} y no se puede volver a conciliar.",
+)
+
+NO_PODES_CONCILIAR_TU_PAGO = _definir(
+    "NO_PODES_CONCILIAR_TU_PAGO",
+    status.HTTP_403_FORBIDDEN,
+    "Este pago lo cargaste vos, así que lo tiene que conciliar otra persona "
+    "de la administración.",
+)
+
+ESTADO_DE_PAGO_INVALIDO = _definir(
+    "ESTADO_DE_PAGO_INVALIDO",
+    status.HTTP_400_BAD_REQUEST,
+    "Un pago pendiente se puede confirmar o rechazar, nada más.",
+)
+
+# ------------------------------------------- fondos, caja y presupuestos --
+
+FONDO_REPETIDO = _definir(
+    "FONDO_REPETIDO",
+    status.HTTP_400_BAD_REQUEST,
+    "Este edificio ya tiene un fondo que se llama {nombre}.",
+)
+
+FONDO_INACTIVO = _definir(
+    "FONDO_INACTIVO",
+    status.HTTP_400_BAD_REQUEST,
+    "Ese fondo está desactivado, así que no admite movimientos nuevos. "
+    "Reactivalo si lo vas a volver a usar.",
+)
+
+CAJA_YA_EXISTE = _definir(
+    "CAJA_YA_EXISTE",
+    status.HTTP_400_BAD_REQUEST,
+    "Este edificio ya tiene su caja chica. Si cambió el monto fijo o el "
+    "responsable, editalá en vez de crear otra.",
+)
+
+SIN_CAJA = _definir(
+    "SIN_CAJA",
+    status.HTTP_404_NOT_FOUND,
+    "Este edificio todavía no tiene caja chica configurada.",
+)
+
+RESPONSABLE_DE_CAJA_INVALIDO = _definir(
+    "RESPONSABLE_DE_CAJA_INVALIDO",
+    status.HTTP_400_BAD_REQUEST,
+    "La persona que elegiste como responsable de la caja no trabaja en este "
+    "edificio.",
+)
+
+PRESUPUESTO_YA_DECIDIDO = _definir(
+    "PRESUPUESTO_YA_DECIDIDO",
+    status.HTTP_400_BAD_REQUEST,
+    "Ese presupuesto ya está {estado}, así que la decisión no se puede "
+    "cambiar. Si hace falta, cargá el presupuesto nuevo y decidí sobre ese.",
+)
+
+PRESUPUESTO_SIN_APROBAR = _definir(
+    "PRESUPUESTO_SIN_APROBAR",
+    status.HTTP_400_BAD_REQUEST,
+    "Solo un presupuesto aprobado se puede vincular a un gasto.",
+)
+
+ESTADO_DE_PRESUPUESTO_INVALIDO = _definir(
+    "ESTADO_DE_PRESUPUESTO_INVALIDO",
+    status.HTTP_400_BAD_REQUEST,
+    "Un presupuesto pendiente se puede aprobar o rechazar, nada más.",
+)
+
+FACTURA_REPETIDA = _definir(
+    "FACTURA_REPETIDA",
+    status.HTTP_400_BAD_REQUEST,
+    "Este gasto ya tiene cargado el comprobante {numero}.",
+)
+
 # ------------------------------------------------------- genericos y sistema --
 
 PEDIDO_INVALIDO = _definir(
