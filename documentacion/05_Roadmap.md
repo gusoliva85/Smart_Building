@@ -1021,8 +1021,11 @@ la sección 1.3.
     verdad, sin tocar una línea de la lógica.
   - **La base del recargo es el capital y no el saldo**, así no hay recargo sobre recargo. Test con
     tres meses encadenados: da 20.000 y no 21.000.
-  - Decisión a confirmar: cada liquidación cobra recargo sobre el capital que sigue impago
-    (interés simple mensual). Si lo querés una sola vez por deuda, se cambia en un solo lugar.
+  - **Decisión confirmada el 2026-11-15, y es la que ya estaba implementada.** El porcentaje sale de
+    `recargo_mora_porcentual` del edificio y lo aplica **la liquidación del mes siguiente** sobre el
+    capital que quedó impago. Nunca en el mismo mes: el monto de este mes ya está establecido.
+  - Y se cobra **cada mes que la deuda sigue impaga**, no una sola vez por deuda (interés simple
+    mensual sobre el capital).
   - Los pagos se imputan primero al recargo y después al capital.
   - Un pago pendiente no evita el recargo: la solución es operativa, conciliar seguido.
 
@@ -1151,7 +1154,7 @@ la sección 1.3.
   - Las reglas quedaron en la skill `premium-uiux`, en el catálogo de trampas del Documento de
     Frontend y en `CLAUDE.md`.
 
-- [ ] **F2-T18 · Frontend — pestaña Expensas (gestión).** *(construida, falta tu revisión)*
+- [x] **F2-T18 · Frontend — pestaña Expensas (gestión).**
   **Qué se construye:** generación de la expensa del período, listado de liquidaciones, y detalle con la apertura por rubro.
   **Actualizado el 2026-11-13, porque `F2-T05` cambió la regla:** la expensa nace en **borrador** y
   hay **dos botones, no uno**. *Regenerar* aparece solo mientras esté en borrador, con el patrón de
@@ -1192,9 +1195,40 @@ la sección 1.3.
     **El verificador encontró dos cosas mías acá también:** el botón de cerrar del modal nuevo no
     estaba escrito como los otros tres, y al haber dos modales el chequeo viejo no detectaba que
     faltara abrir uno — ahora cuenta.
+  **Aprobada el 2026-11-15.**
 
-- [ ] **F2-T19 · Frontend — pestaña Pagos, vista de gestión.**
+- [ ] **F2-T19 · Frontend — pestaña Pagos, vista de gestión.** *(construida, falta tu revisión)*
   **Qué se construye:** la cola de pagos pendientes con sus botones de confirmar y rechazar en la misma fila, y el listado histórico con su estado.
+  **Construida, falta tu revisión.** El panel de pagos y el modal de rechazo en `financiero.html`, y
+  la pestaña en `financiero.js`. Sin tocar una línea de backend: `F2-T09` ya tenía todo.
+  - **Dos bloques, igual que los pendientes de `usuarios.html`:** la cola de lo que hay que decidir y
+    el historial de lo ya decidido. No son dos entidades, son los mismos pagos en dos estados.
+  - **Dos pedidos y no uno, porque el total lo calcula el servidor.** Partir una sola respuesta en
+    dos listas obligaría a sumar en JavaScript, y ese sería el total de lo dibujado y no del filtro.
+  - Por eso el filtro del historial **no tiene un "todos"**: no es un estado del backend, así que no
+    tendría total propio. Ofrece los dos estados reales en los que termina un pago.
+  - **Confirmar usa el modal del sistema; rechazar necesita uno propio**, porque el motivo es
+    obligatorio y `Confirmar.pedir()` solo devuelve sí o no. Un `prompt()` está prohibido.
+  - **Las dos acciones avisan que son irreversibles**, porque un pago conciliado no se vuelve a
+    conciliar. Confirmar va con el acento (`destructiva: false`): no borra nada.
+  - **El motivo del rechazo no se valida en la pantalla**, a propósito: el backend lo manda por campo
+    y `marcarErrores` lo pinta y le lleva el foco. Una copia de la regla diría otro texto.
+  - **El error del modal va dentro del modal.** Arriba de la lista quedaría detrás del velo, que es
+    el bug que ya se arregló en el alta de edificios.
+  - **La espera sale de `cargado_en` y no de `fecha`:** son dos datos distintos a propósito —se paga
+    el 10 y se sube el comprobante el 12— y en una cola importa desde cuándo espera respuesta.
+  - **Quien cargó un pago no lo concilia, y lo decide el servidor** (`puedo_conciliarlo`). La fila
+    sin botones **explica por qué en la fila**, no arriba: la cola puede ser mezclada.
+  - El estado va en `.fila-lista-estado` con **`.rol-badge`** y no con `.chip`: es la etiqueta de
+    clasificación de la fila, neutra, y el estado de un pago no es el semáforo del edificio.
+  - **Bug de `F2-T18` encontrado y corregido acá:** cambiar de edificio recargaba solo los gastos, así
+    que el listado de liquidaciones seguía mostrando el edificio anterior. Ahora recarga las tres.
+  - **Esquema sin cambios**: no se tocó ningún modelo, así que no hay nada que migrar.
+  - Verificado con `verificar_pantallas.py` (las tres pantallas pasan, y sus diez casos de prueba
+    siguen en verde) y con un chequeo del contrato pantalla-API: 51 comprobaciones, entre ellas que
+    cada campo que el JS lee exista en `PagoDeGestionLeer`. **1502 tests en verde.**
+  - **Falta tu prueba en el navegador**, que es lo que la da por terminada: los dos roles, 390/768/
+    1280 px, los dos temas, y la cola con cero, uno y varios pagos.
 
 - [ ] **F2-T20 · Frontend — pestaña Deudores.**
   **Qué se construye:** listado ordenado por antigüedad con el detalle de las expensas impagas de cada unidad. Consume tal cual `F2-T11`, sin cambios de backend.
@@ -1222,6 +1256,12 @@ la sección 1.3.
   es **deuda común**, no una categoría aparte (`F2-T08`).
   **Una expensa en borrador no se muestra acá** (`F2-T04`).
   **Cuidado con:** el Propietario a veces necesita elegir de cuál de sus unidades habla; el Inquilino **nunca** — con una sola unidad, el selector ni se muestra.
+  **El comprobante, decidido el 2026-11-15:** va un campo de texto para **pegar el enlace**, que es
+  lo que el modelo guarda hoy en `comprobante_url`. El botón de adjuntar un archivo de verdad va
+  **deshabilitado, con el texto "Próximamente"**, y se habilita en la Fase 7 (`F7-T01`).
+  **Por qué un campo y no nada:** sin ninguna forma de cargarlo no existiría nunca un comprobante, y
+  entonces el "ver comprobante" de la cola de conciliación (`F2-T19`) estaría siempre vacío — el
+  administrador conciliaría a ciegas.
 
 - [ ] **F2-T23 · Prueba de punta a punta — financiero.**
   **Qué se prueba, con datos cargados a mano y en el frontend real:** cargar los gastos de un mes; generar la expensa; verificar que la suma de lo repartido da exactamente el total; corregir un gasto y regenerar la expensa **en borrador** confirmando el reemplazo; **publicarla**, y comprobar que después el botón de regenerar ya no está y que recién ahí la ve el residente; cargar pagos desde la sesión del residente y dejarlos pendientes; confirmar uno, rechazar otro; verificar que solo el confirmado bajó el saldo; dejar unidades con uno, dos y cuatro meses de deuda y confirmar que Deudores calcula bien meses y monto en cada caso. Repetir con el edificio de 28 unidades.
@@ -1229,6 +1269,33 @@ la sección 1.3.
   el mes siguiente y verificar que **el recargo aparece cargado a esa unidad y a ninguna otra** (y
   que el total de la expensa no lo incluye); pagar de más y verificar que el excedente se descuenta
   del siguiente; y hacer que ese saldo a favor **no alcance** para ver el aviso de `F2-T22`.
+
+- [x] **F2-T24 · Puesta al día de los documentos 01 a 04.**
+  **Por qué existe esta tarea.** Los cuatro documentos se escribieron antes de construir, y el
+  proyecto se movió: avanza por tareas chicas y aprobadas de a una, así que lo que está escrito
+  envejece en silencio. Al retomar la fase aparecieron tres afirmaciones falsas —`03` listaba como
+  construidas solo tres pantallas de las cuatro que hay, `02` daba por no construidas cuatro tablas
+  que existen, y `04` recomendaba vaciar un esquema que ya está alineado— y una afirmación falsa en
+  un documento de referencia es peor que un hueco: se actúa sobre ella.
+  **Qué se hace:** se agrega lo construido y se corrige lo que quedó falso, **en forma breve**,
+  manteniendo la voz y la estética de cada documento. No se reescribe lo que sigue vigente y no se
+  convierte un documento de especificación en una bitácora: para eso está `F2-DOC`.
+  **Lo que entra en cada uno:**
+  - `01` — la tabla de estado de la especificación (sección 13), que es lo único que caduca.
+  - `02` — los routers y servicios de la Fase 2, el corte de "lo que todavía no está construido" en
+    la sección 3.2, el conteo real de tests y el resultado del diagnóstico de esquema.
+  - `03` — las pantallas y los módulos de JavaScript que existen, y las clases nuevas de `F2-T17`.
+  - `04` — el diagnóstico de producción del 2026-11-15, que es lo que más cambia.
+  **Y de paso quedan asentadas** la decisión del recargo (`F2-T11`), la del comprobante (`F2-T22`) y
+  la clave foránea de `asignacion_edificio` que falta en producción (`F13-T01`).
+  **Aprobada el 2026-11-15.** Los cinco documentos, sin tocar una línea de código.
+  - **El hallazgo que justificó la tarea:** `04` advertía como riesgo principal un esquema viejo que
+    `F05-T01` ya había vaciado dos meses antes. Yo mismo repetí esa advertencia como estado actual
+    antes de medirlo.
+  - **La regla que queda:** una tarea que cambia el esquema o la infraestructura actualiza su
+    documento **en la misma tarea**. Un documento viejo no se lee como viejo, se lee como verdad.
+  - Y toda tarea que toque un modelo cierra diciendo qué cambió en el esquema y si eso lo resuelve
+    el arranque aditivo o necesita migración escrita (pedido suyo del 2026-11-15).
 
 - [ ] **F2-DOC · Documentación de la Fase 2.**
   Redactar `documentacion/fases/Fase_2_Gestion_Financiera.md` según la sección 1.6. Foco particular: el ejemplo numérico completo de una liquidación (gastos por rubro → total → reparto por coeficiente → lo que ve cada unidad), el circuito de conciliación explicado como se le explicaría a un administrador, y por qué no hay QR.
@@ -1836,6 +1903,20 @@ la sección 1.3.
   **⚠️ Esta tarea va primero de la fase y bloquea a las demás.** La base de producción **conserva el esquema y los datos del código eliminado**. Como los dos mecanismos de evolución del esquema son **puramente aditivos**, desplegar la reimplementación contra esa base **no va a corregir ninguna diferencia**: una tabla modelada distinto queda con su forma vieja, **sin error visible**.
   **Qué se decide:** vaciar el esquema y dejar que la aplicación lo recree desde cero (recomendado, y es lo que sugiere `04_Infraestructura.md` sección 3), o auditar tabla por tabla las diferencias.
   **Listo cuando:** la decisión está tomada, ejecutada y verificada contra la base real.
+  **Verificación intermedia del 2026-11-15, con el esquema de la Fase 2 ya desplegado.** Leí el
+  catálogo de la base real con seis consultas de solo lectura y **coincide con los modelos**: las 18
+  tablas son las 18 declaradas —no quedó ninguna de las 23 viejas—, y están los 36 CHECK, los 30
+  índices únicos y todas las claves foráneas **menos una**.
+  - **Falta la FK de `asignacion_edificio.edificio_id`: `m002` nunca se corrió contra Supabase.** La
+    tabla tiene 0 filas allá, que es la condición que la propia migración exige, así que se puede
+    correr tal cual. **Pendiente de ejecución, y hay que avisar antes** (sección 1.5).
+  - **`creado_en` está declarado con dos criterios distintos en el código**, y la base los refleja
+    fielmente: las tres tablas de la Fase 1 usan `timestamp with time zone` con `now()` y las nueve
+    de la Fase 2 `timestamp` sin zona con `CURRENT_TIMESTAMP`. Hoy no rompe nada porque ningún
+    cálculo cruza los dos grupos; unificarlo es trabajo de esta tarea, no de antes.
+  - Lo que quedó sin verificar: el editor de Supabase corta el resultado en 100 filas, así que de la
+    consulta de columnas faltan `pagos`, `pisos`, `presupuestos`, `usuarios` y la cola de
+    `movimientos_fondo`. Sus CHECK y sus FK sí se vieron completos y están bien.
 
 - [ ] **F13-T02 · Infraestructura — revision final del despliegue.**
   **Nota (2026-09-27):** el vinculo con el repositorio y las variables de entorno se adelantaron a `F05-T04`. Aca se revisa que todo siga correcto antes del cierre.

@@ -263,6 +263,88 @@
             <div class="lista-filas" id="lista-expensas"></div>
           </div>
         </div>
+
+        <!-- ==================================================================
+             PESTAÑA DE PAGOS (F2-T19).
+
+             Dos bloques, y el de arriba es el que importa: la cola de lo que
+             hay que decidir, y abajo lo que ya se decidió. Es la misma
+             partición de `usuarios.html` entre las cuentas que esperan
+             aprobación y las que ya tienen rol, y por la misma razón: no son
+             dos entidades distintas, son los mismos pagos en un estado que
+             pide una decisión. Un pago que nadie mira es un vecino que cree
+             que pagó y sigue figurando como deudor.
+             =============================================================== -->
+        <div class="panel-pestania" data-panel="pagos" hidden>
+
+          <!-- El total de la cola va arriba de todo porque es la frase que
+               hace que alguien se siente a conciliar: "hay 12 esperando por
+               $840.000". Y lo calcula el servidor: sumarlo acá daría el total
+               de lo que se dibujó, no el del filtro. -->
+          <div class="panel-total" id="total-cola" hidden>
+            <div class="panel-total-barra">
+              <div class="panel-total-cabeza">
+                <b data-cola-titulo>Esperando conciliación</b>
+                <span data-cola-monto></span>
+              </div>
+              <div class="panel-total-chips" data-cola-chips></div>
+            </div>
+          </div>
+
+          <div class="mensaje-error" id="error-pagos" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/>
+            </svg>
+            <span data-texto-error-pagos></span>
+          </div>
+
+          <div class="mensaje-exito" id="exito-pagos" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M20 6L9 17l-5-5"/>
+            </svg>
+            <span data-texto-exito-pagos></span>
+          </div>
+
+          <!-- LA COLA. El bloque entero se esconde cuando no tiene filas, en
+               vez de mostrar un estado vacío: un encabezado con un "no hay
+               nada" debajo ocupa, todos los días, el lugar de algo que hay que
+               atender. Es la misma regla de `.lista-seccion` en usuarios. -->
+          <section class="lista-seccion" id="seccion-cola" hidden>
+            <h3 class="lista-seccion-titulo">
+              Esperando conciliación
+              <span class="contador" data-contador-cola></span>
+            </h3>
+            <p class="lista-seccion-nota">
+              El residente avisó que pagó y subió su comprobante. Contrastalo
+              con el movimiento real del banco antes de confirmarlo: un pago
+              confirmado baja la deuda, y el pendiente no.
+            </p>
+            <div class="lista-filas" id="lista-cola"></div>
+          </section>
+
+          <!-- EL HISTÓRICO. Su filtro es por estado y los dos valores son
+               estados reales del backend, no un "todos" que el servidor no
+               sabe calcular: cada pedido trae su propio total. -->
+          <section class="lista-seccion">
+            <h3 class="lista-seccion-titulo">
+              Ya conciliados
+              <span class="contador" data-contador-historico></span>
+            </h3>
+
+            <div class="form-grid-3">
+              <div class="campo campo-sin-margen">
+                <label for="filtro-estado-pago">Estado</label>
+                <div class="campo-control">
+                  <select id="filtro-estado-pago"></select>
+                </div>
+              </div>
+            </div>
+
+            <div class="lista-filas" id="lista-historico"></div>
+          </section>
+        </div>
       </section>
     </main>
   </div>
@@ -431,6 +513,71 @@
           Cerrar
         </button>
       </div>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       MODAL DE RECHAZO DE UN PAGO (F2-T19).
+
+       **Por que este caso NO usa el modal de confirmacion del sistema.**
+       `Confirmar.pedir()` devuelve una promesa con true o false, y acá hace
+       falta traer de vuelta un texto: el backend exige el motivo para rechazar
+       y lo rechaza con un 422 si no viene. Un `prompt()` del navegador está
+       prohibido en todo el proyecto, así que el motivo se pide en un modal de
+       formulario, que es el componente que ya existe para pedir datos.
+
+       Confirmar un pago sí usa `Confirmar.pedir()`: ahí no hay nada que
+       escribir.
+       ======================================================================= -->
+  <div class="modal-backdrop" id="modal-rechazo">
+    <div class="modal modal-formulario shell" role="dialog" aria-modal="true"
+         aria-labelledby="titulo-modal-rechazo">
+      <button type="button" class="modal-cerrar" data-cerrar-rechazo
+              aria-label="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
+
+      <h3 id="titulo-modal-rechazo">Rechazar el pago</h3>
+      <p class="modal-formulario-sub" data-sub-modal-rechazo></p>
+
+      <form id="formulario-rechazo" novalidate>
+        <div class="resumen-errores" data-resumen-errores hidden></div>
+
+        <div class="campo">
+          <label for="rechazo-motivo">Motivo del rechazo</label>
+          <div class="campo-control">
+            <textarea id="rechazo-motivo" name="motivo" rows="3"
+                      maxlength="300"
+                      placeholder="El comprobante no se ve"></textarea>
+          </div>
+          <span class="campo-error" data-error-de="motivo"></span>
+          <!-- La ayuda dice para qué sirve el texto, no "campo obligatorio".
+               El motivo lo lee el residente: es lo que le permite corregir sin
+               llamar por teléfono. -->
+          <p class="campo-ayuda">
+            Lo lee el residente en su cuenta, así sabe qué corregir y vuelve a
+            cargarlo sin tener que preguntar.
+          </p>
+        </div>
+
+        <div class="modal-formulario-acciones">
+          <button type="button" class="boton-primario boton-secundario"
+                  data-cerrar-rechazo>
+            Cancelar
+          </button>
+          <!-- Rechazar sí es la excepción del semáforo que el sistema admite:
+               es la convención de "destructivo", igual que `.accion.borrar` y
+               que el botón del modal de confirmación. Y va con el verbo
+               escrito, así el color nunca es lo único que lo comunica. -->
+          <button type="submit" class="boton-primario boton-peligro"
+                  id="boton-rechazar">
+            Rechazar el pago
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 

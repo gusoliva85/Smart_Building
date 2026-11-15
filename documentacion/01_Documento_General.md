@@ -75,7 +75,7 @@ Desarrollar una plataforma digital de gestión y visualización integral de edif
 
 - Integración real con hardware de cámaras de seguridad o control de accesos.
 - **Procesamiento de pagos.** La plataforma registra y concilia pagos; la plata nunca pasa por el sistema. Ver la restricción legal concreta en la sección 6.2 — no es una simplificación de alcance, es un límite regulatorio real.
-- **Carga de archivos al servidor.** Hoy toda "foto", "comprobante" o "adjunto" es un **campo de URL/link** a un archivo alojado afuera. Un almacenamiento propio de archivos es una decisión de infraestructura que se toma cuando el módulo de Gestión documental (Fase 7) lo exija de verdad, no antes. Es la restricción más visible del producto actual y está documentada en cada módulo que la sufre.
+- **Carga de archivos al servidor.** Hoy toda "foto", "comprobante" o "adjunto" es un **campo de URL/link** a un archivo alojado afuera. Un almacenamiento propio de archivos es una decisión de infraestructura que se toma cuando el módulo de Gestión documental (Fase 7) lo exija de verdad, no antes. Es la restricción más visible del producto actual y está documentada en cada módulo que la sufre. **Y en pantalla se dice, no se esconde** (decidido el 2026-11-15): donde corresponda adjuntar un archivo va el campo para pegar el enlace, y el botón de adjuntar de verdad queda deshabilitado con el texto "Próximamente". Una capacidad ausente que no se nombra se lee como una pantalla incompleta.
 - Soporte para edificios de uso comercial u oficinas (el foco es el consorcio residencial).
 
 ### 1.5 Público objetivo
@@ -501,16 +501,18 @@ Decisiones que no pertenecen a un módulo sino a la plataforma entera. Todas sur
 
 ## 13. Estado de la especificación
 
-El código fue eliminado, pero no todas las secciones de este documento tienen el mismo grado de validación. Esta tabla es honesta al respecto, y sirve para saber dónde apoyarse con confianza y dónde todavía hay diseño sin contrastar.
+No todas las secciones de este documento tienen el mismo grado de validación. Esta tabla es honesta al respecto, y sirve para saber dónde apoyarse con confianza y dónde todavía hay diseño sin contrastar.
 
-| Módulo | Estado de la especificación |
+**Puesta al día el 2026-11-15** (`F2-T24`). La tabla hablaba del estado de la *especificación* en el momento del reinicio, cuando no había una línea de código; ahora que hay sistema andando, la columna dice además **qué está construido de esta iteración**, que es la pregunta que uno trae al abrir el documento. El resto de las secciones describe el producto y sigue vigente: es el "qué" y el "por qué", y eso no cambió.
+
+| Módulo | Estado |
 |---|---|
-| Usuarios, roles y autenticación | **Validado en la práctica** — construido, probado y corregido (ver 3.1). |
-| Estructura del edificio (pisos, unidades, cocheras, espacios) | **Validado en la práctica.** |
-| Gestión financiera completa (6.1 a 6.9) | **Validado en la práctica**, con cuatro investigaciones de respaldo y errores reales ya corregidos. |
-| Reclamos (sección 11) | **Validado en la práctica**, flujo completo probado punta a punta. |
-| Mantenimiento / órdenes de trabajo (sección 10) | **Validado en la práctica** en backend; la interfaz quedó especificada pero no llegó a construirse. |
-| Dashboard Visual del edificio | **Validado visualmente** (arquitectura y comportamiento cerrados en la skill `premium-uiux`, motor de severidad implementado y probado), pero nunca conectado a datos reales. |
+| Usuarios, roles y autenticación | **Construido y en producción.** Especificación validada en la práctica (ver 3.1), más el registro propio con aprobación del administrador, que no estaba en el diseño original. |
+| Estructura del edificio (pisos, unidades, cocheras, espacios) | **Construido y en producción**, con la carga de coeficientes, que es la que destraba toda la liquidación. |
+| Gestión financiera completa (6.1 a 6.9) | **Backend completo y en producción** (gastos, liquidación con prorrateo, pagos y conciliación, deudores, fondos, caja chica, presupuestos, facturas, reportes). **De la pantalla están Gastos y Expensas**; faltan Pagos, Deudores, Fondos y "Mi cuenta" del residente. Cuatro investigaciones de respaldo y errores reales ya corregidos. |
+| Reclamos (sección 11) | Especificación **validada en la práctica** en la iteración anterior, flujo completo probado punta a punta. **Sin construir en esta** — es la Fase 3. |
+| Mantenimiento / órdenes de trabajo (sección 10) | Especificación **validada en la práctica** en backend; la interfaz quedó especificada y nunca se construyó. **Sin construir en esta** — Fase 3. |
+| Dashboard Visual del edificio | **Validado visualmente** (arquitectura y comportamiento cerrados en la skill `premium-uiux`, motor de severidad implementado y probado), pero nunca conectado a datos reales. Sin construir: es la Fase 5, y no se puede adelantar porque sin deuda, reclamos y órdenes pintaría todo verde. |
 | Dashboard General y Analítica | Diseño, sin implementar. |
 | Activos y seguridad normativa | Diseño, sin implementar. |
 | Gestión documental | Diseño, sin implementar. Bloquea la carga real de archivos del resto del sistema. |

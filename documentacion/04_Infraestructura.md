@@ -4,7 +4,15 @@
 >
 > **Este documento describe infraestructura que EXISTE Y SIGUE VIVA fuera de este repositorio.** No se borró con el reinicio del proyecto del 2026-09-25 y **no debe borrarse sin una decisión explícita**.
 >
-> En particular: **la base de datos de producción en Supabase sigue existiendo, con el esquema y los datos que creó el código eliminado.** Ese es el punto de mayor riesgo de todo el reinicio, y la sección 3 explica exactamente por qué.
+> **Puesto al día el 2026-11-15** (`F2-T24`). El párrafo que estaba acá decía que la base de
+> Supabase conservaba el esquema del código eliminado y que ése era el mayor riesgo del reinicio.
+> **Dejó de ser cierto el 2026-09-27**, cuando `F05-T01` vació el esquema `public`, y el documento
+> siguió diciéndolo dos meses más. El esquema real está hoy **alineado con los modelos** y lo
+> verifiqué leyendo el catálogo de la base — ver sección 3.
+>
+> **La lección, que es la razón de ser de este archivo:** un documento de infraestructura que no se
+> actualiza en la misma tarea que cambia la infraestructura no es una referencia, es una trampa. Una
+> afirmación falsa acá es peor que un hueco, porque se actúa sobre ella.
 
 ---
 
@@ -12,7 +20,7 @@
 
 | Recurso | Estado | Quién lo controla |
 |---|---|---|
-| **Base de datos PostgreSQL (Supabase)** | 🟢 **VIVA, con esquema y datos** | Cuenta de Supabase del dueño del proyecto |
+| **Base de datos PostgreSQL (Supabase)** | 🟢 **VIVA.** Esquema vaciado y recreado desde los modelos nuevos (`F05-T01`), con los datos que se fueron cargando a mano desde entonces | Cuenta de Supabase del dueño del proyecto |
 | **Despliegue en Vercel** (backend serverless + frontend estático) | 🟢 **Vivo y vinculado** al repositorio nuevo. Despliega solo en cada push a `main` (verificado el 2026-11-10, ver 2.2) | Cuenta de Vercel del dueño del proyecto |
 | **Variables de entorno en Vercel** (secretos, cadena de conexión) | 🟢 Vivas, con sus valores | Panel de Vercel |
 | **Repositorio de GitHub** | 🔴 **Eliminado** el 2026-09-25, se recrea vacío | Cuenta de GitHub del dueño |
@@ -64,11 +72,55 @@
 
 ---
 
-## 3. ⚠️ El riesgo principal: el esquema viejo sigue en la base
+## 3. El esquema de producción: qué pasó y cómo está hoy
 
-**Situación:** la base de Supabase contiene hoy las **23 tablas** que creó el código eliminado, con los datos de prueba que se cargaron en producción.
+**Verificado el 2026-11-15, leyendo el catálogo de la base real** con seis consultas de solo lectura
+(tablas, columnas con su tipo, CHECK, claves foráneas, índices únicos y conteo de filas).
 
-**Por qué esto es peligroso y no simplemente "ya está creado":** el proyecto no usa Alembic. El esquema evoluciona con dos mecanismos que corren al arrancar la aplicación, y los dos son **aditivos**:
+**El esquema coincide con los modelos.** Las **18 tablas** que hay son exactamente las 18 que
+declaran los modelos: no quedó ninguna de las 23 que había creado el código eliminado — no están
+`reclamos`, `ordenes_trabajo`, `ot_evidencias` ni `documentos`. Están los **36 CHECK** (los
+catálogos de rubros, estados y medios de pago, el rol con `pendiente`, los rangos de coeficiente y
+de latitud), los **30 índices únicos** que garantizan reglas del negocio —un período una expensa, un
+inquilino una sola unidad, una caja por edificio— y **todas las claves foráneas menos una**.
+
+**Por qué quedó así:** `F05-T01` vació el esquema `public` el 2026-09-27 y la aplicación lo recreó
+desde los modelos al arrancar. O sea que el riesgo que describía la versión anterior de esta sección
+**no se materializó: se eliminó**. Lo que falló fue el documento, que siguió anunciándolo.
+
+**Los datos que hay hoy en producción**, cargados a mano: 1 edificio, 6 pisos, 24 departamentos, 5
+usuarios y 1 gasto. Las nueve tablas financieras están creadas y vacías.
+
+### 3.1 Lo que falta, y es una sola cosa
+
+**`asignacion_edificio.edificio_id` no tiene su clave foránea**, porque `m002_fk_asignacion_edificio`
+nunca se corrió contra Supabase. Esa columna nació sin FK en `F1-T03` —`edificios` no existía como
+modelo todavía— y el modelo ya la declara, pero agregar una restricción a una columna existente no
+lo hace el mecanismo de arranque.
+
+Sin la FK la base acepta una asignación que apunta a un edificio inexistente, y eso **no se
+manifiesta como un error**: se manifiesta como un auditor que tiene un edificio asignado y no ve
+nada. La tabla tiene **0 filas** allá, que es justamente la condición que la migración exige —se
+niega a tocarla si hay una sola—, así que se puede correr tal cual. **Está pendiente de ejecución, y
+se avisa antes de correrla** (`05_Roadmap.md`, sección 1.5).
+
+**Un punto abierto que es del código y no del despliegue:** `creado_en` está declarado con dos
+criterios distintos. Las tres tablas de la Fase 1 usan `timestamp with time zone` con `now()`; las
+nueve de la Fase 2, `timestamp` sin zona con `CURRENT_TIMESTAMP`. La base refleja fielmente el
+código, así que hoy no rompe nada —ningún cálculo cruza los dos grupos— pero son dos criterios
+conviviendo y se unifican en `F13-T01`.
+
+**Y lo que quedó sin verificar:** el editor SQL de Supabase corta el resultado en 100 filas, así que
+de la consulta de columnas faltan `pagos`, `pisos`, `presupuestos`, `usuarios` y la cola de
+`movimientos_fondo`. Sus CHECK y sus claves foráneas sí se vieron completos y están correctos.
+
+### 3.2 La regla que queda, aunque el riesgo de hoy esté cerrado
+
+Esto se conserva porque **vuelve a aplicar en cada cambio de esquema que venga**, y los dos próximos
+ya están identificados: la formalización de `activo_id` en la Fase 4 y la de los cuatro
+`proveedor_id` en la Fase 7, las dos sobre columnas que van a tener datos encima.
+
+El proyecto no usa Alembic. El esquema evoluciona con dos mecanismos que corren al arrancar la aplicación, y los dos son **aditivos**:
 
 1. La creación de tablas **solo crea las que no existen**. Si una tabla ya está, no la toca, aunque el modelo nuevo la defina distinta.
 2. El agregado de columnas (`core/migraciones.py`) **solo agrega columnas que falten**. Nunca modifica una columna existente, nunca cambia un tipo, nunca agrega ni quita una restricción, nunca borra una columna sobrante.
@@ -85,17 +137,26 @@
 
 Ninguno de estos casos produce un error al desplegar. Producen comportamiento incorrecto más tarde, difícil de rastrear.
 
-### 3.1 La decisión que hay que tomar ANTES del primer despliegue
+**Y la forma de medirlo ya está escrita.** El diagnóstico de la sección 3 se hizo con seis consultas
+de solo lectura sobre `information_schema` y `pg_catalog` —tablas, columnas con tipo y
+obligatoriedad, CHECK, claves foráneas, índices únicos y conteo real de filas— que se pueden correr
+con la base en uso, sin bloquear nada y sin credenciales en el repositorio: las corre el dueño del
+proyecto desde el editor de Supabase y pega el resultado. **Ante cualquier duda sobre si producción
+coincide con los modelos, eso es lo que hay que hacer, en vez de suponerlo en una u otra dirección.**
 
-**Recomendación: vaciar el esquema de Supabase antes de desplegar el código nuevo por primera vez.**
+### 3.3 Por qué ya no corresponde vaciar el esquema
 
-Fundamento: lo que hay ahí son **datos de prueba**, no datos de un cliente real. El costo de perderlos es cero y el costo de arrastrar un esquema desalineado es alto y silencioso. Al arrancar contra una base vacía, el mecanismo de creación deja el esquema exactamente igual a los modelos nuevos, y el seed vuelve a cargar los usuarios de prueba.
+Hasta el 2026-11-15 esta sección recomendaba vaciarlo antes de desplegar, y el fundamento era que lo
+que había eran datos de prueba descartables. **Las dos mitades de esa recomendación cambiaron:** el
+vaciado ya se hizo (`F05-T01`) y lo que hay ahora son datos cargados a mano, edificio por unidad,
+que son horas de trabajo y ningún script reconstruye.
 
-**Cómo hacerlo:** desde el editor SQL de Supabase, eliminando el esquema `public` y volviéndolo a crear vacío. Es una operación destructiva e irreversible — **confirmar antes de ejecutarla que no haya nada que se quiera conservar.**
+**Entonces la regla se invierte: de acá en adelante, una diferencia de esquema se resuelve con una
+migración escrita para ese caso, que preserve las filas.** Vaciar dejó de ser la opción barata. Y es
+exactamente el momento que anticipa el Documento Técnico (sección 6) para evaluar Alembic: "cuando
+haya datos reales que no se puedan perder". Se decide en `F13-T01`.
 
-**Si en algún momento se decide NO vaciarla** (por ejemplo, porque ya hay datos reales de un consorcio), entonces cada diferencia entre el modelo nuevo y el esquema existente tiene que resolverse con una migración escrita a mano para ese caso, y **este documento deja de ser suficiente**: ahí corresponde incorporar Alembic, como ya anticipa el Documento Técnico (sección 6).
-
-### 3.2 Punto abierto: el engine y el pooler
+### 3.4 Punto abierto: el engine y el pooler
 
 El motor de conexión se creaba con la configuración por defecto de SQLAlchemy, sin `pool_pre_ping` ni un pool nulo. Contra un pooler en un entorno serverless eso puede dejar conexiones muertas reutilizadas entre invocaciones (se manifiesta como errores intermitentes de conexión, no como una falla constante). **No llegó a dar problemas en el volumen de prueba, pero está sin resolver.** Al reimplementar la conexión, evaluar `pool_pre_ping=True` y una estrategia de pool acorde a serverless.
 
@@ -105,12 +166,15 @@ El motor de conexión se creaba con la configuración por defecto de SQLAlchemy,
 
 1. ~~Crear el repositorio de GitHub vacío y subir el proyecto.~~ **Hecho:** `github.com/gusoliva85/Smart_Building`.
 2. ~~**Volver a vincular el proyecto de Vercel al repositorio nuevo.**~~ **Hecho y verificado el 2026-11-10:** despliega solo en cada push a `main`.
-3. Verificar que las tres variables de entorno siguen cargadas en Vercel: `DATABASE_URL`, `JWT_SECRETO`, `CORS_ORIGENES_EXTRA`. (Que la API desplegada conteste y que el login funcione ya prueba las dos primeras; `CORS_ORIGENES_EXTRA` no hace falta mientras el frontend y la API compartan dominio, que es el caso.)
-4. **Tomar la decisión de la sección 3.1** sobre el esquema de Supabase, y ejecutarla.
-5. Confirmar que `backend/vercel.json` fija la región `gru1`.
-6. Desplegar y verificar contra el endpoint de salud de la API.
-7. Ejecutar el seed y anotar las credenciales generadas en el `README.md` **en ese momento** (ver la advertencia del README).
-8. Confirmar desde el frontend desplegado que puede autenticarse: es la prueba de que CORS y el secreto están bien.
+3. ~~Verificar que las tres variables de entorno siguen cargadas en Vercel: `DATABASE_URL`, `JWT_SECRETO`, `CORS_ORIGENES_EXTRA`.~~ **Hecho.** Que la API desplegada conteste y que el login funcione prueba las dos primeras; `CORS_ORIGENES_EXTRA` no hace falta mientras el frontend y la API compartan dominio, que es el caso.
+4. ~~**Tomar la decisión sobre el esquema de Supabase, y ejecutarla.**~~ **Hecha y ejecutada en `F05-T01`**, y verificada el 2026-11-15 (sección 3). Queda pendiente una sola cosa: correr `m002_fk_asignacion_edificio` (sección 3.1).
+5. ~~Confirmar que `vercel.json` fija la región `gru1`.~~ **Hecho.** El archivo está **en la raíz** del repositorio, que es donde Vercel lo busca — este punto decía `backend/vercel.json` y era la misma equivocación que ya corrige la sección 2.2.
+6. ~~Desplegar y verificar contra el endpoint de salud de la API.~~ **Hecho y verificado el 2026-11-10** (ver sección 1).
+7. ~~Ejecutar el seed y anotar las credenciales generadas en el `README.md`~~ **Hecho.** Están en el README.
+8. ~~Confirmar desde el frontend desplegado que puede autenticarse.~~ **Hecho:** es lo que prueba que CORS y el secreto están bien.
+
+**O sea que el checklist del primer despliegue está cerrado**, con la excepción del punto 4. Lo que
+queda para la Fase 13 no es desplegar por primera vez: es la revisión final (`F13-T02` a `F13-T07`).
 
 ---
 

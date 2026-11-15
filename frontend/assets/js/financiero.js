@@ -40,7 +40,7 @@
   var PESTANIAS = [
     { id: 'gastos',    etiqueta: 'Gastos',    construida: true  },  /* F2-T17 */
     { id: 'expensas',  etiqueta: 'Expensas',  construida: true  },  /* F2-T18 */
-    { id: 'pagos',     etiqueta: 'Pagos',     construida: false },  /* F2-T19 */
+    { id: 'pagos',     etiqueta: 'Pagos',     construida: true  },  /* F2-T19 */
     { id: 'deudores',  etiqueta: 'Deudores',  construida: false },  /* F2-T20 */
     { id: 'fondos',    etiqueta: 'Fondos',    construida: false }   /* F2-T21 */
   ];
@@ -69,7 +69,9 @@
     rubros: [],          /* el catalogo que sirve el backend */
     editando: null,      /* el id del gasto que se esta editando, o null */
     ultimoFoco: null,    /* a donde vuelve el foco al cerrar el modal */
-    expensas: []         /* las liquidaciones, para no volver a pedirlas */
+    expensas: [],        /* las liquidaciones, para no volver a pedirlas */
+    cola: [],            /* los pagos pendientes de conciliar (F2-T19) */
+    rechazando: null     /* el pago que el modal de rechazo tiene cargado */
   };
 
   /* --------------------------------------------------------------- utiles -- */
@@ -118,6 +120,11 @@
     '<path d="M21 12a9 9 0 0 1-15.5 6.3L3 16"/>' +
     '<path d="M3 21v-5h5"/>';
   var ICONO_PUBLICAR = '<path d="M12 19V5"/><path d="M5 12l7-7 7 7"/>';
+  /* El comprobante: una hoja con una esquina doblada. No un clip, que es el
+     icono universal de "adjuntar un archivo" — y acá no se adjunta nada, se
+     abre un enlace a algo que vive afuera (ver 1.4 del Documento General). */
+  var ICONO_COMPROBANTE = '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/>' +
+    '<path d="M14 3v5h5"/>';
 
   /* ----------------------------------------------------- las pestañas -- */
 
@@ -192,9 +199,29 @@
        Administrador de Consorcio. */
     mostrar(campo, edificios.length > 1);
 
+    /* **Al cambiar de edificio se recargan TODAS las pestañas, no la que está
+       a la vista.** Hasta `F2-T19` esto solo recargaba los gastos, y el
+       resultado era que el listado de liquidaciones seguía mostrando las del
+       edificio anterior: en una pestaña que no se está mirando, un dato viejo
+       no se nota hasta que alguien lo lee como propio del edificio nuevo. En
+       una pantalla de plata eso es grave — y con la cola de pagos lo sería más,
+       porque los botones de conciliar estarían apuntando a pagos de otro
+       consorcio (el backend los rechazaría con un 404, pero recién al tocarlos).
+
+       Se limpian además los avisos de éxito y error: pertenecen a lo que se
+       hizo en el edificio anterior. */
     selector.addEventListener('change', function () {
       irAlEdificio(parseInt(selector.value, 10));
+
+      mostrarError('gastos', '');
+      mostrarError('expensas', '');
+      mostrarError('pagos', '');
+      mostrar($('#exito-expensas'), false);
+      mostrar($('#exito-pagos'), false);
+
       cargarGastos();
+      cargarExpensas();
+      cargarPagos();
     });
   }
 
@@ -960,6 +987,499 @@
     });
   }
 
+  /* =========================================================================
+     LA PESTAÑA DE PAGOS (F2-T19)
+     =========================================================================
+
+     Dos bloques: la cola de lo que hay que decidir y el historial de lo que ya
+     se decidio. Misma particion que `usuarios.html` entre las cuentas que
+     esperan aprobacion y las que ya tienen rol, y por la misma razon — no son
+     dos entidades, son los mismos pagos en un estado que pide una decision.
+
+     =========================================================================
+     DOS PEDIDOS Y NO UNO, PORQUE EL TOTAL LO CALCULA EL SERVIDOR
+     =========================================================================
+
+     El endpoint devuelve `cantidad` y `total` del filtro que se le pidio. Si
+     la pantalla trajera todos los pagos y los partiera en dos listas, los dos
+     totales habria que sumarlos en JavaScript — y entonces serian el total de
+     lo que se dibujo y no el del filtro, que es justo lo que el backend evita.
+     Asi que la cola se pide con `estado=pendiente` y el historial con el
+     estado que elija el desplegable. Cada lista trae su propio total.
+
+     **Y por eso el filtro del historial no tiene un "todos"**: no es un estado
+     del backend, asi que no tendria total propio. Los dos valores que ofrece
+     son los dos estados reales en los que termina un pago.
+
+     =========================================================================
+     CONFIRMAR PREGUNTA CON EL MODAL DEL SISTEMA; RECHAZAR NECESITA OTRO
+     =========================================================================
+
+     Las dos acciones piden confirmacion porque ninguna se puede deshacer: un
+     pago conciliado no se vuelve a conciliar, y si se confirmo por equivocacion
+     lo que corresponde es registrar el movimiento que lo corrige, no reescribir
+     el historial. Pero no usan el mismo componente:
+
+     - **Confirmar** usa `Confirmar.pedir()`: no hay nada que escribir.
+     - **Rechazar** usa un modal de formulario propio, porque el backend exige
+       el motivo y `Confirmar.pedir()` solo devuelve si o no. Un `prompt()` del
+       navegador esta prohibido en todo el proyecto.
+
+     =========================================================================
+     QUIEN CARGO UN PAGO NO LO CONCILIA, Y ESO NO LO DECIDE LA PANTALLA
+     =========================================================================
+
+     El servidor manda `puedo_conciliarlo` por fila. La pantalla no sabe la
+     regla —el caso real es el administrador que vive en el edificio y carga su
+     propia expensa— y si la supiera tendria una copia que algun dia no
+     coincide con la del backend. Cuando viene en `false` no se dibujan los
+     botones **y se explica por que**: un par de botones que faltan sin
+     explicacion se lee como una pantalla a medio cargar.
+     ====================================================================== */
+
+  function construirFiltroDeEstado() {
+    /* Los dos estados terminales, con la etiqueta en plural porque titulan una
+       lista. No se escriben los valores a mano en el HTML para que esta lista y
+       la del backend se lean juntas desde un solo lugar. */
+    $('#filtro-estado-pago').innerHTML =
+      '<option value="confirmado">Confirmados</option>' +
+      '<option value="rechazado">Rechazados</option>';
+  }
+
+  function estadoDelHistorico() {
+    return $('#filtro-estado-pago').value || 'confirmado';
+  }
+
+  /* Los datos secundarios de un pago, que son los que permiten cotejarlo
+     contra el extracto del banco: de que unidad es, de que periodo, como se
+     pago y cuando. La fecha que importa es la del pago y no la de la carga —se
+     paga el 10 y se sube el comprobante el 12— asi que va primero. */
+  function detallesDelPago(pago) {
+    return [
+      'unidad ' + pago.identificador,
+      window.Moneda.periodoLargo(pago.periodo),
+      pago.medio_pago_etiqueta,
+      'pagado el ' + window.Moneda.fecha(pago.fecha)
+    ];
+  }
+
+  function botonDeComprobante(pago) {
+    /* Sin comprobante no se dibuja un boton deshabilitado: no hay nada que
+       abrir, y un boton gris invita a preguntarse que le falta a la pantalla.
+       La ausencia se dice en el texto de la fila. */
+    if (!pago.comprobante_url) return '';
+
+    /* `rel="noopener noreferrer"` no es decorativo: el enlace lo escribio el
+       residente y apunta afuera del sistema, asi que la pestaña que se abre no
+       tiene por que poder tocar esta. */
+    return '<a class="icon-btn icon-btn-sm" href="' + escapar(pago.comprobante_url) +
+           '" target="_blank" rel="noopener noreferrer" ' +
+           'aria-label="Abrir el comprobante del pago de la unidad ' +
+           escapar(pago.identificador) + ' en una pestaña nueva" ' +
+           'title="Ver el comprobante">' + svg(ICONO_COMPROBANTE) + '</a>';
+  }
+
+  /* Cuantos dias lleva esperando un pago. **`cargado_en` y `fecha` son dos
+     datos distintos y el backend los separa a proposito**: se paga el 10 y se
+     sube el comprobante el 12. En una cola de trabajo lo que importa es desde
+     cuando esta esperando una respuesta, que es `cargado_en`.
+
+     Se compara solo la parte de la fecha para no depender de la zona horaria:
+     `creado_en` viaja sin zona (ver la deuda anotada en `F13-T01`), asi que una
+     cuenta con horas podria dar un dia de diferencia segun el huso. */
+  function diasEsperando(cargadoEn) {
+    if (!cargadoEn) return null;
+
+    var partes = String(cargadoEn).slice(0, 10).split('-');
+    if (partes.length !== 3) return null;
+
+    var cargado = Date.UTC(partes[0], partes[1] - 1, partes[2]);
+    var hoy = new Date();
+    var hoyUtc = Date.UTC(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+
+    var dias = Math.round((hoyUtc - cargado) / 86400000);
+    return dias < 0 ? null : dias;
+  }
+
+  function esperaDelPago(pago) {
+    var dias = diasEsperando(pago.cargado_en);
+    if (dias === null) return '';
+    if (dias === 0) return 'avisó hoy';
+    if (dias === 1) return 'esperando desde ayer';
+    return 'esperando ' + dias + ' días';
+  }
+
+  function htmlDePagoDeLaCola(pago) {
+    var detalles = detallesDelPago(pago);
+
+    var espera = esperaDelPago(pago);
+    if (espera) detalles.push(espera);
+
+    if (!pago.comprobante_url) {
+      /* Se dice con palabras y no con un hueco. Un pago sin comprobante se
+         puede confirmar igual —el extracto del banco es la fuente de verdad,
+         no el papel que subio el residente— pero quien concilia tiene que
+         saber que no hay nada para mirar antes de abrir el home banking. */
+      detalles.push('sin comprobante');
+    }
+
+    var acciones = [botonDeComprobante(pago)];
+
+    if (pago.puedo_conciliarlo) {
+      acciones.push(
+        '<button type="button" class="boton-primario boton-secundario boton-chico" ' +
+                'data-rechazar="' + pago.id + '" ' +
+                'aria-label="Rechazar el pago de la unidad ' +
+                escapar(pago.identificador) + '">Rechazar</button>',
+        '<button type="button" class="boton-primario boton-chico" ' +
+                'data-confirmar="' + pago.id + '" ' +
+                'aria-label="Confirmar el pago de la unidad ' +
+                escapar(pago.identificador) + '">Confirmar</button>'
+      );
+    } else {
+      /* **La explicacion va en la fila y no arriba de la lista**, porque el
+         caso real es mezclado: el administrador que vive en el edificio carga
+         su propia expensa y concilia la de sus vecinos, asi que en la misma
+         cola hay filas con botones y filas sin. Un aviso general arriba no
+         diria cual es cual, y dos filas identicas donde una tiene botones y la
+         otra no se lee como una pantalla a medio cargar.
+
+         No es un boton deshabilitado: no hay nada que habilitar nunca para esta
+         persona, y un gris que no se puede cambiar invita a buscarle el modo. */
+      acciones.push(
+        '<span class="chip">Lo cargaste vos: lo revisa otro administrador</span>'
+      );
+    }
+
+    /* `.fila-lista.pendiente` — borde completo y sombra del mismo color, con el
+       **acento de marca y no el naranja del semaforo**. El semaforo son cuatro
+       estados del edificio y el naranja significa "mantenimiento en curso": un
+       pago sin conciliar no es un estado del edificio. Es la misma decision que
+       la fila de una cuenta sin aprobar. */
+    return '' +
+      '<article class="fila-lista content-glass pendiente" data-pago="' + pago.id + '">' +
+        '<div class="fila-lista-dato">' +
+          '<b>' + window.Moneda.pesos(pago.monto) + '</b>' +
+          '<span>' + escapar(detalles.join(' · ')) + '</span>' +
+        '</div>' +
+        '<div class="fila-lista-acciones">' +
+          /* La ranura `.fila-lista-estado` queda anclada al dato y el aspecto
+             lo pone `.rol-badge`, que es su companera en las pantallas
+             aprobadas: es una etiqueta neutra de clasificacion, igual que el
+             rol de un usuario. Un `.chip` suelto aca no es lo mismo — el chip
+             lleva un dato dentro de las acciones, no la etiqueta de la fila. */
+          '<span class="fila-lista-estado rol-badge">Lo cargó ' +
+            escapar(pago.cargado_por) +
+          '</span>' +
+          '<div class="fila-lista-botones">' + acciones.join('') + '</div>' +
+        '</div>' +
+      '</article>';
+  }
+
+  function htmlDePagoConciliado(pago) {
+    var detalles = detallesDelPago(pago);
+
+    if (pago.conciliado_en) {
+      detalles.push(
+        (pago.estado === 'confirmado' ? 'confirmado' : 'rechazado') + ' el ' +
+        window.Moneda.fecha(pago.conciliado_en) +
+        (pago.conciliado_por ? ' por ' + pago.conciliado_por : '')
+      );
+    }
+
+    /* **El motivo del rechazo se muestra, y es la mitad del valor de rechazar.**
+       Guardado y no mostrado seria un dato que nadie sabe de donde salio; y
+       quien concilia necesita leerlo para responderle al residente que llama. */
+    if (pago.motivo_rechazo) {
+      detalles.push('motivo: ' + pago.motivo_rechazo);
+    }
+
+    return '' +
+      '<article class="fila-lista content-glass" data-pago="' + pago.id + '">' +
+        '<div class="fila-lista-dato">' +
+          '<b>' + window.Moneda.pesos(pago.monto) + '</b>' +
+          '<span>' + escapar(detalles.join(' · ')) + '</span>' +
+        '</div>' +
+        '<div class="fila-lista-acciones">' +
+          /* Neutra a proposito: el estado de un pago NO es el semaforo del
+             edificio. Un `.pill` verde para "confirmado" gastaria en una
+             etiqueta administrativa el color que significa "no hay nada que
+             atender en el edificio". */
+          '<span class="fila-lista-estado rol-badge">' +
+            (pago.estado === 'confirmado' ? 'Confirmado' : 'Rechazado') +
+          '</span>' +
+          '<div class="fila-lista-botones">' + botonDeComprobante(pago) + '</div>' +
+        '</div>' +
+      '</article>';
+  }
+
+  function pintarCola(datos) {
+    var seccion = $('#seccion-cola');
+    var caja = $('#total-cola');
+
+    /* El bloque entero desaparece cuando no hay nada que conciliar, en vez de
+       mostrar un "no hay pagos pendientes". Un encabezado con un vacio debajo
+       ocupa todos los dias el lugar de algo que hay que atender, y la cola
+       vacia es el estado normal de un consorcio al dia. */
+    if (!datos.cantidad) {
+      mostrar(seccion, false);
+      mostrar(caja, false);
+      return;
+    }
+
+    texto(caja.querySelector('[data-cola-monto]'), window.Moneda.pesos(datos.total));
+    caja.querySelector('[data-cola-chips]').innerHTML =
+      '<span class="chip">' +
+        (datos.cantidad === 1 ? '1 pago' : datos.cantidad + ' pagos') +
+      '</span>';
+    mostrar(caja, true);
+
+    texto($('[data-contador-cola]'), String(datos.cantidad));
+
+    /* Cada fila explica si se puede conciliar o no, en `htmlDePagoDeLaCola`:
+       la cola puede ser mezclada y un aviso general no diria cual es cual. */
+    $('#lista-cola').innerHTML = datos.pagos.map(htmlDePagoDeLaCola).join('');
+
+    mostrar(seccion, true);
+  }
+
+  function pintarHistorico(datos) {
+    var lista = $('#lista-historico');
+    var cuantos = datos.cantidad;
+
+    texto($('[data-contador-historico]'), String(cuantos));
+
+    if (!cuantos) {
+      lista.innerHTML =
+        '<p class="lista-vacia">' +
+        (estadoDelHistorico() === 'confirmado'
+          ? 'Todavía no hay pagos confirmados en este edificio.'
+          : 'No hay pagos rechazados, que es la situación deseable.') +
+        '</p>';
+      return;
+    }
+
+    lista.innerHTML = datos.pagos.map(htmlDePagoConciliado).join('');
+  }
+
+  function cargarPagos() {
+    if (!estado.edificioId) return;
+
+    var base = '/edificios/' + estado.edificioId + '/pagos?estado=';
+    $('#lista-historico').innerHTML = window.Cargando.html();
+    mostrarError('pagos', '');
+
+    /* Los dos pedidos van juntos y no uno tras otro: son independientes, y en
+       serie la pestaña tarda el doble en estar completa. */
+    return Promise
+      .all([
+        window.Api.get(base + 'pendiente'),
+        window.Api.get(base + estadoDelHistorico())
+      ])
+      .then(function (respuestas) {
+        estado.cola = respuestas[0].pagos;
+        pintarCola(respuestas[0]);
+        pintarHistorico(respuestas[1]);
+      })
+      .catch(function (error) {
+        $('#lista-historico').innerHTML = '';
+        mostrarError('pagos', error.message);
+      });
+  }
+
+  function avisarExitoDePago(mensaje) {
+    texto($('[data-texto-exito-pagos]'), mensaje);
+    mostrar($('#exito-pagos'), true);
+  }
+
+  function pagoDeLaCola(id) {
+    return (estado.cola || []).filter(function (p) { return p.id === id; })[0];
+  }
+
+  /* ------------------------------------------------------------ confirmar -- */
+
+  function confirmarPago(id) {
+    var pago = pagoDeLaCola(id);
+    if (!pago) return;
+
+    window.Confirmar.pedir({
+      titulo: 'Confirmar el pago de la unidad ' + pago.identificador,
+      mensaje:
+        'Son ' + window.Moneda.pesos(pago.monto) + ' de ' +
+        window.Moneda.periodoLargo(pago.periodo) + '. Al confirmarlo baja la ' +
+        'deuda de esa unidad y el residente lo ve como acreditado. No se puede ' +
+        'deshacer: si después aparece un error, se corrige con otro movimiento ' +
+        'y no reescribiendo este.',
+      textoAccion: 'Confirmar el pago',
+      /* No destruye nada, así que el botón va con el acento y no en rojo. Lo
+         que sí es, y el texto lo dice, es irreversible. */
+      destructiva: false
+    }).then(function (confirmo) {
+      if (!confirmo) return;
+      return conciliar(id, 'confirmado', null,
+        'Se confirmó el pago de ' + window.Moneda.pesos(pago.monto) +
+        ' de la unidad ' + pago.identificador + '. La deuda ya quedó al día.');
+    });
+  }
+
+  /* -------------------------------------------------------------- rechazar -- */
+
+  function abrirModalDeRechazo(id) {
+    var pago = pagoDeLaCola(id);
+    if (!pago) return;
+
+    estado.rechazando = id;
+    estado.ultimoFoco = document.activeElement;
+
+    texto($('[data-sub-modal-rechazo]'),
+      window.Moneda.pesos(pago.monto) + ' de la unidad ' + pago.identificador +
+      ', ' + window.Moneda.periodoLargo(pago.periodo) + '.');
+
+    var formulario = $('#formulario-rechazo');
+    var campo = $('#rechazo-motivo');
+    campo.value = '';
+    window.Formularios.limpiarErrores(formulario);
+    /* El resumen se busca DENTRO del formulario y no con un selector global:
+       hay tres en esta pantalla —el del gasto, el del rechazo— y el selector
+       suelto agarra el primero del documento, que es el del otro modal. */
+    mostrar(formulario.querySelector('[data-resumen-errores]'), false);
+
+    $('#modal-rechazo').classList.add('abierto');
+    campo.focus();
+  }
+
+  function cerrarModalDeRechazo() {
+    $('#modal-rechazo').classList.remove('abierto');
+    estado.rechazando = null;
+
+    /* El foco vuelve a donde estaba, salvo que ese boton ya no exista: la fila
+       se redibuja despues de conciliar, asi que el boton que abrio el modal se
+       fue con el HTML viejo. */
+    if (estado.ultimoFoco && document.contains(estado.ultimoFoco)) {
+      estado.ultimoFoco.focus();
+    }
+    estado.ultimoFoco = null;
+  }
+
+  function modalDeRechazoAbierto() {
+    return $('#modal-rechazo').classList.contains('abierto');
+  }
+
+  function rechazar(evento) {
+    evento.preventDefault();
+
+    var id = estado.rechazando;
+    var pago = pagoDeLaCola(id);
+    if (!pago) return;
+
+    var motivo = $('#rechazo-motivo').value.trim();
+    var boton = $('#boton-rechazar');
+
+    boton.disabled = true;
+
+    /* El motivo no se valida acá además del backend: el esquema ya exige el
+       largo mínimo y devuelve el problema por campo, que es lo que
+       `marcarErrores` necesita para pintar el campo y llevarle el foco. Una
+       segunda validación en la pantalla sería una copia de la regla con su
+       propio texto, capaz de decir algo distinto del servidor. */
+    conciliar(id, 'rechazado', motivo,
+      'Se rechazó el pago de ' + window.Moneda.pesos(pago.monto) +
+      ' de la unidad ' + pago.identificador + '. El residente ve el motivo en ' +
+      'su cuenta y puede volver a cargarlo.',
+      $('#formulario-rechazo')
+    ).then(function (salioBien) {
+      boton.disabled = false;
+      if (salioBien) cerrarModalDeRechazo();
+    });
+  }
+
+  /* ------------------------------------------------- el pedido compartido -- */
+
+  /* Las dos acciones son el mismo PATCH con otro estado, así que son una sola
+     función: la validación del backend es la misma tabla de transiciones, y dos
+     funciones serían dos lugares donde recordar que hay que recargar la lista.
+
+     Devuelve una promesa con `true` o `false` —salió bien o no— y nunca
+     rechaza: quien la llama necesita decidir si cierra el modal, y un `reject`
+     lo obligaría a un `catch` que no distingue "lo rechazó el servidor" de "se
+     rompió algo". */
+  function conciliar(id, nuevoEstado, motivo, mensajeDeExito, formulario) {
+    mostrarError('pagos', '');
+    mostrar($('#exito-pagos'), false);
+
+    var cuerpo = { estado: nuevoEstado };
+    if (motivo) cuerpo.motivo = motivo;
+
+    return window.Api
+      .patch('/edificios/' + estado.edificioId + '/pagos/' + id, cuerpo)
+      .then(function () {
+        avisarExitoDePago(mensajeDeExito);
+
+        /* **Se recargan las tres cosas que el pago movió, y no solo la lista.**
+           Un pago confirmado cambia la cola, el historial y —porque baja la
+           deuda— lo que van a mostrar Deudores y los reportes. Las dos
+           pestañas que existen hoy se piden de nuevo; refrescar desde lo que ya
+           estaba en memoria mostraría el saldo viejo, que es un bug real que ya
+           pasó en la iteración anterior. */
+        return cargarPagos().then(function () { return true; });
+      })
+      .catch(function (error) {
+        /* **El error va donde ocurrió la acción, y con el modal abierto eso es
+           dentro del modal.** Mandarlo arriba de la lista lo dejaría detrás del
+           velo: la persona aprieta "Rechazar el pago", no pasa nada visible, y
+           el aviso aparece recién cuando cierra. Es el mismo bug que ya se
+           arregló en el alta de edificios.
+
+           Primero se intenta marcar el campo —un motivo demasiado corto es un
+           error de campo y el backend lo manda con su nombre— y si el error no
+           es de ningún campo, va al resumen del formulario. */
+        if (formulario) {
+          if (!window.Formularios.marcarErrores(formulario, error.campos)) {
+            var resumen = formulario.querySelector('[data-resumen-errores]');
+            texto(resumen, error.message);
+            mostrar(resumen, true);
+          }
+          return false;
+        }
+
+        mostrarError('pagos', error.message);
+        return false;
+      });
+  }
+
+  function engancharPagos() {
+    $('#filtro-estado-pago').addEventListener('change', cargarPagos);
+
+    document.querySelectorAll('[data-cerrar-rechazo]').forEach(function (boton) {
+      boton.addEventListener('click', cerrarModalDeRechazo);
+    });
+
+    $('#formulario-rechazo').addEventListener('submit', rechazar);
+
+    /* El clic en el velo cierra el modal de rechazo. Es un formulario de un
+       solo campo corto, así que no hay un alta a medio tipear que perder — que
+       es la razón por la que el modal del gasto sí se queda abierto. */
+    $('#modal-rechazo').addEventListener('click', function (evento) {
+      if (evento.target === $('#modal-rechazo')) cerrarModalDeRechazo();
+    });
+
+    /* Delegación en los dos contenedores, igual que en usuarios: las listas se
+       reemplazan enteras con innerHTML después de cada conciliación, así que un
+       listener por fila se iría con el HTML viejo. */
+    $('#lista-cola').addEventListener('click', function (evento) {
+      var aceptar = evento.target.closest('[data-confirmar]');
+      if (aceptar) {
+        confirmarPago(parseInt(aceptar.getAttribute('data-confirmar'), 10));
+        return;
+      }
+
+      var negar = evento.target.closest('[data-rechazar]');
+      if (negar) {
+        abrirModalDeRechazo(parseInt(negar.getAttribute('data-rechazar'), 10));
+      }
+    });
+  }
+
   /* --------------------------------------------------------- el arranque -- */
 
   function engancharEventos() {
@@ -981,6 +1501,7 @@
       if (evento.key !== 'Escape' || window.Confirmar.abierto()) return;
       if (modalAbierto()) cerrarModal();
       if ($('#modal-expensa').classList.contains('abierto')) cerrarModalExpensa();
+      if (modalDeRechazoAbierto()) cerrarModalDeRechazo();
     });
 
     /* **Delegacion y no un listener por fila.** El listado se redibuja con
@@ -1060,14 +1581,16 @@
         construirFiltros();
         construirSelectoresDeRubro();
         construirFiltrosDeExpensas();
+        construirFiltroDeEstado();
         engancharEventos();
         engancharExpensas();
+        engancharPagos();
 
-        /* Las dos pestanias se cargan juntas y no al tocarlas. Son dos pedidos
-           chicos, y asi el aviso del borrador sin publicar aparece desde el
-           momento en que se entra: es la clase de cosa que hay que ver sin
-           tener que ir a buscarla. */
-        return Promise.all([cargarGastos(), cargarExpensas()]);
+        /* Las tres pestanias se cargan juntas y no al tocarlas. Son pedidos
+           chicos, y asi las dos cosas que no hay que ir a buscar aparecen desde
+           el momento en que se entra: el aviso del borrador sin publicar, y la
+           cola de pagos esperando conciliacion. Las dos son plata quieta. */
+        return Promise.all([cargarGastos(), cargarExpensas(), cargarPagos()]);
       })
       .catch(function (error) {
         sinAcceso(error.message);

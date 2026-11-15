@@ -96,7 +96,7 @@ Smart_Building_ver_4/
 
 ### 1.4 Entornos: desarrollo y producción
 
-> **⚠️ Los recursos de producción siguen vivos.** La base de Supabase no se eliminó en el reinicio del proyecto y conserva el esquema y los datos del código anterior. **Antes de desplegar, leer [`04_Infraestructura.md`](04_Infraestructura.md)**, que documenta dónde está cada recurso, qué variables de entorno existen y por qué desplegar contra ese esquema viejo puede fallar en silencio (ver también la sección 6 de este documento).
+> **⚠️ Los recursos de producción siguen vivos**, y hay datos cargados a mano encima. La base de Supabase no se eliminó en el reinicio: lo que se vació fue su esquema (`F05-T01`), que hoy coincide con los modelos. **Antes de tocar cualquier cosa del despliegue, leer [`04_Infraestructura.md`](04_Infraestructura.md)**, que documenta dónde está cada recurso, qué variables de entorno existen y cómo se mide el estado del esquema en vez de suponerlo (ver también la sección 6 de este documento).
 
 Éste es el punto donde la arquitectura real difiere más de lo que preveía la versión anterior de este documento, que asumía SQLite en todos lados.
 
@@ -191,14 +191,18 @@ Es la convención central del proyecto. Un servicio contiene la regla de negocio
 | Servicio | Responsabilidad |
 |---|---|
 | `services/autorizacion.py` | Matriz de roles: alcance de cada rol, qué información financiera ve, si es de solo lectura. Fuente única de verdad de los permisos. |
-| `services/finanzas.py` | Estructura vacía del edificio (pisos por unidades) y coeficientes: los dos atajos de carga inicial (partes iguales, por m²) y la validación de que el edificio sume 100% exacto. El reparto de un monto real entre unidades es de la Fase 2 y todavía no está. |
+| `services/finanzas.py` | Estructura vacía del edificio (pisos por unidades) y coeficientes: los tres criterios de carga (partes iguales, por m², completar el resto) y la validación de que el edificio sume 100% exacto. **Y desde `F2-T03`, `prorratear()`**: el reparto de un monto real entre unidades, con los centavos sobrantes asignados **por resto mayor** y no siempre a la última — con la regla vieja el mismo vecino pagaba hasta 31 centavos de más todos los meses. |
+| `services/rubros.py` · `expensas.py` · `pagos.py` · `deudores.py` | La Fase 2. El catálogo cerrado de diez rubros contables; los dos estados de la liquidación y su cálculo; el ciclo de vida del pago, con `reduce_la_deuda()` y `se_le_muestra_al_residente()` **separadas a propósito** (un pago pendiente se muestra y no baja el saldo); y el cálculo de deudores, que distingue el saldo de lo vencido porque son dos números que responden preguntas distintas. |
+| `services/fondos.py` · `caja.py` · `presupuestos.py` · `reportes.py` | La tesorería. El signo de un movimiento lo da su tipo y nunca el número, traducido en un solo lugar (`fondos.con_signo()`); la caja chica se mide contra su monto fijo y no contra cero; y los reportes consolidan sin recalcular. |
 | `services/reclamos.py` | Flujos de estado de `Reclamo` y de `OrdenTrabajo` (son dos flujos distintos), prioridades, colores de prioridad, tiempos de resolución. |
 | `services/severidad.py` | Cálculo del semáforo por departamento a partir de sus reclamos y órdenes de trabajo. |
 | `services/activos.py` | *(sin implementar)* Estado de un activo según su próximo mantenimiento. |
 
 **Endpoints construidos hasta acá:** `routers/auth.py` (login, registro público, política de contraseña), `routers/usuarios.py` (CRUD de usuarios), `routers/edificios.py` (`POST /api/edificios` el alta con estructura automática de `F1-T20`, `GET /api/edificios` y `GET /api/edificios/{id}` de `F1-T21`, y `PATCH /api/edificios/{id}` la configuración de `F1-T22`) `routers/estructura.py` (los trece endpoints anidados de `F1-T23`: pisos, departamentos, cocheras y espacios comunes bajo `/api/edificios/{id}/...`) y `routers/coeficientes.py` (los tres de `F1-T24`). Con eso el backend de la Fase 1 queda completo: lo que sigue son las pantallas.
 >
-> **Fase 2:** `routers/fondos.py` y `routers/presupuestos.py` (`F2-T15`) — los cuatro conjuntos de la tesorería, anidados bajo edificio; fondos y caja van juntos porque comparten el mecanismo de movimientos, y las facturas cuelgan del **gasto** y no del edificio. `routers/pagos.py` (`F2-T08`, `F2-T09`, `F2-T11`) — la carga por el residente, la cola de conciliación y la vista de deudores. `routers/expensas.py` (`F2-T05`) — generar la liquidación de un período (queda en borrador) y publicarla, que son dos actos separados a propósito. Y `routers/gastos.py` (`F2-T02`) — el CRUD de gastos bajo `/api/edificios/{id}/gastos` con filtro por año, mes y rubro, más `GET /api/gastos/rubros`, el catálogo con su etiqueta legible. Es el segundo router que usa los **dos prefijos** del mismo dominio, el patrón descrito arriba: lo anidado bajo el edificio y lo que no depende de ninguno.
+> **Fase 2:** `routers/fondos.py` y `routers/presupuestos.py` (`F2-T15`) — los cuatro conjuntos de la tesorería, anidados bajo edificio; fondos y caja van juntos porque comparten el mecanismo de movimientos, y las facturas cuelgan del **gasto** y no del edificio. `routers/pagos.py` (`F2-T08`, `F2-T09`, `F2-T11`) — la carga por el residente, la cola de conciliación y la vista de deudores. `routers/expensas.py` (`F2-T05`) — generar la liquidación de un período (queda en borrador) y publicarla, que son dos actos separados a propósito. Y `routers/gastos.py` (`F2-T02`) — el CRUD de gastos bajo `/api/edificios/{id}/gastos` con filtro por año, mes y rubro, más `GET /api/gastos/rubros`, el catálogo con su etiqueta legible. Es el segundo router que usa los **dos prefijos** del mismo dominio, el patrón descrito arriba: lo anidado bajo el edificio y lo que no depende de ninguno. Cierra `routers/reportes.py` (`F2-T16`), el endpoint consolidado que **no tiene una sola consulta propia**: lee la morosidad de `services/deudores.py`, la agrupación por rubro de los gastos y el recaudado de los pagos confirmados, y los junta. Dos tests comparan su resultado contra el listado de gastos y contra la vista de deudores, porque tienen que dar el mismo número.
+>
+> **Con eso el backend de la Fase 2 quedó completo**, y los servicios que sumó son `rubros`, `expensas`, `pagos`, `deudores`, `fondos`, `caja`, `presupuestos` y `reportes`, más el reparto de un monto en `finanzas.prorratear()`.
 
 > **Dos endpoints que agregó `F1-T26`, que era una tarea de frontend, y por qué.** `GET /api/edificios/opciones` y `GET /api/edificios/{id}/asignables`. La pantalla de detalle tiene que ofrecer tres catálogos —los tipos de cochera, los roles que se pueden habilitar en un edificio y los topes de la generación automática— y dos desplegables de personas: quién administra y quién está a cargo, y quién es el propietario y el inquilino de cada unidad. **Ninguna de esas dos cosas se podía armar sin escribir reglas del backend en el JavaScript.** Los catálogos son constantes del servidor: repetirlos en la pantalla significa que el día que se agregue un tipo de cochera, la pantalla siga ofreciendo dos. Y los desplegables de personas solo se podían armar con `GET /api/usuarios`, que es exclusivo del Administrador General: el de Consorcio puede asignar un propietario a una unidad de su edificio y no tenía de dónde sacar la lista, así que la pantalla terminaba pidiéndole que escribiera un número que no podía averiguar.
 >
@@ -358,7 +362,10 @@ Es la convención central del proyecto. Un servicio contiene la regla de negocio
 
 ---
 
-**Lo que sigue todavía no está construido:** es el diseño con el que arranca cada tarea, no el esquema real. Las tablas de arriba sí describen lo que hay en la base.
+**Las cuatro tablas que siguen también están construidas** (`F2-T13` y `F2-T14`), igual que las de
+arriba. *Corregido el 2026-11-15: acá había un corte que decía "lo que sigue todavía no está
+construido" y quedó viejo cuando se cerró el Tema 2.5. Con eso, las **18 tablas** de este documento
+existen en la base, y lo que falta construir son las de la sección 3.6.*
 
 **`cajas`** — `id`, `edificio_id`, `monto_fijo` (`Numeric(12,2)`), `responsable_id`, `activo`, `creado_en`. UNIQUE (`edificio_id`): **una caja por edificio.** CHECK: monto_fijo > 0. **Sin columna de disponible ni de saldo.**
 
@@ -651,7 +658,11 @@ Todo lo que cae en "No" requiere una migración pensada y escrita a mano para es
 
 **Cuándo conviene revisar esta decisión:** este esquema funciona bien mientras el proyecto sea de un solo desarrollador y la base de producción se pueda recrear. En cuanto haya datos reales de clientes que no se puedan perder, conviene migrar a Alembic. No antes: sería infraestructura sin uso.
 
-> **⚠️ Aplicación inmediata de todo esto.** La base de producción de Supabase **conserva hoy el esquema completo del código eliminado** (23 tablas con datos de prueba). Como los dos mecanismos de arriba son puramente aditivos, desplegar la reimplementación contra esa base **no va a corregir ninguna diferencia**: una tabla modelada distinto queda con su forma vieja, sin error visible. La decisión a tomar antes del primer despliegue —y la recomendación de vaciar el esquema, con su fundamento— está en [`04_Infraestructura.md`](04_Infraestructura.md), sección 3.
+> **Estado real de esto, verificado el 2026-11-15.** El párrafo que estaba acá advertía que la base de Supabase conservaba el esquema completo del código eliminado. **Dejó de ser cierto el 2026-09-27**, cuando `F05-T01` vació el esquema `public` y la aplicación lo recreó desde los modelos. Leí el catálogo de la base real y **coincide**: las 18 tablas son las declaradas, con sus 36 CHECK y sus 30 índices únicos. Falta **una sola** clave foránea, la de `asignacion_edificio.edificio_id`, porque `m002` nunca se corrió allá; la tabla está vacía, así que se puede correr tal cual. El detalle completo está en [`04_Infraestructura.md`](04_Infraestructura.md), sección 3.
+>
+> **Y la regla cambió de signo.** Mientras lo que había en producción eran datos de prueba, la salida barata ante una diferencia de esquema era vaciar y recrear. Ahora hay datos cargados a mano que ningún script reconstruye, así que **una diferencia se resuelve con una migración escrita que preserve las filas**. Es el momento que esta sección anticipa para evaluar Alembic.
+>
+> **Un punto abierto del propio código, que la base refleja fielmente:** `creado_en` está declarado con dos criterios. Las tres tablas de la Fase 1 usan `DateTime(timezone=True)` con `now()`; las nueve de la Fase 2, `DateTime` sin zona con `current_timestamp()`. Hoy no rompe nada porque ningún cálculo cruza los dos grupos, pero son dos criterios conviviendo y se unifican en `F13-T01`.
 
 ---
 
@@ -670,7 +681,9 @@ Todo lo que cae en "No" requiere una migración pensada y escrita a mano para es
 
 ## 8. Estrategia de pruebas
 
-**Qué se prueba y qué no.** No se escriben tests de CRUD trivial. Se prueba: toda lógica de servicio (siempre, en la misma tarea que la crea), toda regla de autorización, todo flujo de estados, y todo cálculo financiero. La referencia alcanzada en la primera construcción fue de **356 tests** al cierre de la Fase 3.
+**Qué se prueba y qué no.** No se escriben tests de CRUD trivial. Se prueba: toda lógica de servicio (siempre, en la misma tarea que la crea), toda regla de autorización, todo flujo de estados, y todo cálculo financiero.
+
+**Dónde va el número, al 2026-11-15: 1502 tests en verde**, con la Fase 1 cerrada y la Fase 2 completa de backend. La referencia de la primera construcción eran 356 al cierre de la Fase 3, así que la relación con el código cambió de escala: el financiero solo aporta más de mil. Se corren con el intérprete del proyecto (`backend/venv/Scripts/python.exe -m pytest`) y tardan unos seis minutos — lo que importa de ese dato es que **sigue siendo viable correr la suite completa antes de cerrar cada tarea**, que es la regla de abajo.
 
 **Tres niveles:**
 
