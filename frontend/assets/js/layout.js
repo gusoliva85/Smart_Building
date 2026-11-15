@@ -90,12 +90,17 @@
       id: 'financiero',
       etiqueta: 'Financiero',
       archivo: 'financiero.html',
-      construida: true,          /* construida en F2-T17 */
-      /* Los dos administradores. El residente va a entrar al mismo archivo
-         cuando exista "Mi cuenta" (`F2-T22`): es un solo archivo para dos
-         audiencias y el rol decide cual se dibuja. Hasta entonces no se le
-         ofrece, porque hoy no hay nada para el ahi adentro. */
-      roles: ['admin_general', 'admin_consorcio'],
+      construida: true,          /* construida en F2-T17, F2-T22 */
+      /* **Los cuatro roles, y el archivo es uno solo.** Los dos
+         administradores ven el modulo completo con sus pestañas; el
+         propietario y el inquilino ven "Mi cuenta" (`F2-T22`). El rol lo
+         resuelve `financiero.js` en su `arrancar()`, que es el unico lugar
+         donde se mira: aca se declara quien puede ENTRAR, no que ve adentro.
+
+         El residente se sumo recien en `F2-T22` y no antes a proposito: hasta
+         que la vista existio, ofrecerle el acceso era mandarlo a una pantalla
+         que le decia que no era para su rol. */
+      roles: ['admin_general', 'admin_consorcio', 'propietario', 'inquilino'],
       /* Un billete visto de frente con el circulo del centro. Mismo trazo y
          mismo viewBox que los demas; nada de simbolos de moneda, que cambian
          de forma segun la tipografia. */

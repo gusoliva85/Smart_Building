@@ -1238,7 +1238,7 @@ la sección 1.3.
     desde la sesión del residente, confirmar uno, rechazar otro y verificar que solo el confirmado
     bajó el saldo. **Hasta entonces esta pantalla cuenta como no verificada de punta a punta.**
 
-- [ ] **F2-T20 · Frontend — pestaña Deudores.**
+- [x] **F2-T20 · Frontend — pestaña Deudores.**
   **Qué se construye:** listado ordenado por antigüedad con el detalle de las expensas impagas de cada unidad. Consume tal cual `F2-T11`, sin cambios de backend.
   **Nota de alcance, corregida el 2026-11-13:** `F1-T02` **ya está resuelta**, así que la condición
   que decía esta nota quedó vieja. Lo que falta es la **pantalla de asignación** de un Auditor a
@@ -1246,7 +1246,7 @@ la sección 1.3.
   un vínculo real sería un sobre-permiso.
   **Y el atraso y el recargo van en líneas separadas** (`F2-T11`): es un solo saldo, pero un número
   único más grande de lo esperado hace que el vecino crea que el sistema se equivocó.
-  **Construida, falta tu revisión.** El panel de deudores y el modal de detalle en `financiero.html`,
+  **Aprobada el 2026-11-15.** El panel de deudores y el modal de detalle en `financiero.html`,
   y la pestaña en `financiero.js`. Sin backend nuevo: consume `F2-T11` tal cual.
   - **Es la primera pantalla donde el semáforo aparece con licencia real.** En Gastos y Expensas los
     estados van como `.chip` neutro; una unidad en deuda sí es un estado del edificio, y es el mismo
@@ -1278,6 +1278,9 @@ la sección 1.3.
     severidades del JS sean exactamente las del servicio.
 
 - [ ] **F2-T21 · Frontend — pestaña Fondos, con su sub-navegación.**
+  **Queda despues de `F2-T22`, por pedido suyo del 2026-11-15.** El orden del Roadmap la ponia
+  antes, pero es la unica tarea de la fase que no desbloquea nada: adelantar `F2-T22` es lo que le
+  da datos reales a la cola de conciliacion de `F2-T19`, que hoy solo se puede ver vacia.
   **Qué se construye:** una única pestaña principal con **cuatro secciones internas** (Fondos / Caja chica / Presupuestos / Facturas) mediante una segunda fila de pestañas.
   **Por qué agrupadas:** sumar las cuatro como botones del selector principal daba ocho pestañas en una sola fila, demasiado para el flujo principal.
   **Cuidado con:** al cargar un movimiento hay que **volver a pedir el listado** antes de refrescar el saldo; refrescarlo desde el caché muestra el valor viejo (bug real). Y ningún `<select required>` puede quedar oculto por `display:none` en un ancestro: Chromium bloquea el envío del formulario **en silencio** porque no puede enfocarlo para mostrar el mensaje — los campos mutuamente excluyentes se validan desde el JS, no con `required` en HTML.
@@ -1300,6 +1303,34 @@ la sección 1.3.
   **Por qué un campo y no nada:** sin ninguna forma de cargarlo no existiría nunca un comprobante, y
   entonces el "ver comprobante" de la cola de conciliación (`F2-T19`) estaría siempre vacío — el
   administrador conciliaría a ciegas.
+  **Construida, falta tu revisión.** Se adelantó a `F2-T21` por pedido suyo del 2026-11-15.
+  - **Un endpoint nuevo, y es el único cambio de backend:** `GET /mis-pagos`. Sin él un pago
+    rechazado era invisible — el saldo no se movía y no había de dónde leer el motivo, que se guarda
+    desde `F2-T09` justamente para eso. Reusa `PagoLeer` y el mensaje que ya armaba el servidor.
+  - **Esquema sin cambios**: ningún modelo tocado, nada que migrar. Producción sigue alineada.
+  - **El rol decide la rama y se mira en un solo lugar**, el `arrancar()` de `financiero.js`. El
+    portón de `Layout.montar` acepta los cuatro roles juntos: con dos llamadas, la primera que
+    rechaza ya dibujó el "esta pantalla no es para tu rol".
+  - **Un administrador que además es propietario no ve "Mi cuenta"**: su rol le abre el módulo
+    completo, y ahí ve su unidad en Deudores y su pago en la cola. Es el otro lado de `F2-T07`.
+  - **Tres secciones y no un solo scroll**, como el mockup vigente de la skill: en un teléfono, el
+    saldo, la apertura por rubro, los datos de transferencia y el historial son cuatro pantallas.
+  - **El semáforo no aparece acá, y no es un olvido.** Estas respuestas no traen severidad, así que
+    pintar una expensa impaga de rojo sería calcularla en el navegador — lo único que `F2-T20`
+    prohíbe. El estado de cada período va en palabras, en una `.rol-badge` neutra.
+  - **"Al día" lo decide el backend** (`esta_al_dia`), no un `deuda > 0` en la pantalla: la regla
+    vive en `services/pagos.py` y escribirla dos veces es tenerla distinta algún día.
+  - **El período arranca en el impago más viejo** y el monto se prellena con lo que falta de ese
+    período. Pagar el mes corriente y seguir figurando como deudor por uno de hace tres meses es el
+    caso molesto que ese orden evita.
+  - **El error y el aviso de éxito van afuera de las tres secciones**: un solo pedido las alimenta y
+    el botón de informar un pago está en dos de ellas. Adentro, el mensaje quedaba en un panel
+    oculto.
+  - **La excepción a la regla 1.3 queda escrita**: el botón de adjuntar deshabilitado con
+    "Próximamente" es funcionalidad futura a la vista, que la sección 1.3 prohíbe. Es su decisión
+    del 2026-11-15 y la alternativa era peor — sin ninguna forma de cargar un comprobante, el "ver
+    comprobante" de `F2-T19` estaría siempre vacío.
+  - **1506 tests en verde** (4 nuevos del endpoint) y 87 comprobaciones del contrato pantalla-API.
 
 - [ ] **F2-T23 · Prueba de punta a punta — financiero.**
   **Qué se prueba, con datos cargados a mano y en el frontend real:** cargar los gastos de un mes; generar la expensa; verificar que la suma de lo repartido da exactamente el total; corregir un gasto y regenerar la expensa **en borrador** confirmando el reemplazo; **publicarla**, y comprobar que después el botón de regenerar ya no está y que recién ahí la ve el residente; cargar pagos desde la sesión del residente y dejarlos pendientes; confirmar uno, rechazar otro; verificar que solo el confirmado bajó el saldo; dejar unidades con uno, dos y cuatro meses de deuda y confirmar que Deudores calcula bien meses y monto en cada caso. Repetir con el edificio de 28 unidades.

@@ -692,3 +692,81 @@ def test_ningun_endpoint_expone_un_qr_de_pago():
     esquema = str(app.openapi()).lower()
 
     assert "qr" not in esquema.replace("qrstuvwxyz", "")
+
+
+# ===========================================================================
+# GET /mis-pagos — LO QUE CARGUE Y EN QUE QUEDO (`F2-T22`)
+# ===========================================================================
+#
+# **Existe porque sin esto el rechazo es invisible.** El estado de cuenta dice
+# cuanto hay pendiente de confirmar, pero no cual pago es ni que paso con los
+# que la administracion rechazo: el residente ve su saldo sin moverse y no
+# tiene de donde enterarse. El motivo se guarda desde `F2-T09` para leerse.
+
+
+def test_veo_los_pagos_que_cargue_con_su_mensaje(cliente, como, db):
+    edificio, unidades, propietario, expensa, admin = _escenario(cliente, como, db)
+    cabeceras = _login(cliente, propietario)
+
+    cliente.post("/api/mis-pagos", json=_cuerpo(expensa), headers=cabeceras)
+
+    mios = cliente.get("/api/mis-pagos", headers=cabeceras)
+
+    assert mios.status_code == 200, mios.text
+    assert len(mios.json()) == 1
+    fila = mios.json()[0]
+    assert fila["estado"] == "pendiente"
+    assert fila["identificador"] == "1A"
+    assert fila["periodo"] == "11/2026"
+    assert "confirme" in fila["mensaje"]
+
+
+def test_el_motivo_del_rechazo_le_llega_al_residente(cliente, como, db):
+    """Es la mitad del valor de rechazar: un rechazo sin motivo obliga a
+    llamar por telefono; uno con motivo se resuelve solo."""
+    edificio, unidades, propietario, expensa, admin = _escenario(cliente, como, db)
+    cabeceras = _login(cliente, propietario)
+
+    pago = cliente.post(
+        "/api/mis-pagos", json=_cuerpo(expensa), headers=cabeceras
+    ).json()
+
+    cliente.patch(
+        f"/api/edificios/{edificio.id}/pagos/{pago['id']}",
+        json={"estado": "rechazado", "motivo": "el monto no coincide"},
+        headers=admin,
+    )
+
+    fila = cliente.get("/api/mis-pagos", headers=cabeceras).json()[0]
+
+    assert fila["estado"] == "rechazado"
+    assert fila["motivo_rechazo"] == "el monto no coincide"
+    assert "el monto no coincide" in fila["mensaje"]
+
+
+def test_no_veo_los_pagos_de_una_unidad_ajena(cliente, como, db):
+    """La unidad 1B no es suya, asi que su pago no entra en el listado aunque
+    sea del mismo edificio y del mismo periodo."""
+    edificio, unidades, propietario, expensa, admin = _escenario(cliente, como, db)
+    vecino = _usuario(db, autorizacion.PROPIETARIO, "Dueno Dos")
+    unidades[1].propietario_id = vecino.id
+    db.commit()
+
+    cliente.post(
+        "/api/mis-pagos", json=_cuerpo(expensa), headers=_login(cliente, vecino)
+    )
+
+    mios = cliente.get("/api/mis-pagos", headers=_login(cliente, propietario))
+
+    assert mios.status_code == 200
+    assert mios.json() == []
+
+
+def test_sin_pagos_la_lista_viene_vacia_y_no_es_un_error(cliente, como, db):
+    """Un residente al dia es el caso normal, no una excepcion."""
+    edificio, unidades, propietario, expensa, admin = _escenario(cliente, como, db)
+
+    mios = cliente.get("/api/mis-pagos", headers=_login(cliente, propietario))
+
+    assert mios.status_code == 200
+    assert mios.json() == []

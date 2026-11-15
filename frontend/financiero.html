@@ -71,10 +71,14 @@
     <main class="page-content">
       <section class="shell panel-contenido" id="vista-financiero">
 
+        <!-- El titulo y el subtitulo los reescribe financiero.js cuando entra un
+             residente: es la misma pantalla y el rol decide que dice. Un
+             consorcista que entra a "ver lo que debe" y lee "Todo lo del mes se
+             carga aca" cree que esta en la pantalla del administrador. -->
         <div class="pagina-cabecera">
           <div>
-            <h2>Financiero</h2>
-            <p>Los gastos del consorcio, las liquidaciones, los pagos y los
+            <h2 data-titulo-vista>Financiero</h2>
+            <p data-sub-vista>Los gastos del consorcio, las liquidaciones, los pagos y los
                fondos. Todo lo del mes se carga acá.</p>
           </div>
 
@@ -85,6 +89,18 @@
             <label for="selector-edificio">Edificio</label>
             <div class="campo-control">
               <select id="selector-edificio"></select>
+            </div>
+          </div>
+
+          <!-- El selector de unidad del residente. Nace oculto por la misma
+               razon que el de edificio, y aca la regla es mas fuerte: el
+               inquilino tiene UNA unidad y nunca lo ve. Al propietario de dos
+               o mas se le muestra, porque su saldo y su expensa son por
+               unidad. -->
+          <div class="campo campo-sin-margen" id="campo-unidad" hidden>
+            <label for="selector-unidad">Unidad</label>
+            <div class="campo-control">
+              <select id="selector-unidad"></select>
             </div>
           </div>
         </div>
@@ -415,6 +431,258 @@
             <div class="lista-filas" id="lista-deudores"></div>
           </div>
         </div>
+
+        <!-- ==================================================================
+             MI CUENTA DEL RESIDENTE (F2-T22).
+
+             La otra mitad del archivo: el mismo HTML, la misma hoja de estilo
+             y el rol decide qué se dibuja. Hasta esta tarea el residente ni
+             veía el acceso en el menú; ahora entra acá y lo que ve no se
+             parece a la vista de gestión en nada más que en el aspecto.
+
+             =================================================================
+             TRES SECCIONES, Y NO UN SOLO SCROLL
+             =================================================================
+
+             Es lo que muestra el mockup vigente de la skill
+             (`mockups/Mobile-Financiero.dc.html`), y la razón es mobile: el
+             saldo, la apertura de la expensa, los datos para transferir y el
+             historial de pagos en una sola columna son cuatro pantallas de
+             scroll en un teléfono, y la pregunta que trajo a la persona
+             —cuánto debo— queda arriba de todo eso una sola vez.
+
+             Usa el MISMO componente que las pestañas de gestión, así que el
+             indicador deslizante, el teclado y el `aria-selected` los sigue
+             manejando view-switch.js.
+
+             =================================================================
+             LA PLATA NO PASA POR LA PLATAFORMA, Y ESO SE DICE EN PANTALLA
+             =================================================================
+
+             Esta pantalla no cobra: muestra el CBU y el alias para copiar, y
+             recibe el aviso de que alguien transfirió. Lo escrito en
+             `investigaciones/Pagos_y_Conciliacion.md` no es una limitación
+             técnica a disimular, es lo que hace que SMART Building no sea un
+             procesador de pagos. Así que el texto lo dice con palabras en vez
+             de dejar que la persona lo deduzca de que no haya botón de pagar.
+             =============================================================== -->
+        <div class="view-switch" id="secciones-mi-cuenta" hidden></div>
+
+        <!-- El residente sin ninguna unidad asignada. No es un error —la
+             administración todavía no lo vinculó— así que va como aviso y no
+             como la caja roja. -->
+        <div class="mensaje-aviso" id="aviso-sin-unidades" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 9v4M12 17h.01"/>
+            <path d="M10.3 3.9 2.6 17a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>
+          </svg>
+          <span>Todavía no hay ninguna unidad asignada a tu usuario, así que no
+                hay nada que mostrar acá. Avisale a la administración del
+                consorcio: es ella la que vincula cada unidad con su
+                propietario y su inquilino.</span>
+        </div>
+
+        <!-- EL ERROR Y EL AVISO DE ÉXITO VAN AFUERA DE LAS TRES SECCIONES, y es
+             deliberado: un solo pedido alimenta a las tres, y una sola acción
+             —informar un pago— se dispara desde dos de ellas. Puestos adentro
+             de "Mi cuenta", quien informara un pago desde "Mis pagos" no vería
+             ni el error ni la confirmación: quedarían en un panel oculto, que
+             es el mismo bug que ya apareció dos veces en esta pantalla con los
+             mensajes detrás del velo de un modal. -->
+        <div class="mensaje-error" id="error-cuenta" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/>
+          </svg>
+          <span data-texto-error-cuenta></span>
+        </div>
+
+        <div class="mensaje-exito" id="exito-cuenta" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M20 6L9 17l-5-5"/>
+          </svg>
+          <span data-texto-exito-cuenta></span>
+        </div>
+
+        <!-- ============================================ SECCIÓN MI CUENTA === -->
+        <div class="panel-pestania" data-seccion="cuenta" hidden>
+
+          <!-- EL SALDO ES LO PRIMERO porque es la única pregunta que trae a
+               alguien a esta pantalla. Y los tres números del estado de cuenta
+               van separados (`F2-T08`): la deuda arriba, y lo pendiente de
+               confirmar y el saldo a favor como chips al lado. Netearlos
+               mezclaría plata verificada con plata declarada, que es la
+               distinción que todo el módulo existe para mantener. -->
+          <div class="panel-total" id="total-mi-cuenta" hidden>
+            <div class="panel-total-barra">
+              <div class="panel-total-cabeza">
+                <b data-cuenta-titulo>Lo que debés hoy</b>
+                <span data-cuenta-monto></span>
+              </div>
+              <div class="panel-total-chips" data-cuenta-chips></div>
+            </div>
+          </div>
+
+          <!-- EL AVISO DEL SALDO A FAVOR QUE NO ALCANZA. Es el caso que genera
+               el problema real: quien pagó por adelantado cree que está
+               cubierto y no vuelve a mirar hasta que le reclaman. Va destacado
+               y no como una fila más, y dice el número que falta. El faltante
+               es deuda común y no una categoría aparte (`F2-T08`). -->
+          <div class="mensaje-aviso" id="aviso-saldo-a-favor" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 9v4M12 17h.01"/>
+              <path d="M10.3 3.9 2.6 17a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>
+            </svg>
+            <span data-texto-aviso-saldo></span>
+          </div>
+
+          <!-- LA EXPENSA DEL PERÍODO, ABIERTA EN SUS TRES MONTOS.
+
+               Decidido el 2026-11-13 y es el centro de la tarea: lo que le
+               toca de los gastos, el recargo por lo que arrastraba y el saldo
+               a favor aplicado van en líneas separadas. Un solo total no le
+               permite entender por qué este mes le vino distinto, y es ahí
+               donde llama por teléfono. -->
+          <div class="bloque">
+            <div class="bloque-cabecera">
+              <h3 class="bloque-titulo" data-titulo-mi-expensa>Expensa del período</h3>
+              <button type="button" class="boton-primario boton-chico"
+                      data-informar-pago>
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none"
+                     stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+                     stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 5v14M5 12h14"/>
+                </svg>
+                Informar un pago
+              </button>
+            </div>
+            <p class="bloque-nota" data-nota-mi-expensa></p>
+            <div class="lista-filas" id="lista-mi-expensa"></div>
+          </div>
+
+          <!-- LA APERTURA POR RUBRO, y no solo el total.
+
+               Es la transparencia que pide el Documento General (6.1): el
+               consorcista tiene derecho a ver en qué se gastó. Son los gastos
+               del EDIFICIO, no los suyos — por eso la nota dice el coeficiente
+               con el que se reparten. -->
+          <div class="bloque" id="bloque-rubros-mi-expensa" hidden>
+            <h3 class="bloque-titulo">En qué se gastó el mes</h3>
+            <p class="bloque-nota" data-nota-rubros-mi-expensa></p>
+            <div class="lista-filas" id="lista-rubros-mi-expensa"></div>
+          </div>
+
+          <!-- LOS DATOS PARA TRANSFERIR, copiables.
+
+               Un CBU de 22 dígitos transcrito a mano es un error de tipeo
+               esperando, y ese error manda la plata a otra cuenta. Mismo
+               componente exacto que la ficha de cobranza de edificios.html:
+               `.dato-copiable` con el botón `data-copiar`, que engancha
+               copiar.js solo. Y no hay QR de ningún tipo, que es una decisión
+               investigada y no un faltante. -->
+          <div class="bloque">
+            <h3 class="bloque-titulo">Datos para transferir</h3>
+            <p class="bloque-nota">
+              La plata no pasa por la plataforma: transferís desde tu banco a la
+              cuenta del consorcio y acá avisás que pagaste. La administración lo
+              confirma contra el movimiento real del banco.
+            </p>
+
+            <div class="ficha-grid" id="datos-de-cobro" hidden>
+              <div class="ficha-dato">
+                <div class="dato-copiable">
+                  <div>
+                    <div class="ficha-dato-label">CBU</div>
+                    <div class="ficha-dato-valor" id="cbu-del-consorcio"></div>
+                  </div>
+                  <button type="button" class="icon-btn icon-btn-sm"
+                          data-copiar="#cbu-del-consorcio" aria-label="Copiar el CBU">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <rect x="9" y="9" width="11" height="11" rx="2"/>
+                      <path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div class="ficha-dato">
+                <div class="dato-copiable">
+                  <div>
+                    <div class="ficha-dato-label">Alias</div>
+                    <div class="ficha-dato-valor" id="alias-del-consorcio"></div>
+                  </div>
+                  <button type="button" class="icon-btn icon-btn-sm"
+                          data-copiar="#alias-del-consorcio" aria-label="Copiar el alias">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <rect x="9" y="9" width="11" height="11" rx="2"/>
+                      <path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <p class="lista-vacia" id="sin-datos-de-cobro" hidden>
+              Este consorcio todavía no cargó su CBU ni su alias.
+              Pedíselos a la administración antes de transferir.
+            </p>
+          </div>
+        </div>
+
+        <!-- ============================================= SECCIÓN EXPENSAS === -->
+        <div class="panel-pestania" data-seccion="expensas" hidden>
+          <div class="bloque">
+            <div class="bloque-cabecera">
+              <h3 class="bloque-titulo">
+                Mis expensas
+                <span class="contador" data-contador-mis-expensas></span>
+              </h3>
+            </div>
+            <!-- **Una expensa en borrador no se muestra acá** (`F2-T04`). No es
+                 una omisión: anticiparle un monto que la administración todavía
+                 puede cambiar es el reclamo por la diferencia, garantizado. El
+                 filtro lo aplica el backend, no esta pantalla. -->
+            <p class="bloque-nota">
+              Las liquidaciones publicadas de tu unidad, de la más reciente a la
+              más vieja. Cada una abre en qué se gastó ese mes.
+            </p>
+            <div class="lista-filas" id="lista-mis-expensas"></div>
+          </div>
+        </div>
+
+        <!-- ================================================ SECCIÓN PAGOS === -->
+        <div class="panel-pestania" data-seccion="pagos" hidden>
+          <div class="bloque">
+            <div class="bloque-cabecera">
+              <h3 class="bloque-titulo">
+                Mis pagos
+                <span class="contador" data-contador-mis-pagos></span>
+              </h3>
+              <button type="button" class="boton-primario boton-chico"
+                      data-informar-pago>
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none"
+                     stroke="currentColor" stroke-width="2.2" stroke-linecap="round"
+                     stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 5v14M5 12h14"/>
+                </svg>
+                Informar un pago
+              </button>
+            </div>
+            <!-- **Cada fila trae el texto que explica en qué quedó ese pago, y
+                 el texto lo arma el servidor.** Sin esta lista, un pago
+                 rechazado era invisible: el saldo no se movía y no había de
+                 dónde enterarse por qué. -->
+            <p class="bloque-nota">
+              Lo que informaste y en qué quedó. Un pago baja tu saldo recién
+              cuando la administración lo confirma.
+            </p>
+            <div class="lista-filas" id="lista-mis-pagos"></div>
+          </div>
+        </div>
       </section>
     </main>
   </div>
@@ -699,6 +967,187 @@
     </div>
   </div>
 
+  <!-- ==========================================================================
+       MODAL DE "INFORMAR UN PAGO" (F2-T22).
+
+       **No se cobra acá: se avisa.** El residente transfiere desde su banco y
+       este formulario deja registrado que lo hizo. El pago nace pendiente
+       siempre, y el esquema de entrada del backend no tiene campo `estado`
+       justamente para que el navegador no pueda decir otra cosa.
+
+       ==========================================================================
+       EL COMPROBANTE ES UN ENLACE PARA PEGAR, Y SE DECIDIÓ ASÍ EL 2026-11-15
+       ==========================================================================
+
+       El modelo guarda `comprobante_url`: un enlace, no un archivo. Todavía no
+       hay almacenamiento propio, así que el botón de adjuntar un archivo de
+       verdad queda **deshabilitado y con el texto "Próximamente"**, y se
+       habilita en la Fase 7 (`F7-T01`).
+
+       Es la única excepción viva a la regla 1.3 del Roadmap —que prohíbe
+       mostrar funcionalidad futura deshabilitada— y es una decisión explícita
+       del usuario, anotada en `F2-T22`. La alternativa era peor: sin ninguna
+       forma de cargar un comprobante no existiría nunca ninguno, y entonces el
+       "ver comprobante" de la cola de conciliación (`F2-T19`) estaría siempre
+       vacío y la administración conciliaría a ciegas.
+       ======================================================================= -->
+  <div class="modal-backdrop" id="modal-informar-pago">
+    <div class="modal modal-formulario shell" role="dialog" aria-modal="true"
+         aria-labelledby="titulo-modal-informar">
+      <button type="button" class="modal-cerrar" data-cerrar-informar
+              aria-label="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
+
+      <h3 id="titulo-modal-informar">Informar un pago</h3>
+      <p class="modal-formulario-sub">
+        Avisás que transferiste. Tu saldo baja recién cuando la administración
+        lo confirma contra el movimiento del banco.
+      </p>
+
+      <form id="formulario-informar-pago" novalidate>
+        <div class="resumen-errores" data-resumen-errores hidden></div>
+
+        <div class="campo">
+          <label for="pago-periodo">Período que pagás</label>
+          <div class="campo-control">
+            <select id="pago-periodo" name="expensa_id" required></select>
+          </div>
+          <span class="campo-error" data-error-de="expensa_id"></span>
+          <!-- Que el pago parcial esté permitido se dice acá y no se deja
+               descubrir: quien no puede pagar todo junto necesita saber que
+               puede pagar una parte sin que el sistema se lo rechace. -->
+          <p class="campo-ayuda">
+            Solo los períodos ya publicados. Podés pagar una parte: el resto
+            queda como saldo de ese período.
+          </p>
+        </div>
+
+        <div class="form-grid-2">
+          <div class="campo">
+            <label for="pago-monto">Monto</label>
+            <div class="campo-control">
+              <!-- type="text" con inputmode="decimal", NUNCA type="number":
+                   su modelo de valor no agrupa miles y rechaza la coma
+                   decimal. El formato lo hace monto-input.js. -->
+              <input type="text" id="pago-monto" name="monto" data-monto
+                     inputmode="decimal" autocomplete="off" required
+                     placeholder="0,00">
+            </div>
+            <span class="campo-error" data-error-de="monto"></span>
+          </div>
+
+          <div class="campo">
+            <label for="pago-fecha">Fecha del pago</label>
+            <div class="campo-control">
+              <input type="date" id="pago-fecha" name="fecha" required>
+            </div>
+            <span class="campo-error" data-error-de="fecha"></span>
+            <!-- La del movimiento del banco y no la de hoy: se paga el 10 y se
+                 informa el 12, y es la primera la que decide si entró en
+                 término. El backend las guarda como dos datos distintos. -->
+            <p class="campo-ayuda">
+              La del movimiento del banco, no la de hoy.
+            </p>
+          </div>
+        </div>
+
+        <div class="campo">
+          <label for="pago-medio">Cómo pagaste</label>
+          <div class="campo-control">
+            <select id="pago-medio" name="medio_pago" required></select>
+          </div>
+          <span class="campo-error" data-error-de="medio_pago"></span>
+        </div>
+
+        <div class="campo">
+          <label for="pago-comprobante">
+            Enlace al comprobante <span class="campo-opcional">(opcional)</span>
+          </label>
+          <div class="campo-control">
+            <input type="url" id="pago-comprobante" name="comprobante_url"
+                   autocomplete="off" maxlength="500"
+                   placeholder="https://…">
+          </div>
+          <span class="campo-error" data-error-de="comprobante_url"></span>
+          <p class="campo-ayuda">
+            Pegá el enlace al comprobante que te dio el banco. Ayuda a que la
+            administración lo confirme más rápido, pero no es obligatorio: lo
+            que vale es el movimiento real de la cuenta.
+          </p>
+          <button type="button" class="boton-primario boton-secundario boton-chico"
+                  disabled
+                  title="Todavía no se pueden subir archivos al sistema">
+            Adjuntar un archivo · Próximamente
+          </button>
+        </div>
+
+        <div class="modal-formulario-acciones">
+          <button type="button" class="boton-primario boton-secundario"
+                  data-cerrar-informar>
+            Cancelar
+          </button>
+          <button type="submit" class="boton-primario" data-guardar-pago>
+            Informar el pago
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       MODAL DE UNA EXPENSA MÍA (F2-T22).
+
+       Solo lectura, así que cierra tocando el velo: no hay nada a medio tipear
+       que perder. Mismo criterio que el detalle de un deudor.
+
+       No pide nada al backend: los rubros ya vinieron en el listado de
+       liquidaciones de la unidad. Un pedido por fila para mostrar datos que ya
+       están en memoria es la clase de llamada que nadie nota hasta que la
+       pantalla tarda.
+       ======================================================================= -->
+  <div class="modal-backdrop" id="modal-mi-expensa">
+    <div class="modal modal-formulario shell" role="dialog" aria-modal="true"
+         aria-labelledby="titulo-modal-mi-expensa">
+      <button type="button" class="modal-cerrar" data-cerrar-mi-expensa
+              aria-label="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
+
+      <h3 id="titulo-modal-mi-expensa">Expensa</h3>
+      <p class="modal-formulario-sub" data-sub-mi-expensa></p>
+
+      <div class="panel-total">
+        <div class="panel-total-barra">
+          <div class="panel-total-cabeza">
+            <b>Lo que te tocó pagar</b>
+            <span data-mi-expensa-total></span>
+          </div>
+          <div class="panel-total-chips" data-mi-expensa-chips></div>
+        </div>
+      </div>
+
+      <div class="bloque">
+        <h3 class="bloque-titulo">En qué se gastó el mes</h3>
+        <p class="bloque-nota" data-nota-mi-expensa-modal></p>
+        <div class="lista-filas" data-mi-expensa-rubros></div>
+      </div>
+
+      <div class="modal-formulario-acciones">
+        <button type="button" class="boton-primario boton-secundario"
+                data-cerrar-mi-expensa>
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- El orden importa: los modulos compartidos antes de la pantalla, porque
        financiero.js usa Api, Moneda, MontoInput, Formularios y Confirmar en
        cuanto arranca. -->
@@ -713,6 +1162,7 @@
   <script src="assets/js/confirmar.js"></script>
   <script src="assets/js/moneda.js"></script>
   <script src="assets/js/monto-input.js"></script>
+  <script src="assets/js/copiar.js"></script>
   <script src="assets/js/financiero.js"></script>
 </body>
 </html>

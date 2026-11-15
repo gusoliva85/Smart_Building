@@ -1,10 +1,11 @@
 """Carga de pagos por el residente y su estado de cuenta (`F2-T08`).
 
-Tres endpoints:
+Cuatro endpoints:
 
 - ``GET  /pagos/medios``   — el catalogo, para el desplegable
 - ``GET  /mis-unidades``   — mis unidades con su estado de cuenta
 - ``POST /mis-pagos``      — cargo un pago mio
+- ``GET  /mis-pagos``      — los pagos que cargue, con su estado
 
 ============================================================================
 POR QUE LAS RUTAS EMPIEZAN CON "MIS" Y NO CUELGAN DEL EDIFICIO
@@ -401,6 +402,48 @@ def cargar(
     )
 
     return _leer(pago, unidad.identificador, expensa.periodo)
+
+
+@router.get(
+    "/mis-pagos",
+    response_model=list[PagoLeer],
+    summary="Los pagos que cargue, con el estado en que quedaron",
+)
+def listar_mis_pagos(
+    quien_consulta: UsuarioActual,
+    db: SesionDB,
+) -> list[PagoLeer]:
+    """Lo que cargue y en que quedo cada uno.
+
+    **Existe porque sin esto el rechazo es invisible** (`F2-T22`). El estado de
+    cuenta dice cuanto hay pendiente de confirmar, pero no cual pago es ni que
+    paso con los que la administracion rechazo: el residente ve su saldo sin
+    moverse y no tiene forma de enterarse de por que. El motivo del rechazo se
+    guarda desde `F2-T09` justamente para que se pueda leer.
+
+    Cada fila trae el `mensaje` armado por el servidor, igual que la respuesta
+    de la carga. El texto lo arma un solo lugar: dos pantallas traduciendo el
+    mismo estado a palabras son dos textos que algun dia dicen cosas distintas.
+
+    De **todas** mis unidades y sin paginar: son los pagos de una persona, no
+    la cola de un consorcio. Mas reciente primero, que es el que se acaba de
+    cargar y el que se vino a mirar.
+    """
+    filas = db.execute(
+        select(Pago, Departamento.identificador, Expensa)
+        .join(Departamento, Departamento.id == Pago.departamento_id)
+        .join(Expensa, Expensa.id == Pago.expensa_id)
+        .where(
+            (Departamento.propietario_id == quien_consulta.id)
+            | (Departamento.inquilino_id == quien_consulta.id)
+        )
+        .order_by(Pago.fecha.desc(), Pago.id.desc())
+    ).all()
+
+    return [
+        _leer(pago, identificador, expensa.periodo)
+        for pago, identificador, expensa in filas
+    ]
 
 
 # ===========================================================================
