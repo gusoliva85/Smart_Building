@@ -72,6 +72,24 @@ AQUI = os.path.dirname(os.path.abspath(__file__))
 # chequeo 4 aprende de aca y no de una lista escrita a mano.**
 APROBADAS = ['usuarios.html', 'edificios.html']
 
+# Clases que son **ranuras**: no tienen aspecto propio y lo toman de una
+# companera, pero esa companera puede ser mas de una.
+#
+# **Por que hace falta esto y no es una excusa para romper el chequeo 4.** El
+# chequeo aprende "va SIEMPRE con X" de dos pantallas, y donde la unica opcion
+# que aparecio es X concluye que X es obligatoria. `.fila-lista-estado` es el
+# caso: en usuarios y en edificios la ranura siempre llevo `.rol-badge`, porque
+# lo que mostraban era una etiqueta neutra de clasificacion — un rol. En
+# Deudores (`F2-T20`) la misma ranura lleva `.pill`, y es lo correcto: una
+# unidad en deuda **si** es un estado del semaforo del edificio, y `.pill` es
+# el unico componente con licencia para usar sus cuatro colores.
+#
+# Lo que se declara aca es la alternativa real, no una exencion: la ranura
+# sigue necesitando **una** de las dos. Usarla sola sigue siendo un error.
+RANURAS = {
+    'fila-lista-estado': {'rol-badge', 'pill'},
+}
+
 # Cada pantalla con su JavaScript. Una pantalla puede tener mas de un archivo.
 PANTALLAS = {
     'usuarios': ('usuarios.html', ['usuarios.js']),
@@ -242,6 +260,21 @@ def chequeo_4_clases_con_compania(html, js, siempre_con):
     for atributo in atributos_de_clase(html, sin_comentarios_js(js)):
         clases = set(atributo.split())
         for clase in clases:
+            # Una ranura se da por satisfecha con cualquiera de sus aspectos
+            # validos (ver RANURAS). Si no trae ninguno, cae por el camino
+            # normal y se reporta igual.
+            aspectos = RANURAS.get(clase)
+            if aspectos:
+                if aspectos & clases:
+                    continue
+                problemas.append(
+                    '.%s se usa sola: es una ranura y necesita uno de %s '
+                    '(en: class="%s")'
+                    % (clase, ' o '.join('.' + a for a in sorted(aspectos)),
+                       atributo[:55])
+                )
+                continue
+
             for obligatoria in sorted(siempre_con.get(clase, set())):
                 # **Una base no depende de su modificador.** Si la obligatoria
                 # se llama como la otra mas un sufijo (`icon-btn-sm` sobre
@@ -432,6 +465,12 @@ CASOS = [
      'class="boton-primario boton-chico"', 'class="boton-primario"'),
     ('un encabezado con .bloque-lista', 'html',
      '<div class="bloque-cabecera">', '<div class="bloque-lista">'),
+    # **Este caso existe para probar que RANURAS no debilito el chequeo 4.**
+    # Declarar que `.fila-lista-estado` acepta `.rol-badge` o `.pill` podria
+    # haber hecho que la ranura sola pasara, que es justo el error que el
+    # chequeo venia atajando. Se quita el aspecto y tiene que seguir fallando.
+    ('una ranura sin ninguno de sus aspectos', 'js',
+     'class="fila-lista-estado pill ', 'class="fila-lista-estado '),
 ]
 
 

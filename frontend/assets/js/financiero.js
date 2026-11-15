@@ -41,7 +41,7 @@
     { id: 'gastos',    etiqueta: 'Gastos',    construida: true  },  /* F2-T17 */
     { id: 'expensas',  etiqueta: 'Expensas',  construida: true  },  /* F2-T18 */
     { id: 'pagos',     etiqueta: 'Pagos',     construida: true  },  /* F2-T19 */
-    { id: 'deudores',  etiqueta: 'Deudores',  construida: false },  /* F2-T20 */
+    { id: 'deudores',  etiqueta: 'Deudores',  construida: true  },  /* F2-T20 */
     { id: 'fondos',    etiqueta: 'Fondos',    construida: false }   /* F2-T21 */
   ];
 
@@ -71,6 +71,7 @@
     ultimoFoco: null,    /* a donde vuelve el foco al cerrar el modal */
     expensas: [],        /* las liquidaciones, para no volver a pedirlas */
     cola: [],            /* los pagos pendientes de conciliar (F2-T19) */
+    deudores: [],        /* las unidades con deuda (F2-T20) */
     rechazando: null     /* el pago que el modal de rechazo tiene cargado */
   };
 
@@ -216,12 +217,14 @@
       mostrarError('gastos', '');
       mostrarError('expensas', '');
       mostrarError('pagos', '');
+      mostrarError('deudores', '');
       mostrar($('#exito-expensas'), false);
       mostrar($('#exito-pagos'), false);
 
       cargarGastos();
       cargarExpensas();
       cargarPagos();
+      cargarDeudores();
     });
   }
 
@@ -1480,6 +1483,328 @@
     });
   }
 
+  /* =========================================================================
+     LA PESTAÑA DE DEUDORES (F2-T20)
+     =========================================================================
+
+     Consume `F2-T11` tal cual, sin una sola linea de backend nueva, y es de
+     **solo lectura siempre**: la unica forma de que una deuda baje es conciliar
+     su pago. Un boton de "marcar como pagado" aca seria una forma de saldar
+     deuda sin que entre plata.
+
+     =========================================================================
+     ES LA PRIMERA PANTALLA DONDE EL SEMAFORO APARECE DE VERDAD
+     =========================================================================
+
+     En Gastos y en Expensas los estados van como `.chip` neutro, y esta
+     anotado por que: un rubro contable y el estado de un documento contable no
+     son estados del edificio. **Una unidad en deuda si lo es.** Es exactamente
+     el amarillo y el rojo que la Fase 5 va a pintar en el Dashboard Visual.
+
+     Dos reglas que eso trae, y ninguna es opcional:
+
+     1. **La severidad la manda el backend** (`ok`, `warn`, `crit`), no se
+        deduce de los meses. Si esta pantalla la calculara, el Dashboard Visual
+        y esta podrian pintar la misma unidad de colores distintos — y el
+        calculo vive en `services/deudores.py` justamente para que no pase.
+     2. **El color nunca comunica solo.** La fila lleva el borde completo y la
+        sombra del estado (`.s-warn` / `.s-crit`, nunca un borde izquierdo de
+        3 px) **y** la `.pill` con los meses escritos al lado. El amarillo y el
+        naranja del semaforo estan a ΔE 6,3 en deuteranopia, asi que el color
+        es un refuerzo y no el dato.
+
+     =========================================================================
+     DOS NUMEROS Y NO UNO
+     =========================================================================
+
+     `saldo` es todo lo que la unidad debe; `vencido` es solo la parte atrasada,
+     que es la que decide el color. Van los dos porque responden preguntas
+     distintas: cuanto hay que cobrarle, y que tan mal esta. Y el filtro existe
+     por lo mismo: una unidad que debe el mes corriente todavia en termino
+     aparece con saldo y con cero meses de atraso — hay que cobrarle, pero no es
+     una deudora.
+     ====================================================================== */
+
+  var SEVERIDADES = {
+    ok:   { clase: '',       pill: 'ok'   },
+    warn: { clase: 's-warn', pill: 'warn' },
+    crit: { clase: 's-crit', pill: 'crit' }
+  };
+
+  function construirFiltroDeDeudores() {
+    /* "Todas las que deben" primero porque es la pregunta mas frecuente del
+       administrador —a quien le tengo que cobrar— y porque el filtro de
+       atrasadas esconde unidades que si deben. Un filtro que esconde datos no
+       puede ser el valor por defecto. */
+    $('#filtro-deudores').innerHTML =
+      '<option value="">Todas las que deben</option>' +
+      '<option value="1">Solo las atrasadas</option>';
+  }
+
+  function soloVencidos() {
+    return $('#filtro-deudores').value === '1';
+  }
+
+  /* El texto del atraso. Nunca es solo un numero: "2" al lado de un monto no
+     dice si son meses, periodos o dias. */
+  function textoDelAtraso(deudor) {
+    if (deudor.meses_de_atraso === 0) return 'en término';
+    if (deudor.meses_de_atraso === 1) return '1 mes de atraso';
+    return deudor.meses_de_atraso + ' meses de atraso';
+  }
+
+  function htmlDeDeudor(deudor) {
+    var severidad = SEVERIDADES[deudor.severidad] || SEVERIDADES.ok;
+
+    /* A quien hay que llamar. El backend manda los dos nombres justamente para
+       que la pantalla de cobranza no obligue a abrir la ficha de cada unidad.
+       El inquilino va primero cuando existe: en Argentina las expensas
+       ordinarias las paga de hecho el inquilino (Documento General, 3.1). */
+    var quien = [];
+    if (deudor.inquilino) quien.push('inquilino ' + deudor.inquilino);
+    if (deudor.propietario) quien.push('propietario ' + deudor.propietario);
+    if (!quien.length) quien.push('sin ocupantes asignados');
+
+    var secundarios = [
+      'piso ' + deudor.piso_numero,
+      quien.join(' · ')
+    ];
+
+    /* Lo vencido se nombra **solo cuando es distinto del saldo**. Cuando son
+       iguales —el caso normal de una unidad atrasada— repetir el mismo numero
+       con otra etiqueta hace dudar de cual de los dos es el que hay que
+       cobrar. */
+    if (Number(deudor.vencido) > 0 &&
+        Number(deudor.vencido) !== Number(deudor.saldo)) {
+      secundarios.push('vencido ' + window.Moneda.pesos(deudor.vencido));
+    }
+
+    if (deudor.periodo_mas_viejo) {
+      secundarios.push('desde ' +
+        window.Moneda.periodoLargo(deudor.periodo_mas_viejo));
+    }
+
+    return '' +
+      '<article class="fila-lista content-glass ' + severidad.clase + '" ' +
+               'data-deudor="' + deudor.departamento_id + '">' +
+        '<div class="fila-lista-dato">' +
+          '<b>' + escapar(deudor.identificador) + ' · ' +
+            window.Moneda.pesos(deudor.saldo) + '</b>' +
+          '<span>' + escapar(secundarios.join(' · ')) + '</span>' +
+        '</div>' +
+        '<div class="fila-lista-acciones">' +
+          '<span class="fila-lista-estado pill ' + severidad.pill + '">' +
+            escapar(textoDelAtraso(deudor)) +
+          '</span>' +
+          '<div class="fila-lista-botones">' +
+            '<button type="button" class="icon-btn icon-btn-sm" ' +
+                    'data-ver-deudor="' + deudor.departamento_id + '" ' +
+                    'aria-label="Ver los períodos impagos de la unidad ' +
+                    escapar(deudor.identificador) + '" ' +
+                    'title="Ver los períodos impagos">' +
+              svg(ICONO_VER) +
+            '</button>' +
+          '</div>' +
+        '</div>' +
+      '</article>';
+  }
+
+  function pintarDeudores(datos) {
+    var lista = $('#lista-deudores');
+    var caja = $('#total-deudores');
+
+    texto($('[data-contador-deudores]'), String(datos.cantidad_deudores));
+
+    if (!datos.cantidad_deudores) {
+      mostrar(caja, false);
+      /* El vacío de esta pantalla es una buena noticia y se dice como tal. Un
+         "no hay datos" haría dudar de si el cálculo corrió. */
+      lista.innerHTML =
+        '<p class="lista-vacia">' +
+        (soloVencidos()
+          ? 'Ninguna unidad está atrasada. Las que deben el mes corriente ' +
+            'todavía están en término: cambiá el filtro para verlas.'
+          : 'Ninguna unidad debe nada en este edificio. El consorcio está al día.') +
+        '</p>';
+      return;
+    }
+
+    texto(caja.querySelector('[data-deudores-monto]'),
+          window.Moneda.pesos(datos.total));
+
+    var chips = [
+      '<span class="chip">' +
+        datos.cantidad_deudores +
+        (datos.cantidad_deudores === 1 ? ' unidad de ' : ' unidades de ') +
+        datos.cantidad_unidades +
+      '</span>'
+    ];
+
+    /* Lo vencido va en su propio chip y con el color del semáforo, porque es
+       el número que decide si el edificio tiene un problema de cobranza. */
+    if (Number(datos.total_vencido) > 0) {
+      chips.push('<span class="pill crit">' +
+        window.Moneda.pesos(datos.total_vencido) + ' vencido</span>');
+    }
+
+    caja.querySelector('[data-deudores-chips]').innerHTML = chips.join('');
+    mostrar(caja, true);
+
+    /* **No se reordena acá.** El orden es una regla de negocio —primero la que
+       debe desde hace más tiempo— y la resuelve el servicio. Un `sort` en el
+       navegador sería una segunda versión de esa regla. */
+    lista.innerHTML = datos.deudores.map(htmlDeDeudor).join('');
+  }
+
+  function cargarDeudores() {
+    if (!estado.edificioId) return;
+
+    var lista = $('#lista-deudores');
+    lista.innerHTML = window.Cargando.html();
+    mostrarError('deudores', '');
+
+    var ruta = '/edificios/' + estado.edificioId + '/deudores' +
+               (soloVencidos() ? '?solo_vencidos=true' : '');
+
+    return window.Api
+      .get(ruta)
+      .then(function (datos) {
+        estado.deudores = datos.deudores;
+        pintarDeudores(datos);
+      })
+      .catch(function (error) {
+        lista.innerHTML = '';
+        mostrarError('deudores', error.message);
+      });
+  }
+
+  /* ------------------------------------------------ el detalle del deudor -- */
+
+  /* Una línea por período impago, con el prorrateo y el recargo **separados**.
+     Es la regla de `F2-T11`: es un solo saldo, pero un número único más grande
+     de lo esperado hace creer que el sistema se equivocó, y eso es la llamada
+     telefónica que esta pantalla existe para evitar. */
+  function htmlDePeriodoImpago(periodo) {
+    var partes = ['expensa ' + window.Moneda.pesos(periodo.monto_expensa)];
+
+    if (Number(periodo.recargo_mora) > 0) {
+      partes.push('recargo ' + window.Moneda.pesos(periodo.recargo_mora));
+    }
+    if (Number(periodo.saldo_a_favor_aplicado) > 0) {
+      partes.push('saldo a favor ' +
+                  window.Moneda.pesos(periodo.saldo_a_favor_aplicado));
+    }
+
+    return '' +
+      '<div class="fila-lista content-glass">' +
+        '<div class="fila-lista-dato">' +
+          '<b>' + escapar(window.Moneda.periodoLargo(periodo.periodo)) + '</b>' +
+          '<span>' + partes.join(' · ') + '</span>' +
+        '</div>' +
+        '<div class="fila-lista-acciones">' +
+          '<span class="chip">' + window.Moneda.pesos(periodo.total_a_pagar) +
+          '</span>' +
+        '</div>' +
+      '</div>';
+  }
+
+  function verDeudor(departamentoId) {
+    var deudor = (estado.deudores || []).filter(function (d) {
+      return d.departamento_id === departamentoId;
+    })[0];
+    if (!deudor) return;
+
+    mostrarError('deudores', '');
+    estado.ultimoFoco = document.activeElement;
+
+    /* Las liquidaciones de la unidad salen del endpoint que ya existe para
+       "Mi cuenta" (`F2-T06`), que un administrador puede llamar. No hace falta
+       backend nuevo: lo que esta pantalla agrega es cruzarlas con la lista de
+       periodos impagos que trajo el deudor. */
+    return window.Api
+      .get('/edificios/' + estado.edificioId +
+           '/departamentos/' + departamentoId + '/expensas')
+      .then(function (liquidaciones) {
+        var impagos = deudor.periodos_impagos || [];
+        var delDeudor = liquidaciones.filter(function (l) {
+          return impagos.indexOf(l.periodo) !== -1;
+        });
+
+        texto($('#titulo-modal-deudor'), 'Unidad ' + deudor.identificador);
+        texto($('[data-sub-modal-deudor]'),
+          'Piso ' + deudor.piso_numero + ' · ' + textoDelAtraso(deudor) + '.');
+
+        texto($('[data-deudor-saldo]'), window.Moneda.pesos(deudor.saldo));
+
+        var chips = [
+          '<span class="chip">' + impagos.length +
+            (impagos.length === 1 ? ' período impago' : ' períodos impagos') +
+          '</span>'
+        ];
+        if (Number(deudor.vencido) > 0) {
+          chips.push('<span class="chip">' +
+            window.Moneda.pesos(deudor.vencido) + ' vencido</span>');
+        }
+        $('[data-deudor-chips]').innerHTML = chips.join('');
+
+        /* **La nota dice de dónde sale cada número y cuál es el que manda.**
+           Las líneas de abajo son lo que se liquidó en cada período; si la
+           unidad pagó una parte, eso no se ve período por período y sí se ve
+           en el saldo de arriba. Decirlo evita que alguien sume las líneas y
+           crea que el saldo está mal. */
+        texto($('[data-nota-deudor]'),
+          'Cada línea es lo que se le liquidó en ese período, con el recargo ' +
+          'por mora separado del prorrateo. Si hubo un pago parcial, la ' +
+          'diferencia está en el saldo de arriba, que es el número que hay ' +
+          'que cobrar.');
+
+        $('[data-deudor-periodos]').innerHTML = delDeudor.length
+          ? delDeudor.map(htmlDePeriodoImpago).join('')
+          : '<p class="lista-vacia">No se encontraron las liquidaciones de ' +
+            'estos períodos. El saldo de arriba sigue siendo el correcto.</p>';
+
+        $('#modal-deudor').classList.add('abierto');
+        $('[data-cerrar-deudor]').focus();
+      })
+      .catch(function (error) {
+        mostrarError('deudores', error.message);
+      });
+  }
+
+  function cerrarModalDeudor() {
+    $('#modal-deudor').classList.remove('abierto');
+
+    if (estado.ultimoFoco && document.contains(estado.ultimoFoco)) {
+      estado.ultimoFoco.focus();
+    }
+    estado.ultimoFoco = null;
+  }
+
+  function modalDeudorAbierto() {
+    return $('#modal-deudor').classList.contains('abierto');
+  }
+
+  function engancharDeudores() {
+    $('#filtro-deudores').addEventListener('change', cargarDeudores);
+
+    document.querySelectorAll('[data-cerrar-deudor]').forEach(function (boton) {
+      boton.addEventListener('click', cerrarModalDeudor);
+    });
+
+    /* Solo lectura, así que cierra tocando el velo: no hay nada a medio tipear
+       que perder, al contrario del modal de un gasto. */
+    $('#modal-deudor').addEventListener('click', function (evento) {
+      if (evento.target === $('#modal-deudor')) cerrarModalDeudor();
+    });
+
+    $('#lista-deudores').addEventListener('click', function (evento) {
+      var ver = evento.target.closest('[data-ver-deudor]');
+      if (ver) {
+        verDeudor(parseInt(ver.getAttribute('data-ver-deudor'), 10));
+      }
+    });
+  }
+
   /* --------------------------------------------------------- el arranque -- */
 
   function engancharEventos() {
@@ -1502,6 +1827,7 @@
       if (modalAbierto()) cerrarModal();
       if ($('#modal-expensa').classList.contains('abierto')) cerrarModalExpensa();
       if (modalDeRechazoAbierto()) cerrarModalDeRechazo();
+      if (modalDeudorAbierto()) cerrarModalDeudor();
     });
 
     /* **Delegacion y no un listener por fila.** El listado se redibuja con
@@ -1582,15 +1908,20 @@
         construirSelectoresDeRubro();
         construirFiltrosDeExpensas();
         construirFiltroDeEstado();
+        construirFiltroDeDeudores();
         engancharEventos();
         engancharExpensas();
         engancharPagos();
+        engancharDeudores();
 
-        /* Las tres pestanias se cargan juntas y no al tocarlas. Son pedidos
-           chicos, y asi las dos cosas que no hay que ir a buscar aparecen desde
-           el momento en que se entra: el aviso del borrador sin publicar, y la
-           cola de pagos esperando conciliacion. Las dos son plata quieta. */
-        return Promise.all([cargarGastos(), cargarExpensas(), cargarPagos()]);
+        /* Las cuatro pestanias se cargan juntas y no al tocarlas. Son pedidos
+           chicos, y asi las tres cosas que no hay que ir a buscar aparecen desde
+           el momento en que se entra: el aviso del borrador sin publicar, la
+           cola de pagos esperando conciliacion y quien debe. Las tres son plata
+           quieta. */
+        return Promise.all([
+          cargarGastos(), cargarExpensas(), cargarPagos(), cargarDeudores()
+        ]);
       })
       .catch(function (error) {
         sinAcceso(error.message);

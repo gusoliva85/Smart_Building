@@ -46,6 +46,12 @@ fallar — que es lo caro.
   eso**, así que no se inventa una regla de contenedor: ya está resuelto.
 - **Hay clases que son listas y el nombre no lo dice.** `.bloque-lista` es un
   `<ol>` con contador, no un encabezado: su contenido va en `<li>`.
+- **Hay clases que son ranuras y aceptan mas de un aspecto.**
+  `.fila-lista-estado` no tiene estilo propio: lo toma de `.rol-badge` (el caso
+  normal, una etiqueta neutra de clasificacion) **o** de `.pill`, y `.pill`
+  solo cuando lo que muestra es de verdad un estado del semaforo del edificio
+  — hasta hoy, unicamente los deudores de `F2-T20`. Sola no se usa nunca. Las
+  alternativas validas estan en `RANURAS`, en `verificar_pantallas.py`.
 
 **La forma corta de no equivocarse:** antes de escribir un componente, buscar
 uno igual en `usuarios.html` o `edificios.html` y copiar el `class` entero. Si

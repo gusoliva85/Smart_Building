@@ -345,6 +345,76 @@
             <div class="lista-filas" id="lista-historico"></div>
           </section>
         </div>
+
+        <!-- ==================================================================
+             PESTAÑA DE DEUDORES (F2-T20).
+
+             Es de **solo lectura**, siempre: la única forma de que una deuda
+             baje es conciliar su pago, y un botón de "marcar como pagado" acá
+             sería una forma de saldar deuda sin que entre plata.
+
+             Y es la primera pantalla del proyecto donde el semáforo aparece
+             con licencia real. En Gastos y en Expensas los estados van como
+             `.chip` neutro —un rubro contable y un documento contable no son
+             estados del edificio— pero una unidad en deuda sí lo es: es
+             exactamente el amarillo y el rojo que la Fase 5 va a pintar en el
+             Dashboard Visual, y sale del mismo cálculo del backend.
+             =============================================================== -->
+        <div class="panel-pestania" data-panel="deudores" hidden>
+
+          <!-- Los dos números de la cartera. Van los dos y no uno: el total es
+               lo que hay que cobrar y lo vencido es lo que ya está en
+               problemas. Un solo número no permite distinguir un edificio que
+               factura mucho de uno que cobra mal. -->
+          <div class="panel-total" id="total-deudores" hidden>
+            <div class="panel-total-barra">
+              <div class="panel-total-cabeza">
+                <b>Deuda de la cartera</b>
+                <span data-deudores-monto></span>
+              </div>
+              <div class="panel-total-chips" data-deudores-chips></div>
+            </div>
+          </div>
+
+          <div class="mensaje-error" id="error-deudores" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/>
+            </svg>
+            <span data-texto-error-deudores></span>
+          </div>
+
+          <div class="bloque">
+            <div class="bloque-cabecera">
+              <h3 class="bloque-titulo">
+                Unidades con deuda
+                <span class="contador" data-contador-deudores></span>
+              </h3>
+            </div>
+            <p class="bloque-nota">
+              Ordenadas de la más atrasada a la menos. El orden lo decide el
+              servidor: primero la que debe desde hace más tiempo.
+            </p>
+
+            <div class="form-grid-3">
+              <div class="campo campo-sin-margen">
+                <label for="filtro-deudores">Mostrar</label>
+                <div class="campo-control">
+                  <select id="filtro-deudores"></select>
+                </div>
+                <!-- La diferencia no es obvia y decide qué se ve, así que se
+                     explica acá y no en un título. -->
+                <p class="campo-ayuda">
+                  Una unidad que debe el mes corriente todavía en término
+                  aparece con saldo y sin atraso: hay que cobrarle, pero no es
+                  una deudora.
+                </p>
+              </div>
+            </div>
+
+            <div class="lista-filas" id="lista-deudores"></div>
+          </div>
+        </div>
       </section>
     </main>
   </div>
@@ -578,6 +648,54 @@
           </button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       MODAL DEL DETALLE DE UN DEUDOR (F2-T20).
+
+       Solo lectura, así que cierra tocando el velo: no hay nada a medio tipear
+       que perder, al contrario del modal de un gasto.
+       ======================================================================= -->
+  <div class="modal-backdrop" id="modal-deudor">
+    <div class="modal modal-formulario shell" role="dialog" aria-modal="true"
+         aria-labelledby="titulo-modal-deudor">
+      <button type="button" class="modal-cerrar" data-cerrar-deudor
+              aria-label="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
+
+      <h3 id="titulo-modal-deudor">Unidad</h3>
+      <p class="modal-formulario-sub" data-sub-modal-deudor></p>
+
+      <div class="panel-total">
+        <div class="panel-total-barra">
+          <div class="panel-total-cabeza">
+            <b>Lo que debe hoy</b>
+            <span data-deudor-saldo></span>
+          </div>
+          <div class="panel-total-chips" data-deudor-chips></div>
+        </div>
+      </div>
+
+      <div class="bloque">
+        <h3 class="bloque-titulo">Períodos impagos</h3>
+        <!-- **El atraso y el recargo en líneas separadas** (F2-T11). Un solo
+             número más grande de lo esperado hace creer que el sistema se
+             equivocó, y es la llamada telefónica que esto evita. -->
+        <p class="bloque-nota" data-nota-deudor></p>
+        <div class="lista-filas" data-deudor-periodos></div>
+      </div>
+
+      <div class="modal-formulario-acciones">
+        <button type="button" class="boton-primario boton-secundario"
+                data-cerrar-deudor>
+          Cerrar
+        </button>
+      </div>
     </div>
   </div>
 

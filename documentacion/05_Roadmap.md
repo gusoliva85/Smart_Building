@@ -1197,7 +1197,7 @@ la sección 1.3.
     faltara abrir uno — ahora cuenta.
   **Aprobada el 2026-11-15.**
 
-- [ ] **F2-T19 · Frontend — pestaña Pagos, vista de gestión.** *(construida, falta tu revisión)*
+- [x] **F2-T19 · Frontend — pestaña Pagos, vista de gestión.**
   **Qué se construye:** la cola de pagos pendientes con sus botones de confirmar y rechazar en la misma fila, y el listado histórico con su estado.
   **Construida, falta tu revisión.** El panel de pagos y el modal de rechazo en `financiero.html`, y
   la pestaña en `financiero.js`. Sin tocar una línea de backend: `F2-T09` ya tenía todo.
@@ -1227,8 +1227,16 @@ la sección 1.3.
   - Verificado con `verificar_pantallas.py` (las tres pantallas pasan, y sus diez casos de prueba
     siguen en verde) y con un chequeo del contrato pantalla-API: 51 comprobaciones, entre ellas que
     cada campo que el JS lee exista en `PagoDeGestionLeer`. **1502 tests en verde.**
-  - **Falta tu prueba en el navegador**, que es lo que la da por terminada: los dos roles, 390/768/
-    1280 px, los dos temas, y la cola con cero, uno y varios pagos.
+  **Aprobada el 2026-11-15, y lo que no se pudo probar queda escrito acá.** Revisó la pantalla y la
+  vio bien, pero **la cola nunca se vio con un pago adentro**: no hay forma de cargar uno desde la
+  interfaz hasta que exista "Mi cuenta" del residente (`F2-T22`). O sea que el estado vacío y el
+  dibujo están probados, y **confirmar y rechazar no se ejercieron desde el navegador**.
+  - **El problema de orden, anotado porque es de la fase y no de esta tarea:** `F2-T19` es la única
+    pantalla de la Fase 2 que depende de otra para tener datos. Le propuse adelantar `F2-T22` para
+    cerrar el circuito y eligió seguir el orden del Roadmap.
+  - **Se cierra en `F2-T23`**, la prueba de punta a punta, que ya pide exactamente esto: cargar pagos
+    desde la sesión del residente, confirmar uno, rechazar otro y verificar que solo el confirmado
+    bajó el saldo. **Hasta entonces esta pantalla cuenta como no verificada de punta a punta.**
 
 - [ ] **F2-T20 · Frontend — pestaña Deudores.**
   **Qué se construye:** listado ordenado por antigüedad con el detalle de las expensas impagas de cada unidad. Consume tal cual `F2-T11`, sin cambios de backend.
@@ -1238,6 +1246,36 @@ la sección 1.3.
   un vínculo real sería un sobre-permiso.
   **Y el atraso y el recargo van en líneas separadas** (`F2-T11`): es un solo saldo, pero un número
   único más grande de lo esperado hace que el vecino crea que el sistema se equivocó.
+  **Construida, falta tu revisión.** El panel de deudores y el modal de detalle en `financiero.html`,
+  y la pestaña en `financiero.js`. Sin backend nuevo: consume `F2-T11` tal cual.
+  - **Es la primera pantalla donde el semáforo aparece con licencia real.** En Gastos y Expensas los
+    estados van como `.chip` neutro; una unidad en deuda sí es un estado del edificio, y es el mismo
+    amarillo y rojo que va a pintar el Dashboard Visual.
+  - **La severidad la manda el backend** (`ok`/`warn`/`crit`), no se deduce de los meses: si la
+    pantalla la calculara, ella y el Dashboard podrían pintar la misma unidad de colores distintos.
+  - **El color nunca comunica solo:** borde completo más sombra del estado, y la `.pill` con los
+    meses escritos al lado. Nunca el borde izquierdo de 3 px que el sistema prohíbe.
+  - **Dos números y no uno:** el saldo es lo que hay que cobrar, lo vencido es lo que decide el
+    color. Lo vencido se nombra solo cuando difiere del saldo — repetir el mismo número con otra
+    etiqueta hace dudar de cuál de los dos hay que cobrar.
+  - **El filtro arranca en "todas las que deben" y no en las atrasadas**: un filtro que esconde
+    unidades que sí deben no puede ser el valor por defecto. La ayuda explica la diferencia.
+  - **La pantalla no reordena.** El orden es regla de negocio del servicio: primero la que debe desde
+    hace más tiempo.
+  - **Solo lectura, verificado por el chequeo**, que falla si aparece un POST, un PATCH o un DELETE:
+    la única forma de que una deuda baje es conciliar su pago.
+  - **El detalle por período usa el endpoint de `F2-T06`** —el mismo de "Mi cuenta", que un
+    administrador puede llamar— cruzado con `periodos_impagos`. Ahí van el prorrateo y el recargo en
+    líneas separadas, que es lo que pide esta tarea.
+  - **Límite anotado:** un pago parcial no se ve período por período, solo en el saldo. La nota del
+    modal lo dice, para que nadie sume las líneas y crea que el saldo está mal.
+  - **El verificador me atajó un error y hubo que enseñarle una regla real:** `.fila-lista-estado`
+    aceptaba solo `.rol-badge`, porque es lo único que apareció en las dos pantallas aprobadas. Es
+    una **ranura** y su aspecto puede ser `.rol-badge` o `.pill`. Quedó declarado en `RANURAS`, con
+    un caso de autoprueba nuevo que verifica que la ranura sola **siga** fallando: son 11 de 11.
+  - **Esquema sin cambios**: ningún modelo tocado, nada que migrar.
+  - **1502 tests en verde** y 98 comprobaciones del contrato pantalla-API, entre ellas que las tres
+    severidades del JS sean exactamente las del servicio.
 
 - [ ] **F2-T21 · Frontend — pestaña Fondos, con su sub-navegación.**
   **Qué se construye:** una única pestaña principal con **cuatro secciones internas** (Fondos / Caja chica / Presupuestos / Facturas) mediante una segunda fila de pestañas.
